@@ -1,0 +1,341 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>River Remedy - 2006 Baseline Results</title>
+    <meta charset="UTF-8">
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 0; padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1200px; margin: 0 auto; 
+            background: white; padding: 40px; 
+            border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .header { 
+            text-align: center; border-bottom: 3px solid #667eea; 
+            padding-bottom: 30px; margin-bottom: 40px; 
+        }
+        .title { 
+            color: #667eea; font-size: 3em; font-weight: 800; 
+            margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .subtitle { color: #666; font-size: 1.3em; margin: 15px 0; }
+        .alert-box { 
+            background: linear-gradient(135deg, #dc3545, #c82333); 
+            color: white; padding: 25px; border-radius: 15px; 
+            margin: 30px 0; text-align: center; font-size: 1.2em;
+            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.3);
+        }
+        .grid { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 25px; margin: 30px 0; 
+        }
+        .stat-card { 
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef); 
+            padding: 25px; border-radius: 15px; text-align: center;
+            border-left: 5px solid #667eea; transition: transform 0.3s ease;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-number { font-size: 2.5em; font-weight: bold; color: #667eea; margin: 10px 0; }
+        .stat-label { color: #666; font-weight: 600; text-transform: uppercase; font-size: 0.9em; }
+        .section { margin: 40px 0; }
+        .section h2 { color: #333; border-left: 5px solid #667eea; padding-left: 15px; }
+        table { 
+            width: 100%; border-collapse: collapse; margin: 20px 0; 
+            background: white; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        th, td { padding: 15px; text-align: left; }
+        th { background: #667eea; color: white; font-weight: 600; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        tr:hover { background: #e3f2fd; }
+        .risk-safe { background: #2e8b57; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+        .risk-moderate { background: #ffd700; color: black; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+        .risk-high { background: #ff6347; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+        .risk-critical { background: #dc3545; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+        .risk-extreme { background: #8b0000; color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+        .highlight { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 50px; padding-top: 30px; border-top: 2px solid #eee; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">River Remedy</h1>
+            <p class="subtitle">Pilcomayo Basin Heavy Metal Contamination Analysis</p>
+            <p class="subtitle">2006 Baseline Assessment Results</p>
+        </div>
+        
+        <div class="alert-box">
+            🚨 <strong>CRITICAL ENVIRONMENTAL CRISIS DETECTED</strong><br>
+            90.4% of samples show dangerous contamination levels exceeding regulatory standards
+        </div>
+        
+        <div class="grid">
+            <div class="stat-card">
+                <div class="stat-number">1,446</div>
+                <div class="stat-label">Total Samples</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">16</div>
+                <div class="stat-label">Locations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">37%</div>
+                <div class="stat-label">Extreme Risk</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">231,150x</div>
+                <div class="stat-label">Worst Exceedance</div>
+            </div>
+        </div>
+        <div class="section">
+            <h2>🔴 Most Severe Contamination Cases</h2>
+            <table>
+                <tr>
+                    <th>Location</th><th>Metal</th><th>Sample Type</th>
+                    <th>Concentration (mg/L)</th><th>WHO Exceedance</th><th>Risk Level</th>
+                </tr>
+                <tr>
+                    <td><strong>Huacareta</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>2311.5</td>
+                    <td><strong>231,150x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Lead</td>
+                    <td>Fish</td>
+                    <td>2207</td>
+                    <td><strong>220,700x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Camargo</strong></td>
+                    <td>Lead</td>
+                    <td>Fish</td>
+                    <td>195.9</td>
+                    <td><strong>19,590x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Arsenic</td>
+                    <td>Fish</td>
+                    <td>104</td>
+                    <td><strong>10,400x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Lead</td>
+                    <td>Fish</td>
+                    <td>88.38</td>
+                    <td><strong>8,838x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Camargo</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>64.92</td>
+                    <td><strong>6,492x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>63.76</td>
+                    <td><strong>6,376x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Lead</td>
+                    <td>Sediment</td>
+                    <td>56.4</td>
+                    <td><strong>5,640x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Yotala</strong></td>
+                    <td>Lead</td>
+                    <td>Human Blood</td>
+                    <td>54.9</td>
+                    <td><strong>5,490x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Yotala</strong></td>
+                    <td>Lead</td>
+                    <td>Human Blood</td>
+                    <td>48.7</td>
+                    <td><strong>4,870x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Camargo</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>46.92</td>
+                    <td><strong>4,692x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Yamparaés</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>46.12</td>
+                    <td><strong>4,612x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>44.24</td>
+                    <td><strong>4,424x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Icla</strong></td>
+                    <td>Lead</td>
+                    <td>Soil</td>
+                    <td>37.92</td>
+                    <td><strong>3,792x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Yamparaés</strong></td>
+                    <td>Lead</td>
+                    <td>Sediment</td>
+                    <td>36.48</td>
+                    <td><strong>3,648x</strong></td>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>🗺️ Geographic Contamination Hotspots</h2>
+            <table>
+                <tr><th>Location</th><th>Max Exceedance</th><th>Samples</th></tr>
+                <tr>
+                    <td><strong>Huacareta</strong></td>
+                    <td>231,150x WHO limit</td>
+                    <td>91</td>
+                </tr>
+                <tr>
+                    <td><strong>Las Carreras</strong></td>
+                    <td>220,700x WHO limit</td>
+                    <td>182</td>
+                </tr>
+                <tr>
+                    <td><strong>Camargo</strong></td>
+                    <td>19,590x WHO limit</td>
+                    <td>182</td>
+                </tr>
+                <tr>
+                    <td><strong>Yotala</strong></td>
+                    <td>5,490x WHO limit</td>
+                    <td>182</td>
+                </tr>
+                <tr>
+                    <td><strong>Yamparaés</strong></td>
+                    <td>4,612x WHO limit</td>
+                    <td>80</td>
+                </tr>
+                <tr>
+                    <td><strong>Icla</strong></td>
+                    <td>3,792x WHO limit</td>
+                    <td>81</td>
+                </tr>
+                <tr>
+                    <td><strong>Culpina</strong></td>
+                    <td>3,617x WHO limit</td>
+                    <td>91</td>
+                </tr>
+                <tr>
+                    <td><strong>Incahuasi</strong></td>
+                    <td>3,271x WHO limit</td>
+                    <td>61</td>
+                </tr>
+                <tr>
+                    <td><strong>Yamparaéz</strong></td>
+                    <td>1,320x WHO limit</td>
+                    <td>36</td>
+                </tr>
+                <tr>
+                    <td><strong>Blood No. 6</strong></td>
+                    <td>343x WHO limit</td>
+                    <td>66</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>📊 Overall Risk Assessment</h2>
+            <table>
+                <tr><th>Risk Level</th><th>Number of Samples</th><th>Percentage</th><th>Description</th></tr>
+                <tr>
+                    <td><span class="risk-critical">Critical</span></td>
+                    <td>772</td>
+                    <td><strong>53.4%</strong></td>
+                    <td>10-100x WHO limit</td>
+                </tr>
+                <tr>
+                    <td><span class="risk-extreme">Extreme</span></td>
+                    <td>535</td>
+                    <td><strong>37%</strong></td>
+                    <td>>100x WHO limit</td>
+                </tr>
+                <tr>
+                    <td><span class="risk-high">High</span></td>
+                    <td>93</td>
+                    <td><strong>6.4%</strong></td>
+                    <td>2-10x WHO limit</td>
+                </tr>
+                <tr>
+                    <td><span class="risk-moderate">Moderate</span></td>
+                    <td>7</td>
+                    <td><strong>0.5%</strong></td>
+                    <td>1-2x WHO limit</td>
+                </tr>
+                <tr>
+                    <td><span class="risk-safe">Safe</span></td>
+                    <td>39</td>
+                    <td><strong>2.7%</strong></td>
+                    <td>Within WHO guidelines</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="highlight">
+            <h3>🎯 Key Findings</h3>
+            <ul style="font-size: 1.1em; line-height: 1.8;">
+                <li><strong>Huacareta</strong> shows the most severe contamination: 231,150x WHO lead limit in soil</li>
+                <li><strong>Las Carreras</strong> appears as a major contamination hotspot across multiple sample types</li>
+                <li><strong>Lead contamination</strong> dominates the risk profile across all environmental matrices</li>
+                <li><strong>Only 2.7%</strong> of samples meet WHO safety standards</li>
+                <li><strong>Human blood contamination</strong> documented, indicating direct health impacts</li>
+                <li><strong>Multi-matrix contamination</strong> confirms systemic environmental pollution</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Report Generated:</strong> 2025-07-16</p>
+            <p><strong>Data Source:</strong> 2006 ITA Baseline Study - Pilcomayo River Basin</p>
+            <p><strong>Standards:</strong> WHO Drinking Water Guidelines, EPA Soil Limits, Codex Alimentarius</p>
+            <p><strong>Analysis:</strong> River Remedy Project</p>
+        </div>
+    </div>
+</body>
+</html>
