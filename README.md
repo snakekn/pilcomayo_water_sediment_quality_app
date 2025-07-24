@@ -6,7 +6,7 @@ This repository is a collaborative project focused on analyzing long-term water 
 
 ---
 
-## 👥 Collaborators
+## Collaborators
 
 - **Katerina Bischel** (R + Python workflows)
 - **Jackson Mills** (R + Python workflows)
