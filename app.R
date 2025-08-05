@@ -225,7 +225,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                                  selectInput("observation_plot_param", "Select Parameter:", choices = NULL),
                                                                  )
                                          ),
-                                         column(9, plotOutput("observation_scores_plot")))),
+                                         column(9, plotOutput("observation_scores_plot", height = "500px")))),
                               tabPanel("Worst Stations", 
                                        fluidRow(
                                          column(3,
@@ -253,7 +253,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                                                 "Average Value" = "avg"
                                                                               )))
                                          ),
-                                         column(9, plotOutput("station_scores_plot")))),
+                                         column(9, plotOutput("station_scores_plot", height = "500px")))),
                               tabPanel("Worst Parameters",
                                        fluidRow(
                                          column(3,
@@ -268,7 +268,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                 )
                                          ),
                                          column(9,
-                                                plotOutput("param_scores_plot", height = "600px")
+                                                plotOutput("param_scores_plot", height = "500px")
                                          )
                                        )
                               )
@@ -395,17 +395,17 @@ server <- function(input, output, session) {
     filter(`Longitude Decimal` <= -63.52)
   })
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
-  ################# MISC PLOTS ############################
+  ################# RANKING PLOTS ############################
   
   plot_class_proportions_overlay <- function(data, class_cols, class_label, bar_color, plot_title, plot_subtitle = NULL) {
     total_rows <- nrow(data)  # Total number of observations
@@ -446,8 +446,7 @@ server <- function(input, output, session) {
     ggplot(plot_data, aes(x = Parameter, y = Value, fill = Metric)) +
       geom_col(
         position = "identity",
-        alpha = ifelse(plot_data$Metric == "Proportion_Total", 1, 0.4),
-        width = 0.8
+        alpha = ifelse(plot_data$Metric == "Proportion_Total", 1, 0.4)
       ) +
       scale_fill_manual(
         values = c(Proportion_Total = bar_color, Proportion_NonNA = bar_color),
@@ -528,7 +527,7 @@ server <- function(input, output, session) {
             title = "15 Worst Scored Observations (Bolivia)", 
             subtitle = "Lower scores indicate better water quality",
             x = NULL, y = "Water Quality Score (1=best, 5=worst)"
-          )
+          ) 
       } else if (input$observation_plot_class == "class_b") {
         observation_scores() |>
           slice_max(num_class_b, n = 15, with_ties = FALSE) |>
@@ -867,9 +866,6 @@ server <- function(input, output, session) {
       )
       
     } else if (plot_type == "worst_score") {
-      
-      print(class(plot_data()))
-      print(head(plot_data()))
       
       ggplot(plot_data(), aes(x = Parameter, y = Score)) +
         geom_col(position = "identity",
