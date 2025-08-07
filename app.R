@@ -11,6 +11,7 @@ library(missMDA)
 library(ggfortify)
 library(FactoMineR)
 library(factoextra)
+library(shinyWidgets)
 
 # File paths to data
 sed_data_path_usgs <- "data/sed/usgs"
@@ -30,10 +31,10 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             tags$hr(),
                             tags$h3("Introduction"),
                             tags$p("The Pilcomayo River Basin in southern Bolivia has faced centuries of pollution from mining activity, largely dating back to the discovery of the world's largest silver deposit near Potosi in 1545. Heavy metal contamination of water and sediments, along with acid mine drainage, pose significant risks to the environment, and to the ~1.5 million people of the Pilcomayo basin."),
-                            tags$p("This tool allows users to explore sediment and water quality data collected in the basin between 2016 and 2024. Key water and sediment quality parameters were compared to standards from Bolivian Ley No. 1333, and USGS Sediment Quality Guidelines when applicable."),
+                            tags$p("This tool allows users to explore sediment and water quality data collected in the basin between 2016 and 2024. Key water and sediment quality parameters are compared to standards from Bolivian Ley No. 1333, and USGS Sediment Quality Guidelines when applicable."),
                             tags$p("Use the tabs above to:"),
                             tags$ul(
-                              tags$li(tags$i("Filter"), " spatial data by year, campaign, metal, and (if applicable) sieve size."),
+                              tags$li(tags$i("Filter"), " data by time, location, water/sediment parameters, and more."),
                               tags$li(tags$i("Visualize"), " results on interactive maps using raw measurements and comparisons to standards."),
                               tags$li(tags$i("Explore"), " time series trends for individual sampling stations and parameters across multiple years."),
                               tags$li(tags$i("Rank"), "observations, stations, and parameters by raw measurements and comparisons to standards."),
@@ -62,12 +63,49 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             tags$ul(
                               tags$li("Values above or below detection thresholds were converted to half the detection threshold if below (i.e. '<0.5' --> '0.25'), or 1.5 x the detection threshold if above (i.e. '>0.5' --> '0.75'). Therefore, ", tags$i("not all values represent exact measurements")),
                               tags$p(),
-                              tags$li("Data included in this Shiny App does not represent the full data obtained from www2.pilcomayo.net. Some parameters for which there was no applicable standard were dropped. Other parameters were dropped so as to not overwhelm the user with too many options."),
+                              tags$li("Some parameters in the water and sediment datasets do not have corresponding standards in USGS SQGs or Bolivian law. As such, some features in this app may not include the full range of parameters from the original data, particularly when comparing to standards."),
                               tags$p(),
                               tags$li("USGS SQGs are based on effects on sediment-dwelling aquatic organisms, whereas the Bolivian standards from Ley No. 1333 are based on safe levels for human consumption/use."),
                               tags$p(),
                               tags$li("The PCA method used in this app fills in missing data by guessing based on patterns in the existing data. It works best when most data are present and the data follow clear trends, but the filled-in values are only estimates and might affect the results.")
                             ),
+                            tags$hr(),
+                            tags$h4("Download Data:"),
+                            
+                            radioButtons(
+                              inputId = "data_scope",
+                              label = "Select Data Scope:",
+                              choices = c("Bolivia Only" = "bol", "All Countries" = "all"),
+                              selected = "bol",  # or "all" if you want to default to everything
+                              inline = TRUE
+                            ),
+                            
+                            # Optional year selection
+                            fluidRow(
+                              column(6,
+                                     uiOutput("download_year_ui")
+                              )
+                            ),
+
+                            # Download buttons
+                            fluidRow(
+                              column(6, downloadButton("download_sed_clean", "Sediment Data (Raw)")),
+                              column(6, downloadButton("download_water_clean", "Water Data (Raw)")),
+                              
+                            ),
+                            tags$p(),
+                            fluidRow(
+                              column(6, downloadButton("download_sed_usgs", "Sediment Data (Compared to SQGs)")),
+                              column(6, downloadButton("download_water_1333", "Water Data (Compared to Bolivian Standards)"))
+                            ),
+                            tags$p(),
+                            fluidRow(
+                              column(6, downloadButton("download_usgs_standards", "USGS Sediment Quality Guidelines Table")),
+                              column(6, downloadButton("download_1333_standards", "Bolivian Ley No. 1333 Standards Table"))
+                            ),
+                            
+                            tags$hr(),
+                            tags$hr(),
                             tags$hr(),
                             tags$h4("Data Sources:"),
                             tags$p("Sediment and Water Quality data: Provided by the Comisión Trinacional para el Desarrollo de la Cuenca del Río Pilcomayo. Retrieved from www2.pilcomayo.net."),
@@ -140,8 +178,6 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             sidebarPanel(
                               # Common slider (will be dynamically updated based on active tab)
                               uiOutput("map_date_slider_ui"),
-                              textOutput("selected_dates_display"),
-                              br(),
                               
                               # Conditional panels for different controls based on active tab
                               conditionalPanel(
@@ -222,7 +258,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                   p("This plot displays the temporal variation of water quality parameters 
                                     at the selected monitoring station. Points represent individual measurements, 
                                     while the line shows the trend over time. Reference standards from Bolivian Ley No. 1333 
-                                    are shown as dashed horizontal lines where applicable. Data is sourced from www2.pilcomayo.net.", 
+                                    are shown as dashed horizontal lines (where applicable). Data is sourced from www2.pilcomayo.net.", 
                                     style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                 )
                               ),
@@ -235,8 +271,8 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                   p("This plot displays the temporal variation of sediment quality parameters 
                                     at the selected monitoring station. Individual points show measurements, 
                                     with the connecting line representing daily averages when multiple samples 
-                                    exist per date. Point colors indicate distance from bank when variable. 
-                                    USGS Sediment Quality Guidelines (TEL/PEL) are shown as dashed horizontal lines where applicable. 
+                                    exist per date. Darker points represent samples taken further from the river bank (when variable). 
+                                    USGS Sediment Quality Guidelines (TEL/PEL) are shown as dashed horizontal lines (where applicable). 
                                     Data is sourced from www2.pilcomayo.net.", 
                                     style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                 )
@@ -254,11 +290,10 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                           )
                  ),
                  tabPanel("Ranking Plots",
-                          mainPanel(
                             tabsetPanel(
                               tabPanel("Worst Observations", 
                                        fluidRow(
-                                         column(3,
+                                         column(4,
                                                 radioButtons("observation_plot_type", "Rank Observations Using:",
                                                              choices = c("Bolivian Water Standards" = "class",
                                                                          "Raw Water Samples" = "value",
@@ -267,117 +302,219 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                              )
                                                 ),
                                                 conditionalPanel(condition = "input.observation_plot_type == 'class'",
-                                                                 radioButtons("observation_plot_class", "Rank by Number of:",
-                                                                              choices = c("Unclassified" = "unclassified",
-                                                                                          "Class D" = "class_d",
-                                                                                          "Class C" = "class_c",
-                                                                                          "Class B" = "class_b",
-                                                                                          "Worst Scored Overall" = "worst_score"))
+                                                                 radioButtons("observation_plot_class", "Rank by:",
+                                                                              choices = c("Worst Overall Score" = "worst_score",
+                                                                                          "# Unclassified Parameters" = "unclassified",
+                                                                                          "# Class D Parameters" = "class_d",
+                                                                                          "# Class C Parameters" = "class_c",
+                                                                                          "# Class B Parameters" = "class_b"))
                                                 ),
                                                 conditionalPanel(condition = "input.observation_plot_type == 'value'",
                                                                  selectInput("observation_plot_param", "Select Parameter:", choices = NULL),
                                                 ),
                                                 conditionalPanel(condition = "input.observation_plot_type == 'usgs'",
-                                                                 radioButtons("observation_plot_usgs", "Rank by Number of Paramaters:",
-                                                                              choices = c("Above TEL" = "above_tel",
-                                                                                          "Above PEL" = "above_pel",
-                                                                                          "Worst Scored Overall" = "worst_score")
+                                                                 radioButtons("observation_plot_usgs", "Rank by:",
+                                                                              choices = c("Worst Overall Score" = "worst_score",
+                                                                                          "# Parameters Above PEL" = "above_pel",
+                                                                                          "# Parameters Above TEL" = "above_tel"
+                                                                                          )
                                                                  )),
                                                 conditionalPanel(condition = "input.observation_plot_type == 'sed_value'",
-                                                                 selectInput("observation_plot_param_sed", "Select Parameter:", choices = NULL)),
+                                                                 selectInput("observation_plot_param_sed", "Select Parameter:", 
+                                                                             choices = NULL)),
                                                 # Caption added here
                                                 conditionalPanel(
-                                                  condition = "input.observation_plot_type == 'class' | input.observation_plot_type == 'value'",  # Always show caption when a plot is rendered
+                                                  condition = "input.observation_plot_type == 'class'",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot displays the 15 worst individual observations based on selected criteria. 
-                        For classification-based rankings, bars reflect counts of specific classes (e.g., Class D), or the overall score based on weighted mean (Class A=0 to Unclassified=4). 
-                        For measured value rankings, bars reflect measured values of the chosen parameter. 
-                        Labels indicate station name and date. Data is sourced from www2.pilcomayo.net.",
+                                                    p("This plot ranks individual observations based on water quality standards from Bolivian law.
+                                                    Observations can be ranked by the number of parameters that fall into each classification, or by overall score.
+                                                      Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each observation.
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                ),
+                                                # Caption added here
+                                                conditionalPanel(
+                                                  condition = "input.observation_plot_type == 'value'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks individual observations based on measured values of the selected water quality parameter.
+                                                    For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                ),
+                                                conditionalPanel(
+                                                  condition = "input.observation_plot_type == 'usgs'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks individual observations based on USGS Sediment Quality Guidelines (SQGs).
+                                                    Observations can be ranked by the number of parameters that fall into each category, or by overall score.
+                                                      Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above Pel=2), and finding the mean value for each observation.
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                ),
+                                                conditionalPanel(
+                                                  condition = "input.observation_plot_type == 'sed_value'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks individual observations based on measured values of the selected sediment quality parameter.
+                                                    Higher values are ranked worse.
+                                                      Data is sourced from www2.pilcomayo.net.",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                                   )
                                                 )
                                          ),
-                                         column(9, plotOutput("observation_scores_plot", height = "500px")))),
+                                         column(8, plotOutput("observation_scores_plot", height = "500px")))),
                               tabPanel("Worst Stations", 
                                        fluidRow(
-                                         column(3,
+                                         column(4,
                                                 radioButtons("station_plot_type", "Rank Stations Using:",
                                                              choices = c(
-                                                               "Bolivian Classifications" = "class",
-                                                               "Measured Values" = "value"
+                                                               "Bolivian Water Standards" = "class",
+                                                               "Raw Water Samples" = "value",
+                                                               "USGS SQGs" = "usgs",
+                                                               "Raw Sediment Samples" = "sed_value"
                                                              )
                                                 ),
                                                 conditionalPanel(condition = "input.station_plot_type == 'class'",
-                                                                 radioButtons("station_plot_class", "Rank By Mean Number of:",
-                                                                              choices = c("Unclassified" = "unclassified",
-                                                                                          "Class D" = "class_d",
-                                                                                          "Class C" = "class_c",
-                                                                                          "Class B" = "class_b",
-                                                                                          "Worst Scored Overall" = "worst_score"))
+                                                                 radioButtons("station_plot_class", "Rank by:",
+                                                                              choices = c("Worst Overall Score" = "worst_score",
+                                                                                          "Mean # Unclassified Parameters" = "unclassified",
+                                                                                          "Mean # Class D Parameters" = "class_d",
+                                                                                          "Mean # Class C Parameters" = "class_c",
+                                                                                          "Mean # Class B Parameters" = "class_b"))
                                                 ),
+                                                conditionalPanel(condition = "input.station_plot_type == 'class' && input.station_plot_class == 'worst_score'",
+                                                                 checkboxInput("station_plot_recency", "Weigh recent observations higher", value = FALSE)),
                                                 conditionalPanel(condition = "input.station_plot_type == 'value'",
                                                                  selectInput("station_plot_param", "Select Parameter:", choices = NULL),
                                                 ),
-                                                conditionalPanel(condition = "input.station_plot_type == 'value'",
+                                                conditionalPanel(condition = "input.station_plot_type == 'usgs'",
+                                                                 radioButtons("station_plot_usgs", "Rank by:",
+                                                                              choices = c("Worst Overall Score" = "worst_score",
+                                                                                          "Mean # Parameters Above PEL" = "above_pel",
+                                                                                          "Mean # Parameters Above TEL" = "above_tel"))),
+                                                conditionalPanel(condition = "input.station_plot_type == 'usgs' && input.station_plot_usgs == 'worst_score'",
+                                                                 checkboxInput("station_plot_recency_sed", "Weigh recent observations higher", value = FALSE)),
+                                                conditionalPanel(condition = "input.station_plot_type == 'sed_value'",
+                                                                 selectInput("station_plot_param_sed", "Select Parameter:",
+                                                                             choices = NULL)),
+                                                conditionalPanel(condition = "input.station_plot_type == 'value' | input.station_plot_type == 'sed_value'",
                                                                  radioButtons("station_param_type", "Rank by:", 
                                                                               choices = c(
-                                                                                "Most Extreme Value" = "max",
-                                                                                "Average Value" = "avg"
+                                                                                "Average Value" = "avg",
+                                                                                "Most Extreme Value" = "max"
                                                                               ))),
                                                 # Caption added here
                                                 conditionalPanel(
-                                                  condition = "input.station_plot_type != null",  # Always show caption when a plot is rendered
+                                                  condition = "input.station_plot_type == 'class'",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot displays the 15 worst stations based on selected criteria. 
-                        For classification-based rankings, bars reflect average counts of specific classes (e.g., Class D), or the average overall score based on weighted mean (Class A=0 to Unclassified=4). 
-                        For measured value rankings, bars reflect average measured values of the chosen parameter. 
-                        Labels indicate station name and number of observations at that station. Data is sourced from www2.pilcomayo.net.",
+                                                    p("This plot ranks sampling stations based on water quality standards from Bolivian law.
+                                                    Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
+                                                      Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
+                                                      For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). 
+                                                      Data is sourced from www2.pilcomayo.net.",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                                   )
-                                                )
+                                                ),
+                                                conditionalPanel(
+                                                  condition = "input.station_plot_type == 'value'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks sampling stations based on measured values of the selected parameter.
+                                                    For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
+                                                      Stations can be ranked based on the most extreme/worst recorded value, or the mean value across observations at that station.
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                    )
+                                                  ),
+                                                conditionalPanel(
+                                                  condition = "input.station_plot_type == 'usgs'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks sampling stations based on USGS Sediment Quality Guidelines (SQGs).
+                                                    Stations can be ranked by the mean number of parameters that fall into each category, or by overall score.
+                                                      Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each station.
+                                                      For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). 
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                ),
                                          ),
-                                         column(9, plotOutput("station_scores_plot", height = "500px")))),
+                                         column(8, plotOutput("station_scores_plot", height = "500px")))),
                               tabPanel("Worst Parameters",
                                        fluidRow(
-                                         column(3,
-                                                radioButtons("param_plot_type", "Select Plot Type:",
+                                         column(4,
+                                                radioButtons("param_plot_type", "Rank Parameters Using:",
                                                              choices = c(
-                                                               "Unclassified" = "unclassified",
-                                                               "Class D" = "class_d",
-                                                               "Class C" = "class_c",
-                                                               "Class B" = "class_b",
-                                                               "Worst Scored Overall" = "worst_score"
+                                                               "Bolivian Water Standards" = "class",
+                                                               "USGS SQGs" = "usgs"
                                                              )
                                                 ),
-                                                checkboxInput("param_plot_checkbox", "Filter By Station", value = FALSE),
+                                                conditionalPanel(condition = "input.param_plot_type == 'class'",
+                                                                 radioButtons("param_plot_class", "Rank by:",
+                                                                 choices = c("Worst Overall Score" = "worst_score",
+                                                                             "% Observations Unclassified" = "unclassified",
+                                                                             "% Observations in Class D" = "class_d",
+                                                                             "% Observations in Class C" = "class_c",
+                                                                             "% Observations in Class B" = "class_b"
+                                                                             ))),
+                                                conditionalPanel(condition = "input.param_plot_type == 'usgs'",
+                                                                 radioButtons("param_plot_usgs", "Rank by Observations by:",
+                                                                              choices = c("Worst Overall Score" = "worst_score",
+                                                                                          "Above PEL" = "above_pel",
+                                                                                          "Above TEL" = "above_tel"
+                                                                                          ))),
+                                                checkboxInput("param_plot_checkbox", "Filter by Station", value = FALSE),
                                                 conditionalPanel(condition = "input.param_plot_checkbox == true",
                                                                  selectInput("param_plot_station", "Select Station:",
                                                                              choices = NULL)),
                                                 # Caption added here
                                                 conditionalPanel(
-                                                  condition = "input.param_plot_type != null",  # Always show caption when a plot is rendered
+                                                  condition = "input.param_plot_type == 'class'",  
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Parameter Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot displays the 15 worst parameters based on selected criteria. 
-                        Bars reflect proportions of specific classes (e.g., Class D), or the overall score based on weighted mean (Class A=0 to Unclassified=4).
-                        Lighter bars represent proportions/scores calculated after omitting observations with NA values for the corresponding parameter. 
-                        Labels indicate parameter name. Data is sourced from www2.pilcomayo.net.",
+                                                    p("This plot ranks water quality parameters based on standards from Bolivian law.
+                                                    Parameters can be ranked by the percent of observations that fall into each classification, or by overall score.
+                                                      Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter.
+                                                      Light bars represent percents/scores calculated after omitting NA rows for that parameter.
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                ),
+                                                conditionalPanel(
+                                                  condition = "input.param_plot_type == 'usgs'",  
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Parameter Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks water quality parameters based on USGS Sediment Quality Guidelines (SQGs).
+                                                    Parameters can be ranked by the percent of observations that fall into each category, or by overall score.
+                                                      Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each parameter.
+                                                      Light bars represent percents/scores calculated after omitting NA rows for that parameter.
+                                                      Data is sourced from www2.pilcomayo.net.",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                                   )
                                                 )
                                          ),
-                                         column(9,
+                                         column(8,
                                                 plotOutput("param_scores_plot", height = "500px")
                                          )
                                        )
                               )
                             )
-                          )
+                          
                  ),
                  tabPanel("Principal Component Analysis",
                           sidebarLayout(
@@ -386,7 +523,6 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                              choices = NULL,
                                              multiple = TRUE,
                                              options = list(maxItems = 15)),
-                              actionButton("select_all_pca", "Select All"),
                               actionButton("deselect_all_pca", "Clear Selection"),
                               br(), br(),
                               actionButton("run_pca", "Run PCA", class = "btn-primary"),
@@ -430,6 +566,24 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
 
 # Define Server
 server <- function(input, output, session) {
+  
+  
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  ################# LOAD DATA #########################
+  
+  
   
   pilco_line <- st_read("data/geojson/pilco_line.geojson")
   
@@ -491,9 +645,28 @@ server <- function(input, output, session) {
       df
     })
     
-    all_data <- bind_rows(water_dfs) |> filter(!is.na(`Latitude Decimal`))
+    all_data <- bind_rows(water_dfs) |> 
+      mutate(Station = str_replace(Station,
+                                   "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Tacobamba arriba Pilcomayo")) |>
+    mutate(Station = str_replace(Station,
+                                 "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                 "Pilcomayo arriba Tacobamba")) |>
+      filter(!is.na(`Latitude Decimal`))
     
     return(all_data)
+  })
+  
+  # Only Points west of Villamontes (only points in Bolivia)
+  bol_water_clean <- reactive({
+    all_water_clean() |>
+      filter(`Longitude Decimal` <= -63.52)
+  })
+  
+  water_years <- reactive({
+    df <- all_water_clean()
+    
+    unique(df$Year)
   })
   
   # Read and combine water data (1333 version)
@@ -508,7 +681,14 @@ server <- function(input, output, session) {
       df
     })
     
-    all_data <- bind_rows(water_dfs) |> filter(!is.na(`Latitude Decimal`))
+    all_data <- bind_rows(water_dfs) |> 
+      mutate(Station = str_replace(Station,
+                                   "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Tacobamba arriba Pilcomayo")) |>
+      mutate(Station = str_replace(Station,
+                                   "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Pilcomayo arriba Tacobamba")) |>
+      filter(!is.na(`Latitude Decimal`))
     
     # Count "Unclassified" in columns ending with "Class"
     all_data$num_unclass <- rowSums(
@@ -543,6 +723,10 @@ server <- function(input, output, session) {
       filter(`Longitude Decimal` <= -63.52)
   })
   
+  water_years_1333 <- reactive({
+    unique(all_water_1333()$Year)
+  })
+  
   ## Load sediment data ##
   
   all_sed_clean <- reactive({
@@ -556,9 +740,25 @@ server <- function(input, output, session) {
       df
     })
     
-    df <- bind_rows(sed_dfs_clean)
+    df <- bind_rows(sed_dfs_clean) |>
+      mutate(Station = str_replace(Station,
+                                   "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Tacobamba arriba Pilcomayo")) |>
+      mutate(Station = str_replace(Station,
+                                   "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Pilcomayo arriba Tacobamba"))
     
     return(df)
+  })
+  
+  sed_years <- reactive({
+    unique(all_sed_clean()$Year)
+  })
+  
+  # Only Points west of Villamontes (only points in Bolivia)
+  bol_sed_clean <- reactive({
+    all_sed_clean() |>
+      filter(Long_dd <= -63.52)
   })
   
   all_sed_usgs <- reactive({
@@ -572,19 +772,26 @@ server <- function(input, output, session) {
       df
     })
     
-    df <- bind_rows(sed_dfs_usgs)
+    df <- bind_rows(sed_dfs_usgs) |>
+      mutate(Station = str_replace(Station,
+                                   "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Tacobamba arriba Pilcomayo")) |>
+      mutate(Station = str_replace(Station,
+                                   "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                   "Pilcomayo arriba Tacobamba"))
     
-    df$num_above_tel <- rowSums(
-      select(df, ends_with("USGS")) == "Above TEL", 
-      na.rm = TRUE
-    )
+    # 1. Get the USGS columns
+    usgs_columns <- df %>% select(ends_with("USGS"))
     
-    df$num_above_pel <- rowSums(
-      select(df, ends_with("USGS")) == "Above PEL",
-      na.rm = TRUE
-    )  
+    # 2. Count total number of non-NA parameters per row
+    df$n_params <- rowSums(!is.na(usgs_columns))
     
-    df$score <- df$num_above_tel + df$num_above_pel * 2
+    # 3. Count "Above TEL" and "Above PEL" per row
+    df$num_above_tel <- rowSums(usgs_columns == "Above TEL", na.rm = TRUE)
+    df$num_above_pel <- rowSums(usgs_columns == "Above PEL", na.rm = TRUE)
+    
+    # 4. Calculate standardized score
+    df$score <- (df$num_above_tel + df$num_above_pel * 2) / df$n_params
     
     df$unique <- paste(df$Station, df$Date, sep = " - ")
     
@@ -598,6 +805,149 @@ server <- function(input, output, session) {
       filter(Long_dd <= -63.52)
   })
   
+  sed_years_usgs <- reactive({
+    unique(all_sed_usgs()$Year)
+  })
+  
+  all_years <- reactive({
+    sort(unique(c(water_years(), 
+                             water_years_1333(),
+                             sed_years(),
+                             sed_years_usgs()
+                  )
+                )
+         ) 
+  })
+  
+  
+  
+  ################# DOWNLOAD BUTTONS #########################
+  
+  ################# DOWNLOAD BUTTONS #########################
+  
+  ################# DOWNLOAD BUTTONS #########################
+  
+  ################# DOWNLOAD BUTTONS #########################
+  
+  ################# DOWNLOAD BUTTONS #########################
+  
+  
+  
+  
+  
+  
+  output$download_year_ui <- renderUI({
+    all_years <- all_years()
+    
+    selectInput("download_year", "Filter by Year (optional):",
+                choices = c("all", all_years),
+                selected = "all")
+  })
+  
+  
+  # Helper function to filter by year
+  filter_by_year <- function(df, year_input) {
+    if (year_input == "all") {
+      return(df)
+    } else {
+      return(df %>% filter(Year == as.integer(year_input)))
+    }
+  }
+  
+  # Sediment Data (Clean)
+  output$download_sed_clean <- downloadHandler(
+    filename = function() {
+      paste0("sed_", input$download_year, "_clean_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      data <- if (input$data_scope == "bol") {
+        bol_sed_clean()
+      } else {
+        all_sed_clean()
+      }
+      
+      data <- data |> filter_by_year(input$download_year)
+      
+      write_csv(data, file)
+    }
+  )
+  
+  # Sediment Data (USGS)
+  output$download_sed_usgs <- downloadHandler(
+    filename = function() {
+      paste0("sed_", input$download_year, "_usgs_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      data <- if (input$data_scope == "bol") {
+        bol_sed_usgs()
+      } else {
+        all_sed_usgs()
+      }
+      data <- filter_by_year(data, input$download_year)
+      write_csv(data, file)
+    }
+  )
+  
+  # Water Data (Clean)
+  output$download_water_clean <- downloadHandler(
+    filename = function() {
+      paste0("water_", input$download_year, "_clean_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      data <- if (input$data_scope == "bol") {
+        bol_water_clean()
+      } else {
+        all_water_clean()
+      }
+      data <- filter_by_year(data, input$download_year)
+      write_csv(data, file)
+    }
+  )
+  
+  # Water Data (1333)
+  output$download_water_1333 <- downloadHandler(
+    filename = function() {
+      paste0("water_", input$download_year, "_1333_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      data <- if (input$data_scope == "bol") {
+        bol_water_1333()
+      } else {
+        all_water_1333()
+      }
+      data <- filter_by_year(data, input$download_year)
+      write_csv(data, file)
+    }
+  )
+  
+  # USGS Standards Table
+  output$download_usgs_standards <- downloadHandler(
+    filename = function() {
+      paste0("usgs_sqgs_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      
+      data <- usgs_sqg |>
+        select(-match_name)
+      
+      write_csv(data, file)
+    }
+  )
+  
+  # Bolivian 1333 Standards Table
+  output$download_1333_standards <- downloadHandler(
+    filename = function() {
+      paste0("bolivian_1333_stds_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      
+      data <- bolivian_1333 |>
+        select(-match_name)
+      
+      write_csv(data, file)
+    }
+  )
+  
   
   
   
@@ -620,28 +970,30 @@ server <- function(input, output, session) {
   
   
   
-  # Columns to exclude from parameter dropdown
-  excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
-                        "Latitude Decimal", "Longitude Decimal", 
-                        "Lat_dd", "Long_dd",
-                        "Distance from Bank", "Distance from Shore",
-                        "Clay (%)", "Silt (%)", "Sand (%)",
-                        "0.032 mm - No. 450 (ASTM) (%)",
-                        "0.063 mm - No. 230 (ASTM) (%)",
-                        "0.125 mm - No. 120 (ASTM) (%)",
-                        "0.250 mm - No. 060 (ASTM) (%)",
-                        "0.500 mm - No. 035 (ASTM) (%)",
-                        "1.00 mm - No. 018 (ASTM) (%)",
-                        "2.00 mm - No. 010 (ASTM) (%)",
-                        "Year", "0.016 mm (%)",
-                        "4.75 mm - No. 004 (ASTM) (%)",
-                        "num_unclass",
-                        "num_class_b",
-                        "num_class_c",
-                        "num_class_d")
+ 
   
   numeric_columns <- reactive({
     df <- bol_water_1333()
+    
+    # Columns to exclude from parameter dropdown
+    excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
+                          "Latitude Decimal", "Longitude Decimal", 
+                          "Lat_dd", "Long_dd",
+                          "Distance from Bank", "Distance from Shore",
+                          "Clay (%)", "Silt (%)", "Sand (%)",
+                          "0.032 mm - No. 450 (ASTM) (%)",
+                          "0.063 mm - No. 230 (ASTM) (%)",
+                          "0.125 mm - No. 120 (ASTM) (%)",
+                          "0.250 mm - No. 060 (ASTM) (%)",
+                          "0.500 mm - No. 035 (ASTM) (%)",
+                          "1.00 mm - No. 018 (ASTM) (%)",
+                          "2.00 mm - No. 010 (ASTM) (%)",
+                          "Year", "0.016 mm (%)",
+                          "4.75 mm - No. 004 (ASTM) (%)",
+                          "num_unclass",
+                          "num_class_b",
+                          "num_class_c",
+                          "num_class_d")
     
     possible_columns <- setdiff(names(df), excluded_columns)
     numeric_columns <- possible_columns[sapply(df[possible_columns], is.numeric)]
@@ -655,16 +1007,13 @@ server <- function(input, output, session) {
                          selected = c("pH", "pH (mV)", "Oxygen Saturation (%)", "Dissolved Oxygen (mg/l O2)"))
   })
   
-  observeEvent(input$select_all_pca, {
-    updateSelectizeInput(session, "pca_parameters", selected = numeric_columns())
-  })
-  
   observeEvent(input$deselect_all_pca, {
     updateSelectizeInput(session, "pca_parameters", selected = character(0))
   })
   
   pca_result <- eventReactive(input$run_pca, {
-    req(input$pca_parameters)  # Ensure parameters are selected
+    
+    if (length(input$pca_parameters) < 2) stop("Please select 2 more more variables")
     
     df <- bol_water_1333() %>%
       select(all_of(input$pca_parameters))
@@ -716,67 +1065,10 @@ server <- function(input, output, session) {
   
   
   
-  plot_class_proportions_overlay <- function(data, class_cols, class_label, bar_color, plot_title, plot_subtitle = NULL) {
-    total_rows <- nrow(data)  # Total number of observations
-    
-    summary_df <- sapply(data[class_cols], function(col) {
-      num_class <- sum(col == class_label, na.rm = TRUE)
-      non_na_count <- sum(!is.na(col))
-      
-      prop_total <- num_class / total_rows
-      prop_non_na <- if (non_na_count == 0) NA else num_class / non_na_count
-      
-      c(Proportion_Total = prop_total,
-        Proportion_NonNA = prop_non_na)
-    }) %>%
-      t() %>%
-      as.data.frame() %>%
-      mutate(Parameter = rownames(.)) %>%
-      rename(Proportion_Total = Proportion_Total,
-             Proportion_NonNA = Proportion_NonNA)
-    
-    # Clean up parameter names
-    summary_df$Parameter <- str_remove(summary_df$Parameter, " Class$")
-    
-    # Select top 15 parameters by total proportion
-    top_15 <- summary_df %>%
-      arrange(desc(Proportion_Total)) %>%
-      slice(1:15)
-    
-    # Prepare long format for plotting
-    plot_data <- top_15 %>%
-      pivot_longer(cols = c(Proportion_Total, Proportion_NonNA),
-                   names_to = "Metric", values_to = "Value")
-    
-    # Set factor levels to preserve bar order
-    plot_data$Parameter <- factor(plot_data$Parameter,
-                                  levels = rev(top_15$Parameter))
-    
-    ggplot(plot_data, aes(x = Parameter, y = Value, fill = Metric)) +
-      geom_col(
-        position = "identity",
-        alpha = ifelse(plot_data$Metric == "Proportion_Total", 1, 0.4)
-      ) +
-      scale_fill_manual(
-        values = c(Proportion_Total = bar_color, Proportion_NonNA = bar_color),
-        labels = c(
-          Proportion_Total = paste("Proportion of", class_label, "over all observations"),
-          Proportion_NonNA = paste("Proportion of", class_label, "over non-NA observations")
-        )
-      ) +
-      coord_flip() +
-      labs(
-        title = plot_title,
-        subtitle = plot_subtitle,
-        y = "Proportion",
-        fill = NULL
-      ) +
-      theme_minimal() +
-      theme(legend.position = "none")
-  }
+  
   
   # Map classes to numeric scores (0 = best, 4 = worst)
-  score_map <- c(
+  class_map <- c(
     "Class A" = 0,
     "Class B" = 1,
     "Class C" = 2,
@@ -792,7 +1084,7 @@ server <- function(input, output, session) {
   observe({
     numeric_params <- bol_water_1333() %>%  
       select(where(is.numeric)) %>%
-      select(-`Latitude Decimal`, -`Longitude Decimal`, -num_unclass, -`Average Velocity (m/s)`, -`Flow (m3/s)`) %>%
+      select(-`Latitude Decimal`, -`Longitude Decimal`, -num_unclass, -num_class_d, -num_class_c, -num_class_b, -`Average Velocity (m/s)`, -`Flow (m3/s)`) %>%
       names()
     
     updateSelectInput(inputId = "station_plot_param",
@@ -813,10 +1105,13 @@ server <- function(input, output, session) {
   })
   
   observe({
-    numeric_params_sed <- bol_sed_usgs() |>
+    numeric_params_sed <- bol_sed_clean() |>
       select(where(is.numeric)) |>
-      select(-Lat_dd, -Long_dd, -num_above_pel, -num_above_tel, -Year, -score) |>
+      select(-Lat_dd, -Long_dd, -Year) |>
       names()
+    
+    updateSelectInput(inputId = "station_plot_param_sed",
+                      choices = numeric_params_sed)
     
     updateSelectInput(inputId = "observation_plot_param_sed",
                       choices = numeric_params_sed)
@@ -829,7 +1124,7 @@ server <- function(input, output, session) {
       rowwise() %>%
       mutate(
         quality_score = mean(
-          unlist(across(all_of(class_cols()), ~ score_map[.x])),
+          unlist(across(all_of(class_cols()), ~ class_map[.x])),
           na.rm = TRUE
         )
       ) %>%
@@ -849,11 +1144,11 @@ server <- function(input, output, session) {
           mutate(label = paste0(Station, " (", Date, ")"),
                  label = fct_reorder(label, quality_score)) |>
           ggplot(aes(x = label, y = quality_score)) +
-          geom_col(fill = "steelblue") +
+          geom_col(fill = "darkslateblue") +
           coord_flip() +
           theme_minimal() +
           labs(
-            title = "Overall Water Score: Top 15 Observations (Bolivia)", 
+            title = "Overall Water Score: Top 15 Worst Observations (Bolivia)", 
             subtitle = "Lower scores indicate better water quality",
             x = NULL, y = "Water Quality Score (0=best, 4=worst)"
           ) 
@@ -889,7 +1184,7 @@ server <- function(input, output, session) {
           mutate(label = paste0(Station, " (", Date, ")"),
                  label = fct_reorder(label, num_class_d)) |>
           ggplot(aes(x = label, y = num_class_d)) +
-          geom_col(fill = "orange") +
+          geom_col(fill = "darkorange") +
           coord_flip() +
           theme_minimal() +
           labs(
@@ -947,8 +1242,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, num_above_tel)) |>
           ggplot(aes(x = label, y = num_above_tel)) +
-          geom_col(fill = "steelblue") +
-          labs(title = "Above TEL: Top 15 Observations (Bolivia)") +
+          geom_col(fill = "darkorange") +
+          labs(title = "Above TEL: Top 15 Observations (Bolivia)",
+               x = NULL, y = "Number of Parameters Above TEL") +
           coord_flip() +
           theme_minimal()
       } else if (input$observation_plot_usgs == "above_pel") {
@@ -959,8 +1255,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, num_above_pel)) |>
           ggplot(aes(x = label, y = num_above_pel)) +
-          geom_col(fill = "steelblue") +
-          labs(title = "Above PEL: Top 15 Observations (Bolivia)") +
+          geom_col(fill = "firebrick") +
+          labs(title = "Above PEL: Top 15 Observations (Bolivia)",
+               x = NULL, y = "Number of Parameters Above PEL") +
           coord_flip() +
           theme_minimal()
       } else if (input$observation_plot_usgs == "worst_score") {
@@ -971,8 +1268,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, score)) |>
           ggplot(aes(x = label, y = score)) +
-          geom_col(fill = "steelblue") +
-          labs(title = "Overall Sediment Score: Top 15 Observations (Bolivia)") +
+          geom_col(fill = "darkslateblue") +
+          labs(title = "Overall Sediment Score: Top 15 Observations (Bolivia)",
+               x = NULL, y = "Sediment Quality Score (0=best, 2=worst)") +
           coord_flip() +
           theme_minimal()
       }
@@ -983,7 +1281,7 @@ server <- function(input, output, session) {
       
       param <- input$observation_plot_param_sed
       
-      df <- bol_sed_usgs()
+      df <- bol_sed_clean()
       
       df |>
         slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
@@ -992,7 +1290,7 @@ server <- function(input, output, session) {
           label = make.unique(label),
           label = fct_reorder(label, .data[[param]])) |>
         ggplot(aes(x = label, y = .data[[param]])) +
-        geom_col(fill = "steelblue") +
+        geom_col(fill = "tan") +
         labs(title = paste("15 Highest Observations for", param)) +
         coord_flip() +
         theme_minimal()
@@ -1012,10 +1310,10 @@ server <- function(input, output, session) {
   # Calculate weighted normalized score per observation, then aggregate by Station
   station_scores <- reactive({
     observation_scores() %>%
-      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")))) %>% 
+      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")) / 365.25)) %>%
       group_by(Station) %>%
       summarise(
-        overall_score = weighted.mean(quality_score, weight, na.rm = TRUE),
+        mean_score = if (input$station_plot_recency == TRUE) weighted.mean(quality_score, weight, na.rm = TRUE) else mean(quality_score, na.rm = TRUE),
         mean_class_b = mean(num_class_b),
         mean_class_c = mean(num_class_c),
         mean_class_d = mean(num_class_d),
@@ -1025,7 +1323,22 @@ server <- function(input, output, session) {
         n_obs = n(),
         .groups = "drop"
       ) %>%
-      arrange(overall_score)  # lower = better water quality
+      arrange(mean_score)  # lower = better water quality
+  })
+  
+  station_scores_sed <- reactive({
+    bol_sed_usgs() |>
+      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")))) |>
+      group_by(Station) |>
+      summarize(
+        mean_score = if (input$station_plot_recency_sed == TRUE) weighted.mean(score, weight, na.rm = TRUE) else mean(score, na.rm = TRUE),
+        mean_above_tel = mean(num_above_tel),
+        mean_above_pel = mean(num_above_pel),
+        Lat_dd = mean(Lat_dd),
+        Long_dd = mean(Long_dd),
+        n_obs = n(),
+        .groups = "drop"
+      )
   })
   
   output$station_scores_plot <- renderPlot({
@@ -1033,13 +1346,13 @@ server <- function(input, output, session) {
       
       if (input$station_plot_class == "worst_score") {
         station_scores() |>
-          slice_max(overall_score, n = 15) |>
+          slice_max(mean_score, n = 15) |>
           mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, overall_score), y = overall_score)) +
-          geom_col(fill = "steelblue") +
+          ggplot(aes(x = reorder(Station_label, mean_score), y = mean_score)) +
+          geom_col(fill = "darkslateblue") +
           coord_flip() +
           labs(
-            title = "15 Worst Scored Stations (Bolivia)",
+            title = "Overall Water Score: Top 15 Worst Stations (Bolivia)",
             subtitle = "Lower scores indicate better water quality",
             x = NULL,
             y = "Mean Water Quality Score (0=best, 4=worst)"
@@ -1081,7 +1394,7 @@ server <- function(input, output, session) {
           slice_max(mean_class_d, n = 15) |>
           mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
           ggplot(aes(x = reorder(Station_label, mean_class_d), y = mean_class_d)) +
-          geom_col(fill = "orange") +
+          geom_col(fill = "darkorange") +
           coord_flip() +
           labs(
             title = "Class D: Top 15 Stations (Bolivia)",
@@ -1130,8 +1443,6 @@ server <- function(input, output, session) {
         
         if (param %in% reverse_params) {
           summary_df <- slice_min(summary_df, min_value, n = 15)
-          
-          print(head(summary_df$min_value))
           
           summary_df %>%
             mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
@@ -1211,8 +1522,168 @@ server <- function(input, output, session) {
         }
         
       }
+    } else if (input$station_plot_type == "usgs") {
+      
+      if (input$station_plot_usgs == "worst_score") {
+        
+        station_scores_sed() |>
+          arrange(mean_score) |>
+          slice_max(mean_score, n = 15, with_ties = FALSE) |>
+          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(Station_label, mean_score), y = mean_score)) +
+          geom_col(fill = "darkslateblue") +
+          coord_flip() +
+          labs(title = "Overall Sediment Score: Top 15 Worst Stations (Bolivia)",
+               x = NULL, y = "Mean Sediment Quality Score (0=best, 2=worst)") +
+          theme_minimal() 
+        
+        
+        
+      } else if (input$station_plot_usgs == "above_tel") {
+        
+        station_scores_sed() |>
+          arrange(mean_above_tel) |>
+          slice_max(mean_above_tel, n = 15, with_ties = FALSE) |>
+          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(Station_label, mean_above_tel), y = mean_above_tel)) +
+          geom_col(fill = "darkorange") +
+          coord_flip() +
+          labs(title = "Above TEL: Top 15 Worst Stations (Bolivia)",
+               x = NULL, y = "Mean Number of Parameters Above TEL") +
+          theme_minimal() 
+        
+        
+        
+      } else if (input$station_plot_usgs == "above_pel") {
+        
+        station_scores_sed() |>
+          arrange(mean_above_pel) |>
+          slice_max(mean_above_pel, n = 15, with_ties = FALSE) |>
+          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(Station_label, mean_above_pel), y = mean_above_pel)) +
+          geom_col(fill = "firebrick") +
+          coord_flip() +
+          labs(title = "Above PEL: Top 15 Worst Stations (Bolivia)",
+               x = NULL, y = "Mean Number of Parameters Above PEL") +
+          theme_minimal() 
+        
+        
+        
+      }
+    } else if (input$station_plot_type == "sed_value") {
+      
+      # Get selected parameter
+      param <- input$station_plot_param_sed
+      
+      summary_df <- bol_sed_clean() %>%
+        group_by(Station) %>%
+        summarise(
+          max_value = max(.data[[param]], na.rm = TRUE),
+          min_value = min(.data[[param]], na.rm = TRUE),
+          avg_value = mean(.data[[param]], na.rm = TRUE),
+          n_obs = sum(!is.na(.data[[param]])),
+          .groups = "drop"
+        ) %>%
+        filter(is.finite(max_value))
+      
+      
+      if (input$station_param_type == "max") {
+        
+        summary_df <- slice_max(summary_df, max_value, n = 15)
+        
+        summary_df %>%
+          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
+          ggplot(aes(x = reorder(Station_label, max_value), y = max_value)) +
+          geom_col(fill = "tan") +
+          coord_flip() +
+          labs(
+            title = paste("Top 15 Stations by Max", param),
+            subtitle = "Maximum recorded value between 2016–2024",
+            x = NULL,
+            y = param
+          ) +
+          theme_minimal()
+      } else if (input$station_param_type == "avg") {
+        
+        summary_df <- slice_max(summary_df, avg_value, n = 15)
+        
+        summary_df %>%
+          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
+          ggplot(aes(x = reorder(Station_label, avg_value), y = avg_value)) +
+          geom_col(fill = "tan") +
+          coord_flip() +
+          labs(
+            title = paste("Top 15 Stations by Average", param),
+            subtitle = "Average value between 2016–2024",
+            x = NULL,
+            y = param
+          ) +
+          theme_minimal()
+      }
+      
+      
     }
   })
+  
+  plot_class_proportions_overlay <- function(data, class_cols = NULL, class_label, bar_color, plot_title, plot_subtitle = NULL) {
+    total_rows <- nrow(data)  # Total number of observations
+    
+    summary_df <- sapply(data[class_cols], function(col) {
+      num_class <- sum(col == class_label, na.rm = TRUE)
+      non_na_count <- sum(!is.na(col))
+      
+      prop_total <- num_class / total_rows
+      prop_non_na <- if (non_na_count == 0) NA else num_class / non_na_count
+      
+      c(Percent_Total = prop_total*100,
+        Percent_NonNA = prop_non_na*100)
+    }) %>%
+      t() %>%
+      as.data.frame() %>%
+      mutate(Parameter = rownames(.)) %>%
+      rename(Percent_Total = Percent_Total,
+             Percent_NonNA = Percent_NonNA)
+    
+    # Clean up parameter names
+    summary_df$Parameter <- str_remove(summary_df$Parameter, " Class$")
+    summary_df$Parameter <- str_remove(summary_df$Parameter, " USGS$")
+    
+    # Select top 15 parameters by total proportion
+    top_15 <- summary_df %>%
+      arrange(desc(Percent_Total)) %>%
+      slice(1:15)
+    
+    # Prepare long format for plotting
+    plot_data <- top_15 %>%
+      pivot_longer(cols = c(Percent_Total, Percent_NonNA),
+                   names_to = "Metric", values_to = "Value")
+    
+    # Set factor levels to preserve bar order
+    plot_data$Parameter <- factor(plot_data$Parameter,
+                                  levels = rev(top_15$Parameter))
+    
+    ggplot(plot_data, aes(x = Parameter, y = Value, fill = Metric)) +
+      geom_col(
+        position = "identity",
+        alpha = ifelse(plot_data$Metric == "Percent_Total", 1, 0.4)
+      ) +
+      scale_fill_manual(
+        values = c(Percent_Total = bar_color, Percent_NonNA = bar_color),
+        labels = c(
+          Percent_Total = paste("Percent of", class_label, "over all observations"),
+          Percent_NonNA = paste("Percent of", class_label, "over non-NA observations")
+        )
+      ) +
+      coord_flip() +
+      labs(
+        title = plot_title,
+        subtitle = plot_subtitle,
+        y = "Percent",
+        fill = NULL
+      ) +
+      theme_minimal() +
+      theme(legend.position = "none")
+  }
   
   observe({
     df <- bol_water_1333()
@@ -1223,6 +1694,17 @@ server <- function(input, output, session) {
   
   bol_water_1333_param_plot <- reactive({
     df <- bol_water_1333()
+    
+    if (isTRUE(input$param_plot_checkbox)) {
+      df <- df |>
+        filter(Station == input$param_plot_station)
+    }
+    
+    df
+  })
+  
+  bol_sed_usgs_param_plot <- reactive({
+    df <- bol_sed_usgs()
     
     if (isTRUE(input$param_plot_checkbox)) {
       df <- df |>
@@ -1262,6 +1744,33 @@ server <- function(input, output, session) {
     })
   })
   
+  # Same thing fro sediment data
+  param_scores_std_sed <- reactive({
+    bol_sed_usgs <- bol_sed_usgs_param_plot()
+    
+    usgs_cols <- usgs_cols()
+    
+    sapply(bol_sed_usgs[usgs_cols], function(col) {
+      (sum(col == "Above TEL", na.rm = TRUE) * 1 +
+         sum(col == "Above PEL", na.rm = TRUE) * 2) /
+        sum(!is.na(col))
+    })
+  })
+  
+  param_scores_raw_sed <- reactive({
+    bol_sed_usgs <- bol_sed_usgs_param_plot()
+    
+    usgs_cols <- usgs_cols()
+    
+    sapply(bol_sed_usgs[usgs_cols], function(col) {
+      (sum(col == "Above TEL", na.rm = TRUE) * 1 +
+         sum(col == "Above PEL", na.rm = TRUE) * 2) /
+        length(col)
+    })
+  })
+  
+  
+  
   # Combine into a long-format data frame
   param_scores_df <- reactive({
     data.frame(
@@ -1272,11 +1781,44 @@ server <- function(input, output, session) {
       pivot_longer(cols = c(Standardized, Raw), names_to = "Type", values_to = "Score")
   })
   
+  param_scores_df_sed <- reactive({
+    data.frame(
+      Parameter = names(param_scores_std_sed()),
+      Standardized = param_scores_std_sed(),
+      Raw = param_scores_raw_sed()
+    ) |>
+      pivot_longer(cols = c(Standardized, Raw), names_to = "Type", values_to = "Score")
+  })
+  
   plot_data <- reactive({
     df <- param_scores_df()
     
     # Clean parameter names
-    df$Parameter <- str_remove(df$Parameter, "Class$")
+    df$Parameter <- str_remove(df$Parameter, " Class$")
+    
+    # Get top 15 by Raw score
+    top_15_params <- df %>%
+      filter(Type == "Raw") %>%
+      slice_max(Score, n = 15, with_ties = FALSE) %>%
+      pull(Parameter)
+    
+    # Filter and reorder factor levels
+    df_filtered <- df %>%
+      filter(Parameter %in% top_15_params)
+    
+    df_filtered$Parameter <- factor(df_filtered$Parameter, levels = df_filtered %>%
+                                      filter(Type == "Raw") %>%
+                                      arrange(Score) %>%
+                                      pull(Parameter))
+    # Return final df
+    df_filtered
+  })
+  
+  plot_data_sed <- reactive({
+    df <- param_scores_df_sed()
+    
+    # Clean parameter names
+    df$Parameter <- str_remove(df$Parameter, " USGS$")
     
     # Get top 15 by Raw score
     top_15_params <- df %>%
@@ -1300,83 +1842,146 @@ server <- function(input, output, session) {
   # --- Step 3: Assign unique colors ---
   
   output$param_scores_plot <- renderPlot({
-    plot_type <- input$param_plot_type
     
-    if (plot_type == "unclassified") {
-      plot_class_proportions_overlay(
-        data = bol_water_1333_param_plot(),
-        class_cols = class_cols(),
-        class_label = "Unclassified",
-        bar_color = "firebrick",
-        plot_title <- ifelse(
-          isTRUE(input$param_plot_checkbox),
-          paste("Unclassified: Top 15 Parameters at", input$param_plot_station),
-          "Unclassified: Top 15 Parameters"
-        ),
-        plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
-      )
+    if (input$param_plot_type == "class") {
+      plot_type <- input$param_plot_class
       
-    } else if (plot_type == "class_d") {
-      plot_class_proportions_overlay(
-        data = bol_water_1333_param_plot(),
-        class_cols = class_cols(),
-        class_label = "Class D",
-        bar_color = "orange",
-        plot_title <- ifelse(
-          isTRUE(input$param_plot_checkbox),
-          paste("Class D: Top 15 Worst Parameters at", input$param_plot_station),
-          "Class D: Top 15 Worst Parameters"
-        ),
-        plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
-      )
-      
-    } else if (plot_type == "class_c") {
-      plot_class_proportions_overlay(
-        data = bol_water_1333_param_plot(),
-        class_cols = class_cols(),
-        class_label = "Class C",
-        bar_color = "gold",
-        plot_title <- ifelse(
-          isTRUE(input$param_plot_checkbox),
-          paste("Class C: Top 15 Parameters at", input$param_plot_station),
-          "Class C: Top 15 Parameters"
-        ),
-        plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
-      )
-      
-    } else if (plot_type == "class_b") {
-      plot_class_proportions_overlay(
-        data = bol_water_1333_param_plot(),
-        class_cols = class_cols(),
-        class_label = "Class B",
-        bar_color = "lightgreen",
-        plot_title <- ifelse(
-          isTRUE(input$param_plot_checkbox),
-          paste("Class B: Top 15 Parameters at", input$param_plot_station),
-          "Class B: Top 15 Parameters"
-        ),
-        plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
-      )
-      
-    } else if (plot_type == "worst_score") {
-      
-      ggplot(plot_data(), aes(x = Parameter, y = Score)) +
-        geom_col(position = "identity",
-                 aes(alpha = Type), show.legend = FALSE,
-                 fill = "steelblue") +
-        scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
-        coord_flip() +
-        labs(
-          title = plot_title <- ifelse(
+      if (plot_type == "unclassified") {
+        plot_class_proportions_overlay(
+          data = bol_water_1333_param_plot(),
+          class_cols = class_cols(),
+          class_label = "Unclassified",
+          bar_color = "firebrick",
+          plot_title <- ifelse(
             isTRUE(input$param_plot_checkbox),
-            paste("Overall: Top 15 Worst Parameters at", input$param_plot_station),
-            "Overall: Top 15 Worst Parameters"
+            paste("Unclassified: Top 15 Parameters at", input$param_plot_station),
+            "Unclassified: Top 15 Parameters"
           ),
-          subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
-          y = "Score"
-        ) +
-        theme_minimal()
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+      } else if (plot_type == "class_d") {
+        plot_class_proportions_overlay(
+          data = bol_water_1333_param_plot(),
+          class_cols = class_cols(),
+          class_label = "Class D",
+          bar_color = "darkorange",
+          plot_title <- ifelse(
+            isTRUE(input$param_plot_checkbox),
+            paste("Class D: Top 15 Worst Parameters at", input$param_plot_station),
+            "Class D: Top 15 Worst Parameters"
+          ),
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+      } else if (plot_type == "class_c") {
+        plot_class_proportions_overlay(
+          data = bol_water_1333_param_plot(),
+          class_cols = class_cols(),
+          class_label = "Class C",
+          bar_color = "gold",
+          plot_title <- ifelse(
+            isTRUE(input$param_plot_checkbox),
+            paste("Class C: Top 15 Parameters at", input$param_plot_station),
+            "Class C: Top 15 Parameters"
+          ),
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+      } else if (plot_type == "class_b") {
+        plot_class_proportions_overlay(
+          data = bol_water_1333_param_plot(),
+          class_cols = class_cols(),
+          class_label = "Class B",
+          bar_color = "lightgreen",
+          plot_title <- ifelse(
+            isTRUE(input$param_plot_checkbox),
+            paste("Class B: Top 15 Parameters at", input$param_plot_station),
+            "Class B: Top 15 Parameters"
+          ),
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+      } else if (plot_type == "worst_score") {
+        
+        ggplot(plot_data(), aes(x = Parameter, y = Score)) +
+          geom_col(position = "identity",
+                   aes(alpha = Type), show.legend = FALSE,
+                   fill = "darkslateblue") +
+          scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
+          coord_flip() +
+          labs(
+            title = plot_title <- ifelse(
+              isTRUE(input$param_plot_checkbox),
+              paste("Overall: Top 15 Worst Parameters at", input$param_plot_station),
+              "Overall: Top 15 Worst Parameters"
+            ),
+            subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+            y = "Water Quality Score (0=best, 4=worst)"
+          ) +
+          theme_minimal()
+        }
+    } else if (input$param_plot_type == "usgs") {
+      
+      plot_type <- input$param_plot_usgs
+      
+      if (plot_type == "worst_score") {
+        
+        ggplot(plot_data_sed(), aes(x = Parameter, y = Score)) +
+          geom_col(position = "identity",
+                   aes(alpha = Type), show.legend = FALSE,
+                   fill = "darkslateblue") +
+          scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
+          coord_flip() +
+          labs(
+            title = plot_title <- ifelse(
+              isTRUE(input$param_plot_checkbox),
+              paste("Overall Score: Sediment Parameters Ranked at", input$param_plot_station),
+              "Overall Score: Sediment Parameters Ranked"
+            ),
+            subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+            y = "Water Quality Score (0=best, 4=worst)"
+          ) +
+          theme_minimal()
+      } else if(plot_type == "above_tel") {
+        
+        plot_class_proportions_overlay(
+          data = bol_sed_usgs_param_plot(),
+          class_cols = usgs_cols(),
+          class_label = "Above TEL",
+          bar_color = "darkorange",
+          plot_title <- ifelse(
+            isTRUE(input$param_plot_checkbox),
+            paste("Above TEL: Sediment Parameters Ranked at", input$param_plot_station),
+            "Above TEL: Sediment Parameters Ranked"
+          ),
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+        
+      } else if (plot_type == "above_pel") {
+        
+        plot_class_proportions_overlay(
+          data = bol_sed_usgs_param_plot(),
+          class_cols = usgs_cols(),
+          class_label = "Above PEL",
+          bar_color = "firebrick",
+          plot_title <- ifelse(
+            isTRUE(input$param_plot_checkbox),
+            paste("Above PEL: Sediment Parameters Ranked at", input$param_plot_station),
+            "Above PEL: Sediment Parameters Ranked"
+          ),
+          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations"
+        )
+        
+        
+      }
+      
+      
+      
     }
+    
+    
   })
   
   ################# SLIDER MAPS ###########################
@@ -1564,7 +2169,7 @@ server <- function(input, output, session) {
   
   class_pal <- reactive({
     colorFactor(
-      palette = c("lightblue", "lightgreen", "yellow", "orange", "darkred"),
+      palette = c("lightblue", "lightgreen", "gold", "darkorange", "darkred"),
       levels = class_levels,
       na.color = "lightgray"
     )
@@ -1588,25 +2193,17 @@ server <- function(input, output, session) {
   # ===== COMMON UI ELEMENTS =====
   
   output$map_date_slider_ui <- renderUI({
+    
     campaigns <- unique_campaigns()
     req(length(campaigns) > 0)
     
-    sliderInput("campaign_index", 
-                "Select Campaign:",
-                min = 1,
-                max = length(campaigns),
-                value = 1,
-                step = 1,
-                animate = animationOptions(interval = 300, loop = FALSE))
+    sliderTextInput("campaign_index",
+                    "Select Campaign:",
+                    choices = campaigns,
+                    selected = campaigns[1],
+                    animate = animationOptions(interval = 300, loop = FALSE))
   })
   
-  output$selected_dates_display <- renderText({
-    campaigns <- unique_campaigns()
-    req(input$campaign_index, length(campaigns) > 0)
-    
-    selected_campaign <- campaigns[input$campaign_index]
-    paste("Selected campaign:", selected_campaign)
-  })
   
   # ===== MAP DATA PREPARATION =====
   
@@ -1617,7 +2214,7 @@ server <- function(input, output, session) {
     req(input$campaign_index, length(campaigns) > 0)
     req(input$selected_parameter)
     
-    selected_campaign <- campaigns[input$campaign_index]
+    selected_campaign <- input$campaign_index
     
     df$CampaignYM <- as.yearmon(df$Campaign, "%B %Y")
     selected_campaign_ym <- as.yearmon(selected_campaign, "%B %Y")
@@ -1663,7 +2260,7 @@ server <- function(input, output, session) {
     req(input$selected_metal)
     req(value_col())
     
-    selected_campaign <- campaigns[input$campaign_index]
+    selected_campaign <- input$campaign_index
     
     df$CampaignYM <- as.yearmon(df$Campaign, "%B %Y")
     selected_campaign_ym <- as.yearmon(selected_campaign, "%B %Y")
@@ -1819,43 +2416,43 @@ server <- function(input, output, session) {
   
   
   
-  # Bind data from all years into one data frame for use in time series
-  all_sediment_data <- reactive({
-    sed_files <- list.files(sed_data_path_clean, pattern = "^sed_\\d{4}_clean\\.xlsx$", full.names = TRUE)
-    
-    sed_dfs <- lapply(sed_files, function(f) {
-      year <- stringr::str_extract(basename(f), "\\d{4}")
-      df <- readxl::read_xlsx(f)
-      df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%d/%m/%Y")
-      df
-    })
-    
-    bind_rows(sed_dfs)
-  })
-  
-  all_water_data <- reactive({
-    water_files <- list.files(water_data_path_clean, pattern = "^water_\\d{4}_clean\\.xlsx$", full.names = TRUE)
-    
-    water_dfs <- lapply(water_files, function(f) {
-      year <- stringr::str_extract(basename(f), "\\d{4}")
-      df <- readxl::read_xlsx(f)
-      df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%d/%m/%Y")
-      df
-    })
-    
-    bind_rows(water_dfs)
-  })
+  # # Bind data from all years into one data frame for use in time series
+  # all_sediment_data <- reactive({
+  #   sed_files <- list.files(sed_data_path_clean, pattern = "^sed_\\d{4}_clean\\.xlsx$", full.names = TRUE)
+  #   
+  #   sed_dfs <- lapply(sed_files, function(f) {
+  #     year <- stringr::str_extract(basename(f), "\\d{4}")
+  #     df <- readxl::read_xlsx(f)
+  #     df$Year <- as.integer(year)
+  #     df$Date <- as.Date(df$Date, "%d/%m/%Y")
+  #     df
+  #   })
+  #   
+  #   bind_rows(sed_dfs)
+  # })
+  # 
+  # all_water_data <- reactive({
+  #   water_files <- list.files(water_data_path_clean, pattern = "^water_\\d{4}_clean\\.xlsx$", full.names = TRUE)
+  #   
+  #   water_dfs <- lapply(water_files, function(f) {
+  #     year <- stringr::str_extract(basename(f), "\\d{4}")
+  #     df <- readxl::read_xlsx(f)
+  #     df$Year <- as.integer(year)
+  #     df$Date <- as.Date(df$Date, "%d/%m/%Y")
+  #     df
+  #   })
+  #   
+  #   bind_rows(water_dfs)
+  # })
   
   # dynamically update choices for time series station & parameters
   observe({
     req(input$ts_tabs)  
     
     if (input$ts_tabs == "Water Samples") {
-      df <- all_water_data()
+      df <- all_water_clean()
     } else if (input$ts_tabs == "Sediment Samples") {
-      df <- all_sediment_data()
+      df <- all_sed_clean()
     } else {
       return()
     }
@@ -1912,7 +2509,7 @@ server <- function(input, output, session) {
   
   
   ts_filtered_data_water <- reactive({
-    df <- all_water_data()
+    df <- all_water_clean()
     req(input$ts_station, input$ts_param)
     
     if (!(input$ts_param %in% colnames(df))) {
@@ -1927,7 +2524,7 @@ server <- function(input, output, session) {
   
   # Initial filtering of parameter and station
   ts_filtered_data_sed_init <- reactive({
-    df <- all_sediment_data()
+    df <- all_sed_clean()
     req(input$ts_station, input$ts_param)
     
     if (!(input$ts_param %in% colnames(df))) {
@@ -2078,7 +2675,7 @@ server <- function(input, output, session) {
           class = c(paste("Class D", " (>", class_d, " ", ts_unit, ")", sep = ""), 
                     paste("Class C", " (>", class_c, " ", ts_unit, ")", sep = ""), 
                     paste("Class B", " (>", class_b, " ", ts_unit, ")", sep = "")),
-          fill_color = c("orange", "yellow", "lightgreen")
+          fill_color = c("darkorange", "gold", "lightgreen")
         ))
         
         # Optional top zone
@@ -2111,7 +2708,7 @@ server <- function(input, output, session) {
           class = c(paste("Class B", " (<", class_b, " ", ts_unit, ")", sep = ""), 
                     paste("Class C", " (<", class_c, " ", ts_unit, ")", sep = ""), 
                     paste("Class D", " (<", class_d, " ", ts_unit, ")", sep = "")),
-          fill_color = c("lightgreen", "yellow", "orange")
+          fill_color = c("lightgreen", "gold", "darkorange")
         ))
         
         # Optional top zone
@@ -2141,8 +2738,8 @@ server <- function(input, output, session) {
         ) +
         scale_fill_manual(values = setNames(rect_data$fill_color, rect_data$class)) +
         
-        geom_hline(yintercept = class_d, color = "orange", linetype = "dashed", linewidth = 0.7) +
-        geom_hline(yintercept = class_c, color = "yellow", linetype = "dashed", linewidth = 0.7) +
+        geom_hline(yintercept = class_d, color = "darkorange", linetype = "dashed", linewidth = 0.7) +
+        geom_hline(yintercept = class_c, color = "gold", linetype = "dashed", linewidth = 0.7) +
         geom_hline(yintercept = class_b, color = "lightgreen", linetype = "dashed", linewidth = 0.7) +
         geom_hline(yintercept = class_a, color = "lightblue", linetype = "dashed", linewidth = 0.7)
       
@@ -2151,7 +2748,7 @@ server <- function(input, output, session) {
     # Add line and points on top
     p <- p + 
       geom_line(color = "black") +
-      geom_point(size = 1.5, color = "black") +
+      geom_point(size = 1.5, alpha = 0.5, color = "black") +
       labs(
         title = paste("Time Series of", input$ts_param, "from Water Samples at", input$ts_station),
         x = "Time",
@@ -2192,12 +2789,12 @@ server <- function(input, output, session) {
       offset_amount <- y_range * 0.05
       
       p <- p +
-        geom_hline(yintercept = tel, color = "orange", linetype = "dashed", linewidth = 0.7) +
-        geom_hline(yintercept = pel, color = "darkred", linetype = "dashed", linewidth = 0.7) +
+        geom_hline(yintercept = tel, color = "darkorange", linetype = "dashed", linewidth = 0.7) +
+        geom_hline(yintercept = pel, color = "firebrick", linetype = "dashed", linewidth = 0.7) +
         annotate("text", x = min(df$Date), y = tel - offset_amount, label = paste("TEL =", tel, "mg/kg"), 
-                 hjust = 1.1, vjust = 0.5, color = "orange", size = 3, fontface = "bold") +
+                 hjust = 1.1, vjust = 0.5, color = "darkorange", size = 3, fontface = "bold") +
         annotate("text", x = min(df$Date), y = pel + offset_amount, label = paste("PEL =", pel, "mg/kg"), 
-                 hjust = 1.1, vjust = 0.5, color = "darkred", size = 3, fontface = "bold") +
+                 hjust = 1.1, vjust = 0.5, color = "firebrick", size = 3, fontface = "bold") +
         scale_x_date(expand = expansion(mult = c(0.2, 0.05))) +
         coord_cartesian(clip = "off")
     }
@@ -2213,10 +2810,10 @@ server <- function(input, output, session) {
                 color = "black") +
       {if(has_variation) {
         # Multiple values - use fill aesthetic with legend
-        geom_point(shape = 21, size = 2, aes(fill = `Distance from Bank`))
+        geom_point(shape = 21, size = 1.5, fill = "black", stroke = 0.3, color = "black", aes(alpha = `Distance from Bank`))
       } else {
         # All same - black fill, no legend
-        geom_point(shape = 21, size = 2, fill = "black")
+        geom_point(shape = 21, size = 1.5, alpha = 0.5, fill = "black")
       }} +
       labs(
         title = paste("Time Series of", input$ts_param, "from Sediment Samples at", input$ts_station),
@@ -2271,7 +2868,7 @@ server <- function(input, output, session) {
   # Dynamically populate year choices for map
   observe({
     sed_files <- list.files(sed_data_path_usgs, pattern = "^sed_\\d{4}_usgs\\.xlsx$", full.names = FALSE)
-    sed_years <- gsub("^sed_(\\d{4})_usgs\\.xlsx$", "\\1", sed_files)
+    sed_years <- sed_years_usgs()
     updateSelectInput(session, "sed_year", choices = sed_years, selected = max(sed_years))
   })
   
@@ -2444,7 +3041,7 @@ server <- function(input, output, session) {
                                       NA_character_)
       
       pal <- colorFactor(
-        palette = c("lightblue", "orange", "darkred"),
+        palette = c("lightblue", "darkorange", "firebrick"),
         levels = valid_levels,
         na.color = "gray"
       )
@@ -2495,7 +3092,7 @@ server <- function(input, output, session) {
                                         water_df[[col_to_plot]], NA_character_)
       
       pal <- colorFactor(
-        palette = c("lightblue", "lightgreen", "yellow", "orange", "darkred"),
+        palette = c("lightblue", "lightgreen", "gold", "darkorange", "darkred"),
         levels = valid_levels,
         na.color = "gray"
       )
@@ -2551,8 +3148,8 @@ server <- function(input, output, session) {
         tags$h5("Legend:"),
         tags$ul(
           tags$li(tags$span(style = "color:lightblue;", "⬤"), " Below TEL"),
-          tags$li(tags$span(style = "color:orange;", "⬤"), " Above TEL"),
-          tags$li(tags$span(style = "color:darkred;", "⬤"), " Above PEL")
+          tags$li(tags$span(style = "color:darkorange;", "⬤"), " Above TEL"),
+          tags$li(tags$span(style = "color:firebrick;", "⬤"), " Above PEL")
         )
       )
     } else if (input$sed_value_type == "sed_value") {
@@ -2593,9 +3190,9 @@ server <- function(input, output, session) {
         tags$ul(
           tags$li(tags$span(style = "color:lightblue;", "⬤"), " Class A"),
           tags$li(tags$span(style = "color:lightgreen;", "⬤"), " Class B"),
-          tags$li(tags$span(style = "color:yellow;", "⬤"), " Class C"),
-          tags$li(tags$span(style = "color:orange;", "⬤"), " Class D"),
-          tags$li(tags$span(style = "color:darkred;", "⬤"), " Unclassified")
+          tags$li(tags$span(style = "color:gold;", "⬤"), " Class C"),
+          tags$li(tags$span(style = "color:darkorange;", "⬤"), " Class D"),
+          tags$li(tags$span(style = "color:firebrick;", "⬤"), " Unclassified")
         )
       )
     } else {
