@@ -328,7 +328,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks individual observations based on water quality standards from Bolivian law.
+                                                    p("This plot ranks individual water samples based on water quality standards from Bolivian law.
                                                     Observations can be ranked by the number of parameters that fall into each classification, or by overall score.
                                                       Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each observation.
                                                       Data is sourced from www2.pilcomayo.net.",
@@ -341,7 +341,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks individual observations based on measured values of the selected water quality parameter.
+                                                    p("This plot ranks individual water samples based on measured values of the selected water quality parameter.
                                                     For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
                                                       Data is sourced from www2.pilcomayo.net.",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
@@ -352,7 +352,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks individual observations based on USGS Sediment Quality Guidelines (SQGs).
+                                                    p("This plot ranks individual sediment samples based on USGS Sediment Quality Guidelines (SQGs).
                                                     Observations can be ranked by the number of parameters that fall into each category, or by overall score.
                                                       Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above Pel=2), and finding the mean value for each observation.
                                                       Data is sourced from www2.pilcomayo.net.",
@@ -364,7 +364,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Observation Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks individual observations based on measured values of the selected sediment quality parameter.
+                                                    p("This plot ranks individual sediment samples based on measured values of the selected sediment quality parameter.
                                                     Higher values are ranked worse.
                                                       Data is sourced from www2.pilcomayo.net.",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
@@ -418,7 +418,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks sampling stations based on water quality standards from Bolivian law.
+                                                    p("This plot ranks water sampling stations based on water quality standards from Bolivian law.
                                                     Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
                                                       Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
                                                       For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). 
@@ -431,7 +431,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks sampling stations based on measured values of the selected parameter.
+                                                    p("This plot ranks water sampling stations based on measured values of the selected parameter.
                                                     For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
                                                       Stations can be ranked based on the most extreme/worst recorded value, or the mean value across observations at that station.
                                                       Data is sourced from www2.pilcomayo.net.",
@@ -443,7 +443,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks sampling stations based on USGS Sediment Quality Guidelines (SQGs).
+                                                    p("This plot ranks sediment sampling stations based on USGS Sediment Quality Guidelines (SQGs).
                                                     Stations can be ranked by the mean number of parameters that fall into each category, or by overall score.
                                                       Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each station.
                                                       For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). 
@@ -451,6 +451,18 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                       style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
                                                   )
                                                 ),
+                                                conditionalPanel(
+                                                  condition = "input.station_plot_type == 'sed_value'",
+                                                  div(
+                                                    style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
+                                                    h5("Station Ranking", style = "margin-top: 0; color: #007bff;"),
+                                                    p("This plot ranks sediment sampling stations based on measured values of the selected parameter.
+                                                    Higher values are ranked worse.
+                                                      Stations can be ranked based on the most highest recorded value, or the mean value across observations at that station.
+                                                      Data is sourced from www2.pilcomayo.net.",
+                                                      style = "margin-bottom: 0; font-size: 14px; line-height: 1.4;")
+                                                  )
+                                                )
                                          ),
                                          column(8, plotOutput("station_scores_plot", height = "500px")))),
                               tabPanel("Worst Parameters",
@@ -499,7 +511,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                   div(
                                                     style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-left: 3px solid #007bff; border-radius: 4px;",
                                                     h5("Parameter Ranking", style = "margin-top: 0; color: #007bff;"),
-                                                    p("This plot ranks water quality parameters based on USGS Sediment Quality Guidelines (SQGs).
+                                                    p("This plot ranks sediment quality parameters based on USGS Sediment Quality Guidelines (SQGs).
                                                     Parameters can be ranked by the percent of observations that fall into each category, or by overall score.
                                                       Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each parameter.
                                                       Light bars represent percents/scores calculated after omitting NA rows for that parameter.
