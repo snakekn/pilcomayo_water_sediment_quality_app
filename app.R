@@ -222,13 +222,13 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             
                             mainPanel(
                               tabsetPanel(id = "map_tabs",
-                                          tabPanel("Measured Value Map", 
-                                                   value = "parameter_map",
-                                                   leafletOutput("parameter_timeline_map", height = 600)
-                                          ),
                                           tabPanel("Classification Map", 
                                                    value = "classification_map",
                                                    leafletOutput("classification_timeline_map", height = 600)
+                                          ),
+                                          tabPanel("Measured Value Map", 
+                                                   value = "parameter_map",
+                                                   leafletOutput("parameter_timeline_map", height = 600)
                                           ),
                                           tabPanel("Bolivian Standards", dataTableOutput("stds_1333_table"))
                               )
@@ -485,8 +485,8 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                 conditionalPanel(condition = "input.param_plot_type == 'usgs'",
                                                                  radioButtons("param_plot_usgs", "Rank by Observations by:",
                                                                               choices = c("Worst Overall Score" = "worst_score",
-                                                                                          "Above PEL" = "above_pel",
-                                                                                          "Above TEL" = "above_tel"
+                                                                                          "% Observations Above PEL" = "above_pel",
+                                                                                          "% Observations Above TEL" = "above_tel"
                                                                                           ))),
                                                 checkboxInput("param_plot_checkbox", "Filter by Station", value = FALSE),
                                                 conditionalPanel(condition = "input.param_plot_checkbox == true",
@@ -524,7 +524,35 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                                                 plotlyOutput("param_scores_plot", height = "500px")
                                          )
                                        )
-                              )
+                              ),
+                              tabPanel("Worst Sieve Sizes",
+                                       fluidRow(
+                                         column(4,
+                                                radioButtons("sieve_plot_type", "Rank Sieve Sizes Using:",
+                                                             choices = c("Raw Sediment Samples" = "sed_value",
+                                                                         "USGS SQGs" = "usgs")),
+                                                conditionalPanel(condition = "input.sieve_plot_type == 'sed_value'",
+                                                                 selectInput("sieve_plot_param", "Select Parameter:", choices = NULL)),
+                                                conditionalPanel(condition = "input.sieve_plot_type == 'sed_value'",
+                                                                 radioButtons("sieve_param_type", "Rank by:", 
+                                                                              choices = c(
+                                                                                "Average Value" = "avg",
+                                                                                "Most Extreme Value" = "max"
+                                                                              ))),
+                                                conditionalPanel(condition = "input.sieve_plot_type == 'usgs'",
+                                                                 radioButtons("sieve_plot_usgs", "Rank By:",
+                                                                              choices = c("Worst Scored Overall" = "worst_score",
+                                                                                          "Mean # Observations Above PEL" = "above_pel",
+                                                                                          "Mean # Observations Above TEL" = "above_tel"))),
+                                                conditionalPanel(condition = "input.sieve_plot_type == 'usgs'",
+                                                                 checkboxInput("sieve_plot_checkbox", "Filter By Station", value = FALSE)),
+                                                conditionalPanel(condition = "input.sieve_plot_checkbox == true",
+                                                                 selectInput("sieve_plot_station", "Select Station:",
+                                                                             choices = NULL))
+                                                ),
+                                         column(8,
+                                                plotlyOutput("sieve_scores_plot", height = "500px"))
+                                       ))
                             )
                           
                  ),
@@ -792,6 +820,13 @@ server <- function(input, output, session) {
                                    "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Pilcomayo arriba Tacobamba"))
     
+    # Add Distance from Bank column from all_sed_clean
+    df <- df |>
+      left_join(
+        all_sed_clean() |> select(Station, Date, `Sieve Size`, `Distance from Bank`),
+        by = c("Station", "Date", "Sieve Size")
+      )
+    
     # 1. Get the USGS columns
     usgs_columns <- df %>% select(ends_with("USGS"))
     
@@ -808,7 +843,6 @@ server <- function(input, output, session) {
     df$unique <- paste(df$Station, df$Date, sep = " - ")
     
     return(df)
-    
   })
   
   # Only Points west of Villamontes (only points in Bolivia)
@@ -1191,6 +1225,10 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "observation_plot_param_sed",
                       choices = numeric_params_sed,
                       selected = "Arsenic (mg/kg As)")
+    
+    updateSelectInput(inputId = "sieve_plot_param",
+                      choices = numeric_params_sed,
+                      selected = "Arsenic (mg/kg As)")
   })
   
   
@@ -1296,6 +1334,7 @@ server <- function(input, output, session) {
       param <- input$observation_plot_param
       
       if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
+        req(param)
         p <- bol_water_1333() |>
           slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
           mutate(label = paste0(Station, " (", Date, ")"),
@@ -1308,6 +1347,7 @@ server <- function(input, output, session) {
           theme_minimal()
         ggplotly(p, tooltip = "text")
       } else {
+        req(param)
         p <- bol_water_1333() |>
           slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
           mutate(label = paste0(Station, " (", Date, ")"),
@@ -1332,7 +1372,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, num_above_tel)) |>
           ggplot(aes(x = label, y = num_above_tel,
-                     text = paste("# Above TEL:", num_above_tel))) +
+                     text = paste("# Above TEL:", num_above_tel, "<br>",
+                                  "Sieve Size:", `Sieve Size`, "<br>",
+                                  "Distance from Bank:", `Distance from Bank`))) +
           geom_col(fill = "darkorange") +
           labs(title = "# Above TEL: Top 15 Observations (Bolivia)",
                x = NULL, y = "Number of Parameters Above TEL") +
@@ -1347,7 +1389,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, num_above_pel)) |>
           ggplot(aes(x = label, y = num_above_pel,
-                     text = paste("# Above PEL:", num_above_pel))) +
+                     text = paste("# Above PEL:", num_above_pel, "<br>",
+                                  "Sieve Size:", `Sieve Size`, "<br>",
+                                  "Distance from Bank:", `Distance from Bank`))) +
           geom_col(fill = "firebrick") +
           labs(title = "# Above PEL: Top 15 Observations (Bolivia)",
                x = NULL, y = "Number of Parameters Above PEL") +
@@ -1362,7 +1406,9 @@ server <- function(input, output, session) {
             label = make.unique(label),
             label = fct_reorder(label, sed_score)) |>
           ggplot(aes(x = label, y = sed_score,
-                     text = paste("Sediment Quality Score:", round(sed_score, 2)))) +
+                     text = paste("Sediment Quality Score:", round(sed_score, 2), "<br>",
+                                  "Sieve Size:", `Sieve Size`, "<br>",
+                                  "Distance from Bank:", `Distance from Bank`))) +
           geom_col(fill = "darkslateblue") +
           labs(title = "Overall Sediment Score: Top 15 Observations (Bolivia)",
                x = NULL, y = "Sediment Quality Score (0=best, 2=worst)") +
@@ -1379,6 +1425,7 @@ server <- function(input, output, session) {
       
       df <- bol_sed_clean()
       
+      req(param)
       p <- df |>
         slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
         mutate(
@@ -1386,7 +1433,9 @@ server <- function(input, output, session) {
           label = make.unique(label),
           label = fct_reorder(label, .data[[param]])) |>
         ggplot(aes(x = label, y = .data[[param]],
-                   text = paste0(param, ": ", round(.data[[param]], 3)))) +
+                   text = paste0(param, ": ", round(.data[[param]], 3), "<br>",
+                                 "Sieve Size:", `Sieve Size`, "<br>",
+                                 "Distance from Bank:", `Distance from Bank`))) +
         geom_col(fill = "tan") +
         labs(title = paste("15 Highest Observations for", param)) +
         coord_flip() +
@@ -1552,6 +1601,8 @@ server <- function(input, output, session) {
         if (param %in% reverse_params) {
           summary_df <- slice_min(summary_df, min_value, n = 15)
           
+          req(param)
+          
           p <- summary_df %>%
             mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
             ggplot(aes(x = reorder(Station_label, -min_value), y = min_value,
@@ -1570,6 +1621,8 @@ server <- function(input, output, session) {
           
         } else {
           summary_df <- slice_max(summary_df, max_value, n = 15)
+          
+          req(param)
           
           p <- summary_df %>%
             mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
@@ -1604,6 +1657,8 @@ server <- function(input, output, session) {
         if (param %in% reverse_params) {
           summary_df <- slice_min(summary_df, avg_value, n = 15)
           
+          req(param)
+          
           p <- summary_df %>%
             mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
             ggplot(aes(x = reorder(Station_label, -avg_value), y = avg_value,
@@ -1622,6 +1677,8 @@ server <- function(input, output, session) {
           
         } else {
           summary_df <- slice_max(summary_df, avg_value, n = 15)
+          
+          req(param)
           
           p <- summary_df %>%
             mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
@@ -1720,6 +1777,8 @@ server <- function(input, output, session) {
         
         summary_df <- slice_max(summary_df, max_value, n = 15)
         
+        req(param)
+        
         p <- summary_df %>%
           mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
           ggplot(aes(x = reorder(Station_label, max_value), y = max_value,
@@ -1739,6 +1798,8 @@ server <- function(input, output, session) {
       } else if (input$station_param_type == "avg") {
         
         summary_df <- slice_max(summary_df, avg_value, n = 15)
+        
+        req(param)
         
         p <- summary_df %>%
           mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
@@ -1859,6 +1920,13 @@ server <- function(input, output, session) {
     df <- bol_water_1333()
     stations <- unique(df$Station)
     updateSelectInput(inputId = "param_plot_station",
+                      choices = sort(stations))
+  })
+  
+  observe({
+    df <- bol_sed_usgs()
+    stations <- unique(df$Station)
+    updateSelectInput(inputId = "sieve_plot_station",
                       choices = sort(stations))
   })
   
@@ -2224,6 +2292,121 @@ server <- function(input, output, session) {
     }
 
   })
+  
+  
+  output$sieve_scores_plot <- renderPlotly({
+    req(input$sieve_plot_type)
+    
+    if (input$sieve_plot_type == "sed_value") {
+      req(input$sieve_plot_param)
+      df <- bol_sed_clean()
+      
+      param <- input$sieve_plot_param
+      
+      plot_df <- df |>
+        group_by(`Sieve Size`) |>
+        summarise(mean_value = mean(.data[[param]]),
+                  max_value = max(.data[[param]]))
+      
+      if (input$sieve_param_type == "max") {
+        
+        p <- plot_df |>
+          ggplot(aes(x = reorder(`Sieve Size`, max_value), 
+                     y = max_value,
+                     text = paste0("Max ", param, ": ", round(max_value, 2)))) +
+          geom_col(fill = "tan") +
+          coord_flip() + 
+          labs(title = paste("Sieve Sizes Ranked by Max", param),
+               x = NULL, y = paste("Max", param)) +
+          theme_minimal()
+        
+        ggplotly(p, tooltip = "text")
+        
+      } else if (input$sieve_param_type == "avg") {
+        
+        p <- plot_df |>
+          ggplot(aes(x = reorder(`Sieve Size`, mean_value), 
+                     y = mean_value,
+                     text = paste0("Mean ", param, ": ", round(mean_value, 2)))) +
+          geom_col(fill = "tan") +
+          coord_flip() +
+          labs(title = paste("Sieve Sizes Ranked by Mean", param),
+               x = NULL, y = paste("Mean", param)) +
+          theme_minimal()
+        
+        ggplotly(p, tooltip = "text")
+        
+      }
+      
+      
+    } else if (input$sieve_plot_type == "usgs") {
+      req(input$sieve_plot_usgs)
+      
+      df <- bol_sed_usgs()
+
+      if (input$sieve_plot_checkbox == TRUE) {
+        df <- df |>
+          filter(Station == input$sieve_plot_station)
+      }
+
+      plot_df <- df |>
+        group_by(`Sieve Size`) |>
+        summarise(mean_score = mean(sed_score),
+                  mean_above_pel = mean(num_above_pel),
+                  mean_above_tel = mean(num_above_tel)
+                  )
+      
+      if (input$sieve_plot_usgs == "worst_score") {
+        
+        p <- plot_df |>
+          ggplot(aes(x = reorder(`Sieve Size`, mean_score), 
+                     y = mean_score,
+                     text = paste0("Overall Score: ", round(mean_score, 3)))) +
+          geom_col(fill = "darkslateblue") +
+          coord_flip() +
+          labs(title = "Sieve Sizes Ranked by Overall Score",
+               x = NULL, y = "Mean Overall Score (0=best, 2=worst)") +
+          theme_minimal()
+        
+        ggplotly(p, tooltip = "text")
+        
+      } else if (input$sieve_plot_usgs == "above_pel") {
+        
+        p <- plot_df |>
+          ggplot(aes(x = reorder(`Sieve Size`, mean_above_pel), 
+                     y = mean_above_pel,
+                     text = paste0("Mean # Params Above PEL: ", round(mean_above_pel, 3)))) +
+          geom_col(fill = "firebrick") +
+          coord_flip() +
+          labs(title = "Sieve Sizes Ranked by Mean # Above PEL",
+               x = NULL, y = "Mean Number of Parameters Above PEL (per sample)") +
+          theme_minimal()
+        
+        ggplotly(p, tooltip = "text")
+        
+      } else if (input$sieve_plot_usgs == "above_tel") {
+        
+        p <- plot_df |>
+          ggplot(aes(x = reorder(`Sieve Size`, mean_above_tel), 
+                     y = mean_above_tel,
+                     text = paste0("Mean # Params Above TEL: ", round(mean_above_tel, 3)))) +
+          geom_col(fill = "darkorange") +
+          coord_flip() +
+          labs(title = "Sieve Sizes Ranked by Mean # Above TEL",
+               x = NULL, y = "Mean Number of Parameters Above TEL (per sample)") +
+          theme_minimal()
+        
+        ggplotly(p, tooltip = "text")
+        
+      }
+      
+    }
+    
+  })
+  
+  
+  
+  
   
   ################# SLIDER MAPS ###########################
   
