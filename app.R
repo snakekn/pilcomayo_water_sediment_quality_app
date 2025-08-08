@@ -21,8 +21,14 @@ sed_data_path_clean <- "data/sed/clean"
 water_data_path_clean <- "data/water/clean"
 
 # Define UI
-ui <- navbarPage("Sediment & Water Quality Explorer",
-                 
+ui <- fluidPage(
+  tags$head(tags$style(HTML("
+    /* small styling for the selector box (tweak as needed) */
+    #scope-selector { margin: 8px 12px; padding: 8px; border-radius: 6px; background:#f8f9fa; display:inline-block; }
+  "))),
+  
+  tabsetPanel(id = "main_tab",
+              
                  tabPanel("Introduction",
                           fluidPage(
                             titlePanel("Sediment & Water Quality in the Pilcomayo River Basin"),
@@ -75,7 +81,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             radioButtons(
                               inputId = "data_scope",
                               label = "Select Data Scope:",
-                              choices = c("Bolivia Only" = "bol", "All Countries" = "all"),
+                              choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
                               selected = "bol",  # or "all" if you want to default to everything
                               inline = TRUE
                             ),
@@ -110,12 +116,14 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             tags$h4("Data Sources:"),
                             tags$p("Sediment and Water Quality data: Provided by the Comisión Trinacional para el Desarrollo de la Cuenca del Río Pilcomayo. Retrieved from www2.pilcomayo.net."),
                             tags$p("Sediment quality guidelines: USGS Sediment Quality Guidelines (MacDonald et al. 1996)."),
+                            tags$p("Bolivia Border GeoJSON: https://data.humdata.org/dataset/geoboundaries-admin-boundaries-for-bolivia-plurinational-state-of"),
                             tags$p("Water quality standards: Bolivian Standards from Ley General de Medio Ambiente (Ley No. 1333), Anexo A, Cuadro No. 1. "),
                             tags$p("Header Image: https://commons.wikimedia.org/wiki/File:Río_Pilcomayo,_Área_natural_de_manejo_integrado_Aguaragüe_-_Bolivia.jpg"),
                             tags$hr(),
                             tags$p("This application was developed using R Shiny and integrates spatial and tabular data for interactive analysis.")
                           )
                  ),
+              
                  tabPanel("Sediment Map",
                           sidebarLayout(
                             sidebarPanel(
@@ -290,18 +298,7 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                           )
                  ),
                  tabPanel("Ranking Plots",
-                          # Global data scope selector for entire Ranking Plots tab
-                          fluidRow(
-                            column(12,
-                                   div(style = "margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;",
-                                       radioButtons("plot_data_scope", "Data Scope:",
-                                                    choices = c("Bolivia Only" = "bol", 
-                                                                "All Countries" = "all"),
-                                                    selected = "bol",
-                                                    inline = TRUE)
-                                   )
-                            )
-                          ),
+                          
                             tabsetPanel(
                               tabPanel("Worst Observations", 
                                        fluidRow(
@@ -608,7 +605,40 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                             )
                             
                           )
-                 )
+                 )),
+  ## 2) Put the conditionalPanel AFTER the tabsetPanel (so it won't be treated as a tab).
+  ##    It's still outside the tabsetPanel (so no ghost tab), but the script below will move it
+  ##    visually *into* the tab content area.
+  div(id = "scope-selector-wrapper",
+      conditionalPanel(
+        condition = "input.main_tab != 'Introduction'",
+        div(id = "scope-selector",
+            radioButtons("plot_data_scope", "Data Scope:",
+                         choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+                         selected = "bol", inline = TRUE)
+        )
+      )
+  ),
+  
+  ## 3) Move the wrapper into the tab content area so it appears under the tab headers (not above)
+  tags$script(HTML("
+  $(function(){
+    function moveScope(){
+      // find the tab-content corresponding to #main_tab
+      var tabContent = $('#main_tab').closest('.container-fluid').find('.tab-content').first();
+      var wrapper = $('#scope-selector-wrapper');
+      if(tabContent.length && wrapper.length){
+        // Prepend instead of append so it goes right under the tab headers
+        if(wrapper.parent().get(0) !== tabContent.get(0)){
+          tabContent.prepend(wrapper);
+        }
+      }
+    }
+    moveScope();
+    setTimeout(moveScope, 250);
+  });
+"))
+  
                  
 )
 
@@ -711,17 +741,23 @@ server <- function(input, output, session) {
     return(all_data)
   })
   
-  # Only Points west of Villamontes (only points in Bolivia)
-  bol_water_clean <- reactive({
-    all_water_clean() |>
-      filter(`Longitude Decimal` <= -63.52)
-  })
   
-  water_years <- reactive({
-    df <- all_water_clean()
+  # Only points in Bolivia
+  bol_water_clean <- reactive({
+    water_data <- all_water_clean() |>
+      st_as_sf(coords = c("Longitude Decimal", "Latitude Decimal"), crs = st_crs(bol_border))
     
-    unique(df$Year)
+    filtered_data <- st_filter(water_data, bol_border)
+    
+    coords <- st_coordinates(filtered_data)
+    filtered_data |>
+      mutate(
+        `Longitude Decimal` = coords[, 1],
+        `Latitude Decimal` = coords[, 2]
+      ) |>
+      st_drop_geometry()
   })
+
   
   # Read and combine water data (1333 version)
   all_water_1333 <- reactive({
@@ -771,15 +807,24 @@ server <- function(input, output, session) {
     return(all_data)
   })
   
-  # Only Points west of Villamontes (only points in Bolivia)
+  
+  # Only points in Bolivia
   bol_water_1333 <- reactive({
-    all_water_1333() |>
-      filter(`Longitude Decimal` <= -63.52)
+    water_data <- all_water_1333() |>
+      st_as_sf(coords = c("Longitude Decimal", "Latitude Decimal"), crs = st_crs(bol_border))
+    
+    filtered_data <- st_filter(water_data, bol_border)
+    
+    coords <- st_coordinates(filtered_data)
+    filtered_data |>
+      mutate(
+        `Longitude Decimal` = coords[, 1],
+        `Latitude Decimal` = coords[, 2]
+      ) |>
+      st_drop_geometry()
   })
   
-  water_years_1333 <- reactive({
-    unique(all_water_1333()$Year)
-  })
+
   
   ## Load sediment data ##
   
@@ -804,15 +849,25 @@ server <- function(input, output, session) {
     
     return(df)
   })
+
   
-  sed_years <- reactive({
-    unique(all_sed_clean()$Year)
-  })
-  
-  # Only Points west of Villamontes (only points in Bolivia)
+  # Only points in Bolivia
   bol_sed_clean <- reactive({
-    all_sed_clean() |>
-      filter(Long_dd <= -63.52)
+    # Convert to sf
+    sed_data <- all_sed_clean() |>
+      st_as_sf(coords = c("Long_dd", "Lat_dd"), crs = st_crs(bol_border))
+    
+    # Spatial filter
+    filtered_data <- st_filter(sed_data, bol_border)
+    
+    # Extract coords and convert back
+    coords <- st_coordinates(filtered_data)
+    filtered_data |>
+      mutate(
+        Long_dd = coords[, 1],
+        Lat_dd = coords[, 2]
+      ) |>
+      st_drop_geometry()
   })
   
   all_sed_usgs <- reactive({
@@ -860,24 +915,95 @@ server <- function(input, output, session) {
   })
   
   # Only Points west of Villamontes (only points in Bolivia)
+  bol_border <- st_read("data/geojson/bol_borders.geojson")
+  
   bol_sed_usgs <- reactive({
-    all_sed_usgs() |>
-      filter(Long_dd <= -63.52)
+    # Convert the sediment data to sf object if it isn't already
+    sed_data <- all_sed_usgs() |>
+      st_as_sf(coords = c("Long_dd", "Lat_dd"), crs = st_crs(bol_border))
+    
+    # Filter points that fall within the Bolivia border polygon
+    filtered_data <- st_filter(sed_data, bol_border)
+    
+    # If you need the data back as a regular dataframe with coordinates
+    # you can extract coordinates and convert back
+    coords <- st_coordinates(filtered_data)
+    filtered_data |>
+      mutate(
+        Long_dd = coords[, 1],
+        Lat_dd = coords[, 2]
+      ) |>
+      st_drop_geometry()
+  })
+  
+  
+   active_water_clean <- reactive({
+    if(input$plot_data_scope == "bol") {
+    bol_water_clean()
+  } else {
+    all_water_clean()
+  }
+  })
+  
+  active_water_1333 <- reactive({
+    if(input$plot_data_scope == "bol") {
+      bol_water_1333()
+    } else {
+      all_water_1333()
+    }
+  })
+    
+  
+  active_sed_clean <- reactive({
+    if(input$plot_data_scope == "bol") {
+      bol_sed_clean()
+    } else {
+      all_sed_clean()
+    }
+  })
+    
+  
+  active_sed_usgs <- reactive({
+    if(input$plot_data_scope == "bol") {
+    bol_sed_usgs()
+  } else {
+    all_sed_usgs()
+  }
+  })
+  
+  
+  # Get list of years in the data
+  
+  
+  water_years <- reactive({
+    unique(active_water_clean()$Year)
+  })
+  
+  water_years_1333 <- reactive({
+    unique(active_water_1333()$Year)
+  })
+  
+  sed_years <- reactive({
+    unique(active_sed_clean()$Year)
   })
   
   sed_years_usgs <- reactive({
-    unique(all_sed_usgs()$Year)
+    unique(active_sed_usgs()$Year)
   })
   
   all_years <- reactive({
     sort(unique(c(water_years(), 
-                             water_years_1333(),
-                             sed_years(),
-                             sed_years_usgs()
-                  )
-                )
-         ) 
+                  water_years_1333(),
+                  sed_years(),
+                  sed_years_usgs()
+    )
+    )
+    ) 
   })
+  
+  
+  
+  
   
   
   
@@ -1051,7 +1177,7 @@ server <- function(input, output, session) {
  
   
   numeric_columns <- reactive({
-    df <- bol_water_1333()
+    df <- active_water_1333()
     
     # Columns to exclude from parameter dropdown
     excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
@@ -1093,7 +1219,7 @@ server <- function(input, output, session) {
     
     if (length(input$pca_parameters) < 2) stop("Please select 2 more more variables")
     
-    df <- bol_water_1333() %>%
+    df <- active_water_1333() %>%
       select(all_of(input$pca_parameters))
     
     # Remove columns that are entirely NA
@@ -1149,39 +1275,7 @@ server <- function(input, output, session) {
   ################# RANKING PLOTS ############################
   
   
-  active_water_clean <- reactive({
-    if(input$plot_data_scope == "bol") {
-    bol_water_clean()
-  } else {
-    all_water_clean()
-  }
-  })
-  
-  active_water_1333 <- reactive({
-    if(input$plot_data_scope == "bol") {
-      bol_water_1333()
-    } else {
-      all_water_1333()
-    }
-  })
-    
-  
-  active_sed_clean <- reactive({
-    if(input$plot_data_scope == "bol") {
-      bol_sed_clean()
-    } else {
-      all_sed_clean()
-    }
-  })
-    
-  
-  active_sed_usgs <- reactive({
-    if(input$plot_data_scope == "bol") {
-    bol_sed_usgs()
-  } else {
-    all_sed_usgs()
-  }
-  })
+ 
     
   
   
@@ -1197,7 +1291,7 @@ server <- function(input, output, session) {
   
   # Identify classification columns
   class_cols <- reactive({
-    grep(" Class$", colnames(all_water_1333()), value = TRUE)
+    grep(" Class$", colnames(active_water_1333()), value = TRUE)
   })
   
   observe({
@@ -2501,9 +2595,9 @@ server <- function(input, output, session) {
   # Get current active dataset based on selected tab
   current_data <- reactive({
     if(is.null(input$map_tabs) || input$map_tabs == "parameter_map") {
-      all_water_clean()
+      active_water_clean()
     } else {
-      all_water_1333()
+      active_water_1333()
     }
   })
   
@@ -2541,7 +2635,7 @@ server <- function(input, output, session) {
   )
   
   output$parameter_selector_ui <- renderUI({
-    df <- all_water_clean()
+    df <- active_water_clean()
     possible_columns <- setdiff(names(df), excluded_columns)
     # Only numeric columns
     numeric_columns <- possible_columns[sapply(df[possible_columns], is.numeric)]
@@ -2555,7 +2649,7 @@ server <- function(input, output, session) {
   # Reactive color palette based on selected parameter
   color_pal <- reactive({
     req(input$selected_parameter)
-    df <- all_water_clean()
+    df <- active_water_clean()
     vals <- df[[input$selected_parameter]]
     vals <- vals[vals > 0 & !is.na(vals)]  # exclude zeros/non-positives for log scale
     
@@ -2579,7 +2673,7 @@ server <- function(input, output, session) {
   # Radius scaling function for parameter map
   size_pal_param <- reactive({
     req(input$selected_parameter)
-    df <- all_water_clean()
+    df <- active_water_clean()
     vals <- df[[input$selected_parameter]]
     vals <- vals[!is.na(vals)]
     
@@ -2595,7 +2689,7 @@ server <- function(input, output, session) {
   
   # Detect metals from columns ending with " Class"
   metals <- reactive({
-    df <- all_water_1333()
+    df <- active_water_1333()
     class_cols <- names(df)[stringr::str_ends(names(df), " Class")]
     metals <- stringr::str_remove(class_cols, " Class$")
     metals
@@ -2614,7 +2708,7 @@ server <- function(input, output, session) {
   
   value_col <- reactive({
     req(input$selected_metal)
-    df <- all_water_1333()
+    df <- active_water_1333()
     selected <- str_to_lower(input$selected_metal)
     
     non_class_cols <- names(df)[!str_detect(names(df), regex("class$", ignore_case = TRUE))]
@@ -2664,7 +2758,7 @@ server <- function(input, output, session) {
   # Radius scaling for classification map
   size_pal_class <- reactive({
     req(value_col())
-    df <- all_water_1333()
+    df <- active_water_1333()
     vals <- df[[value_col()]]
     vals <- vals[!is.na(vals)]
     
@@ -2695,7 +2789,7 @@ server <- function(input, output, session) {
   
   # Map data for parameter map
   map_data_param <- reactive({
-    df <- all_water_clean()
+    df <- active_water_clean()
     campaigns <- unique_campaigns()
     req(input$campaign_index, length(campaigns) > 0)
     req(input$selected_parameter)
@@ -2740,7 +2834,7 @@ server <- function(input, output, session) {
   
   # Map data for classification map
   map_data_class <- reactive({
-    df <- all_water_1333()
+    df <- active_water_1333()
     campaigns <- unique_campaigns()
     req(input$campaign_index, length(campaigns) > 0)
     req(input$selected_metal)
@@ -2944,9 +3038,9 @@ server <- function(input, output, session) {
     req(input$ts_tabs)  
     
     if (input$ts_tabs == "Water Samples") {
-      df <- all_water_clean()
+      df <- active_water_clean()
     } else if (input$ts_tabs == "Sediment Samples") {
-      df <- all_sed_clean()
+      df <- active_sed_clean()
     } else {
       return()
     }
@@ -3003,7 +3097,7 @@ server <- function(input, output, session) {
   
   
   ts_filtered_data_water <- reactive({
-    df <- all_water_clean()
+    df <- active_water_clean()
     req(input$ts_station, input$ts_param)
     
     if (!(input$ts_param %in% colnames(df))) {
@@ -3018,7 +3112,7 @@ server <- function(input, output, session) {
   
   # Initial filtering of parameter and station
   ts_filtered_data_sed_init <- reactive({
-    df <- all_sed_clean()
+    df <- active_sed_clean()
     req(input$ts_station, input$ts_param)
     
     if (!(input$ts_param %in% colnames(df))) {
@@ -3361,21 +3455,20 @@ server <- function(input, output, session) {
   
   # Dynamically populate year choices for map
   observe({
-    sed_files <- list.files(sed_data_path_usgs, pattern = "^sed_\\d{4}_usgs\\.xlsx$", full.names = FALSE)
     sed_years <- sed_years_usgs()
     updateSelectInput(session, "sed_year", choices = sed_years, selected = max(sed_years))
   })
   
   observe({
-    water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = FALSE)
-    water_years <- gsub("^water_(\\d{4})_1333\\.xlsx$", "\\1", water_files)
+    water_years <- water_years_1333()
     updateSelectInput(session, "water_year", choices = water_years, selected = max(water_years))
   })
   
   # Load selected dataset for map
   sed_selected_data <- reactive({
     req(input$sed_year)
-    read_xlsx(file.path(sed_data_path_usgs, paste0("sed_", input$sed_year, "_usgs.xlsx")))
+    active_sed_usgs() |>
+      filter(Year == input$sed_year)
   })
   
   water_selected_data <- reactive({
