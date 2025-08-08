@@ -290,6 +290,18 @@ ui <- navbarPage("Sediment & Water Quality Explorer",
                           )
                  ),
                  tabPanel("Ranking Plots",
+                          # Global data scope selector for entire Ranking Plots tab
+                          fluidRow(
+                            column(12,
+                                   div(style = "margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;",
+                                       radioButtons("plot_data_scope", "Data Scope:",
+                                                    choices = c("Bolivia Only" = "bol", 
+                                                                "All Countries" = "all"),
+                                                    selected = "bol",
+                                                    inline = TRUE)
+                                   )
+                            )
+                          ),
                             tabsetPanel(
                               tabPanel("Worst Observations", 
                                        fluidRow(
@@ -626,6 +638,8 @@ server <- function(input, output, session) {
   
   
   pilco_line <- st_read("data/geojson/pilco_line.geojson")
+  
+  bol_border <- st_read("data/geojson/bol_borders.geojson")
   
   usgs_sqg <- read_csv("data/standards/USGS_SQG.csv") |>
     mutate(match_name = c("Arsenic (mg/kg As)",
@@ -1126,8 +1140,49 @@ server <- function(input, output, session) {
   
   ################# RANKING PLOTS ############################
   
+  ################# RANKING PLOTS ############################
+  
+  ################# RANKING PLOTS ############################
+  
+  ################# RANKING PLOTS ############################
+  
+  ################# RANKING PLOTS ############################
   
   
+  active_water_clean <- reactive({
+    if(input$plot_data_scope == "bol") {
+    bol_water_clean()
+  } else {
+    all_water_clean()
+  }
+  })
+  
+  active_water_1333 <- reactive({
+    if(input$plot_data_scope == "bol") {
+      bol_water_1333()
+    } else {
+      all_water_1333()
+    }
+  })
+    
+  
+  active_sed_clean <- reactive({
+    if(input$plot_data_scope == "bol") {
+      bol_sed_clean()
+    } else {
+      all_sed_clean()
+    }
+  })
+    
+  
+  active_sed_usgs <- reactive({
+    if(input$plot_data_scope == "bol") {
+    bol_sed_usgs()
+  } else {
+    all_sed_usgs()
+  }
+  })
+    
   
   
   
@@ -1167,7 +1222,7 @@ server <- function(input, output, session) {
                           "num_class_c",
                           "num_class_d")
     
-    numeric_params <- bol_water_1333() %>%  
+    numeric_params <- active_water_1333() %>%  
       select(where(is.numeric)) %>%
       select(-any_of(excluded_columns)) %>%
       names()
@@ -1188,7 +1243,7 @@ server <- function(input, output, session) {
   )
   
   usgs_cols <- reactive({
-    grep(" USGS$", colnames(bol_sed_usgs()), value = TRUE)
+    grep(" USGS$", colnames(active_sed_usgs()), value = TRUE)
   })
   
   observe({
@@ -1213,7 +1268,7 @@ server <- function(input, output, session) {
                           "num_class_c",
                           "num_class_d")
     
-    numeric_params_sed <- bol_sed_clean() |>
+    numeric_params_sed <- active_sed_clean() |>
       select(where(is.numeric)) |>
       select(-any_of(excluded_columns)) |>
       names()
@@ -1234,7 +1289,7 @@ server <- function(input, output, session) {
   
   # Compute water quality score per observation (row)
   observation_scores <- reactive({
-    bol_water_1333() %>%
+    active_water_1333() %>%
       rowwise() %>%
       mutate(
         water_score = mean(
@@ -1335,34 +1390,36 @@ server <- function(input, output, session) {
       
       if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
         req(param)
-        p <- bol_water_1333() |>
+        p <- active_water_1333() |>
           slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
           mutate(label = paste0(Station, " (", Date, ")"),
                  label = fct_reorder(label, -.data[[param]])) |>
           ggplot(aes(x = label, y = .data[[param]],
                      text = paste0(param, ": ", round(.data[[param]], 3)))) +
           geom_col(fill = "steelblue") +
-          labs(title = paste("15 Lowest Observations for", param)) +
+          labs(title = paste("15 Lowest Observations for", param),
+               x = NULL, y = param) +
           coord_flip() +
           theme_minimal()
         ggplotly(p, tooltip = "text")
       } else {
         req(param)
-        p <- bol_water_1333() |>
+        p <- active_water_1333() |>
           slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
           mutate(label = paste0(Station, " (", Date, ")"),
                  label = fct_reorder(label, .data[[param]])) |>
           ggplot(aes(x = label, y = .data[[param]],
                      text = paste0(param, ": ", round(.data[[param]], 3)))) +
           geom_col(fill = "steelblue") +
-          labs(title = paste("15 Highest Observations for", param)) +
+          labs(title = paste("15 Highest Observations for", param),
+               x = NULL, y = param) +
           coord_flip() +
           theme_minimal()
         ggplotly(p, tooltip = "text")
       }
     } else if (input$observation_plot_type == "usgs") {
       
-      df <- bol_sed_usgs()
+      df <- active_sed_usgs()
       
       if (input$observation_plot_usgs == "above_tel") {
         p <- df |>
@@ -1423,7 +1480,7 @@ server <- function(input, output, session) {
       
       param <- input$observation_plot_param_sed
       
-      df <- bol_sed_clean()
+      df <- active_sed_clean()
       
       req(param)
       p <- df |>
@@ -1437,7 +1494,8 @@ server <- function(input, output, session) {
                                  "Sieve Size:", `Sieve Size`, "<br>",
                                  "Distance from Bank:", `Distance from Bank`))) +
         geom_col(fill = "tan") +
-        labs(title = paste("15 Highest Observations for", param)) +
+        labs(title = paste("15 Highest Observations for", param),
+             x = NULL, y = param) +
         coord_flip() +
         theme_minimal()
       
@@ -1451,7 +1509,7 @@ server <- function(input, output, session) {
   
   # Calculate max date for recency weighting
   max_date <- reactive({
-    max(bol_water_1333()$Date, na.rm = TRUE)
+    max(active_water_1333()$Date, na.rm = TRUE)
   })
   
   # Calculate weighted normalized score per observation, then aggregate by Station
@@ -1474,7 +1532,7 @@ server <- function(input, output, session) {
   })
   
   station_scores_sed <- reactive({
-    bol_sed_usgs() |>
+    active_sed_usgs() |>
       mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")))) |>
       group_by(Station) |>
       summarize(
@@ -1588,7 +1646,7 @@ server <- function(input, output, session) {
       if (input$station_param_type == "max") {
         
         # Summarize max value per station
-        summary_df <- bol_water_1333() %>%
+        summary_df <- active_water_1333() %>%
           group_by(Station) %>%
           summarise(
             max_value = max(.data[[param]], na.rm = TRUE),
@@ -1645,7 +1703,7 @@ server <- function(input, output, session) {
       } else if (input$station_param_type == "avg") {
         
         # Summarize average value per station
-        summary_df <- bol_water_1333() %>%
+        summary_df <- active_water_1333() %>%
           group_by(Station) %>%
           summarise(
             avg_value = mean(.data[[param]], na.rm = TRUE),
@@ -1761,7 +1819,7 @@ server <- function(input, output, session) {
       # Get selected parameter
       param <- input$station_plot_param_sed
       
-      summary_df <- bol_sed_clean() %>%
+      summary_df <- active_sed_clean() %>%
         group_by(Station) %>%
         summarise(
           max_value = max(.data[[param]], na.rm = TRUE),
@@ -1885,6 +1943,7 @@ server <- function(input, output, session) {
         labs(
           title = plot_title,
           subtitle = plot_subtitle,
+          x = NULL,
           y = "Percent",
           fill = NULL
         ) +
@@ -1908,6 +1967,7 @@ server <- function(input, output, session) {
         labs(
           title = plot_title,
           subtitle = plot_subtitle,
+          x = NULL,
           y = "Percent",
           fill = NULL
         ) +
@@ -1917,21 +1977,21 @@ server <- function(input, output, session) {
   }
   
   observe({
-    df <- bol_water_1333()
+    df <- active_water_1333()
     stations <- unique(df$Station)
     updateSelectInput(inputId = "param_plot_station",
                       choices = sort(stations))
   })
   
   observe({
-    df <- bol_sed_usgs()
+    df <- active_sed_usgs()
     stations <- unique(df$Station)
     updateSelectInput(inputId = "sieve_plot_station",
                       choices = sort(stations))
   })
   
-  bol_water_1333_param_plot <- reactive({
-    df <- bol_water_1333()
+  active_water_1333_param_plot <- reactive({
+    df <- active_water_1333()
     
     if (isTRUE(input$param_plot_checkbox)) {
       df <- df |>
@@ -1941,8 +2001,8 @@ server <- function(input, output, session) {
     df
   })
   
-  bol_sed_usgs_param_plot <- reactive({
-    df <- bol_sed_usgs()
+  active_sed_usgs_param_plot <- reactive({
+    df <- active_sed_usgs()
     
     if (isTRUE(input$param_plot_checkbox)) {
       df <- df |>
@@ -1954,11 +2014,11 @@ server <- function(input, output, session) {
   
   # Standardized (per observation)
   param_scores_std <- reactive({
-    bol_water_1333 <- bol_water_1333_param_plot()
+    active_water_1333 <- active_water_1333_param_plot()
     
     class_cols <- class_cols()
     
-    sapply(bol_water_1333[class_cols], function(col) {
+    sapply(active_water_1333[class_cols], function(col) {
       (sum(col == "Class B", na.rm = TRUE) * 1 +
          sum(col == "Class C", na.rm = TRUE) * 2 +
          sum(col == "Class D", na.rm = TRUE) * 3 +
@@ -1969,11 +2029,11 @@ server <- function(input, output, session) {
   
   # Unstandardized (raw totals)
   param_scores_raw <- reactive({
-    bol_water_1333 <- bol_water_1333_param_plot()
+    active_water_1333 <- active_water_1333_param_plot()
     
     class_cols <- class_cols()
     
-    sapply(bol_water_1333[class_cols], function(col) {
+    sapply(active_water_1333[class_cols], function(col) {
       (sum(col == "Class B", na.rm = TRUE) * 1 +
          sum(col == "Class C", na.rm = TRUE) * 2 +
          sum(col == "Class D", na.rm = TRUE) * 3 +
@@ -1984,11 +2044,11 @@ server <- function(input, output, session) {
   
   # Same thing fro sediment data
   param_scores_std_sed <- reactive({
-    bol_sed_usgs <- bol_sed_usgs_param_plot()
+    active_sed_usgs <- active_sed_usgs_param_plot()
     
     usgs_cols <- usgs_cols()
     
-    sapply(bol_sed_usgs[usgs_cols], function(col) {
+    sapply(active_sed_usgs[usgs_cols], function(col) {
       (sum(col == "Above TEL", na.rm = TRUE) * 1 +
          sum(col == "Above PEL", na.rm = TRUE) * 2) /
         sum(!is.na(col))
@@ -1996,11 +2056,11 @@ server <- function(input, output, session) {
   })
   
   param_scores_raw_sed <- reactive({
-    bol_sed_usgs <- bol_sed_usgs_param_plot()
+    active_sed_usgs <- active_sed_usgs_param_plot()
     
     usgs_cols <- usgs_cols()
     
-    sapply(bol_sed_usgs[usgs_cols], function(col) {
+    sapply(active_sed_usgs[usgs_cols], function(col) {
       (sum(col == "Above TEL", na.rm = TRUE) * 1 +
          sum(col == "Above PEL", na.rm = TRUE) * 2) /
         length(col)
@@ -2086,7 +2146,7 @@ server <- function(input, output, session) {
       
       if (plot_type == "unclassified") {
         p <- plot_class_proportions_overlay(
-          data = bol_water_1333_param_plot(),
+          data = active_water_1333_param_plot(),
           class_cols = class_cols(),
           class_label = "Unclassified",
           bar_color = "firebrick",
@@ -2110,7 +2170,7 @@ server <- function(input, output, session) {
         
       } else if (plot_type == "class_d") {
         p <- plot_class_proportions_overlay(
-          data = bol_water_1333_param_plot(),
+          data = active_water_1333_param_plot(),
           class_cols = class_cols(),
           class_label = "Class D",
           bar_color = "darkorange",
@@ -2134,7 +2194,7 @@ server <- function(input, output, session) {
         
       } else if (plot_type == "class_c") {
         p <- plot_class_proportions_overlay(
-          data = bol_water_1333_param_plot(),
+          data = active_water_1333_param_plot(),
           class_cols = class_cols(),
           class_label = "Class C",
           bar_color = "gold",
@@ -2158,7 +2218,7 @@ server <- function(input, output, session) {
         
       } else if (plot_type == "class_b") {
         p <- plot_class_proportions_overlay(
-          data = bol_water_1333_param_plot(),
+          data = active_water_1333_param_plot(),
           class_cols = class_cols(),
           class_label = "Class B",
           bar_color = "lightgreen",
@@ -2200,6 +2260,7 @@ server <- function(input, output, session) {
               "Overall: Top 15 Worst Parameters"
             ),
             subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+            x = NULL,
             y = "Water Quality Score (0=best, 4=worst)"
           ) +
           theme_minimal()
@@ -2230,6 +2291,7 @@ server <- function(input, output, session) {
               "Overall Score: Sediment Parameters Ranked"
             ),
             subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+            x = NULL,
             y = "Water Quality Score (0=best, 4=worst)"
           ) +
           theme_minimal()
@@ -2239,7 +2301,7 @@ server <- function(input, output, session) {
       } else if(plot_type == "above_tel") {
         
         p <- plot_class_proportions_overlay(
-          data = bol_sed_usgs_param_plot(),
+          data = active_sed_usgs_param_plot(),
           class_cols = usgs_cols(),
           class_label = "Above TEL",
           bar_color = "darkorange",
@@ -2265,7 +2327,7 @@ server <- function(input, output, session) {
       } else if (plot_type == "above_pel") {
         
         p <- plot_class_proportions_overlay(
-          data = bol_sed_usgs_param_plot(),
+          data = active_sed_usgs_param_plot(),
           class_cols = usgs_cols(),
           class_label = "Above PEL",
           bar_color = "firebrick",
@@ -2299,7 +2361,7 @@ server <- function(input, output, session) {
     
     if (input$sieve_plot_type == "sed_value") {
       req(input$sieve_plot_param)
-      df <- bol_sed_clean()
+      df <- active_sed_clean()
       
       param <- input$sieve_plot_param
       
@@ -2342,7 +2404,7 @@ server <- function(input, output, session) {
     } else if (input$sieve_plot_type == "usgs") {
       req(input$sieve_plot_usgs)
       
-      df <- bol_sed_usgs()
+      df <- active_sed_usgs()
 
       if (input$sieve_plot_checkbox == TRUE) {
         df <- df |>
@@ -2735,6 +2797,10 @@ server <- function(input, output, session) {
                    color = "darkcyan", 
                    weight = 3, 
                    opacity = 0.8) %>%
+      addPolygons(data = bol_border,
+                  color = "black",
+                  weight = 3,
+                  fill = FALSE) %>%
       setView(lng = -63.5, lat = -21.3, zoom = 7)
   })
   
@@ -2746,6 +2812,10 @@ server <- function(input, output, session) {
                    color = "darkcyan", 
                    weight = 3, 
                    opacity = 0.8) %>%
+      addPolygons(data = bol_border,
+                  color = "black",
+                  weight = 3,
+                  fill = FALSE) %>%
       setView(lng = -63.5, lat = -21.3, zoom = 7)
   })
   
@@ -3479,6 +3549,10 @@ server <- function(input, output, session) {
                    color = "darkcyan", 
                    weight = 3, 
                    opacity = 0.8) %>%
+      addPolygons(data = bol_border,
+                  color = "black",
+                  weight = 3,
+                  fill = FALSE) %>%
       addCircleMarkers(
         lng = ~Long_dd,
         lat = ~Lat_dd,
