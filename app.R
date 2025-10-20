@@ -12,6 +12,7 @@ library(ggfortify)
 library(FactoMineR)
 library(factoextra)
 library(shinyWidgets)
+library(bslib)
 
 # File paths to data
 sed_data_path_usgs <- "data/sed/usgs"
@@ -19,6 +20,19 @@ water_data_path_1333 <- "data/water/1333"
 
 sed_data_path_clean <- "data/sed/clean"
 water_data_path_clean <- "data/water/clean"
+
+# Path to 
+
+# load scripts for risk analysis separately from the UI & server
+load_scripts <- function(dir = "scripts/risk_analysis") {
+  if (!dir.exists(dir)) return(invisible())
+  files <- list.files(dir, pattern = "[.]R$", full.names = TRUE, recursive = TRUE)
+  for (f in files) {
+    # source into the *current* app environment to avoid globals
+    sys.source(f, envir = environment()) 
+  }
+}
+load_scripts()
 
 # Define UI
 ui <- fluidPage(
@@ -605,7 +619,15 @@ ui <- fluidPage(
                             )
                             
                           )
-                 )),
+                 ),
+              tabPanel("Regional Risk Analysis",
+                       includeMarkdown("text/risk_analysis_about.md"),
+                       leafletOutput("risk_map", height="600px"),
+                       accordion(id="risk_analysis_factors", open=FALSE,
+                                 accordion_panel("Weights for risk analysis calculation",
+                                                 includeMarkdown("text/risk_analysis_weights.md"))
+                       )
+              )),
   ## 2) Put the conditionalPanel AFTER the tabsetPanel (so it won't be treated as a tab).
   ##    It's still outside the tabsetPanel (so no ghost tab), but the script below will move it
   ##    visually *into* the tab content area.
@@ -665,7 +687,21 @@ server <- function(input, output, session) {
   
   ################# LOAD DATA #########################
   
+  ## Nadav's area - risk analysis work
+
+  # create the leaflet that will show the risk map
+  output$risk_map = renderLeaflet({
+    leaflet() |>
+      addTiles() |>
+      setView(lng=-16.95, lat=-65.3, zoom=4) # set to potosi
+      # below will be more code to show on the map
+      # - will need to call in vector layer
+      # - will need to conduct calculations based on vectors and environmental hazards data
+  })
+
+
   
+  ## End Risk Analysis work
   
   pilco_line <- st_read("data/geojson/pilco_line.geojson")
   
