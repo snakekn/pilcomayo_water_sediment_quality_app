@@ -10,9 +10,7 @@ calculate_hazard_q <- function(value, parameter) {
   parameter <- as.character(parameter)
 
   # --- Load WHO standards ---
-  guidelines <- readr::read_csv("data/standards/who_water.csv", show_col_types = FALSE) |>
-    janitor::clean_names() |>
-    dplyr::mutate(parameter = trimws(parameter))
+  stds <- readr::read_csv("data/standards/strict_standards.csv")
 
   # --- Ensure same length recycling ---
   n <- max(length(value), length(parameter))
