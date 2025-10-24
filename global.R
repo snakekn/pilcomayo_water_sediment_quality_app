@@ -35,5 +35,6 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
     sys.source(f, envir = environment()) 
   }
 }
+
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
