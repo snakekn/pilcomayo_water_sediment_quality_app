@@ -583,6 +583,8 @@ load_water_data <- function(path, is_clean = FALSE, translate_to = NULL) {
   }
   
   # Translate if requested
+  translate_to = input$translate_to
+  
   if (!is.null(translate_to)) {
     target_lang <- translate_to
     source_lang <- ifelse(translate_to == "en", "es", "en")

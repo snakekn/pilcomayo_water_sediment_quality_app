@@ -57,7 +57,7 @@ dataUploadUI <- function(id) {
                           inline = TRUE, selected = "es")  # default to your usual raw language
       ),
       column(6,
-               radioButtons(ns("translate_to"), "Translate to:",
+               radioButtons("translate_to", "Translate to:",
                             choices = c("English"="en","Español"="es"),
                             inline = TRUE, selected = "en")
       )
@@ -67,7 +67,10 @@ dataUploadUI <- function(id) {
              radioButtons(ns("source_format"), "Source format:",
                           choices = c("Pilcomayo.net"="pilco", "By Parameter"="by_param"),
                           inline = TRUE, selected = "pilco")
-      )
+      ),
+      column(6, 
+             actionButton("upload_data", "Upload data file")
+             )
     ),
     tags$hr(),
     h5("Files received"),
