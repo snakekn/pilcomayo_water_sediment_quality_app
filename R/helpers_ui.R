@@ -43,3 +43,41 @@ param_selector <- function(input_id, label = "Select Parameter:", choices = NULL
 station_selector <- function(input_id, label = "Select Station:", choices = NULL) {
   selectInput(input_id, label, choices = choices)
 }
+
+dataUploadUI <- function(id) {
+  ns <- NS(id)
+  tagList(
+    h4("Upload water data"),
+    fileInput(ns("files"), "Choose files", multiple = TRUE,
+              accept = c(".csv",".tsv",".xlsx",".xls")),
+    fluidRow(
+      column(6,
+             radioButtons(ns("current_lang"), "Current language in file(s):",
+                          choices = c("English" = "en", "Español" = "es"),
+                          inline = TRUE, selected = "es")  # default to your usual raw language
+      ),
+      column(6,
+               radioButtons(ns("translate_to"), "Translate to:",
+                            choices = c("English"="en","Español"="es"),
+                            inline = TRUE, selected = "en")
+      )
+    ),
+    fluidRow(
+      column(6,
+             radioButtons(ns("source_format"), "Source format:",
+                          choices = c("Pilcomayo.net"="pilco", "By Parameter"="by_param"),
+                          inline = TRUE, selected = "pilco")
+      )
+    ),
+    tags$hr(),
+    h5("Files received"),
+    tableOutput(ns("files_table")),
+    tags$hr(),
+    h5("Parsed uploads (appended)"),
+    tableOutput(ns("parsed_table")),
+    tags$hr(),
+    h5("Merged dataset (initial + uploads)"),
+    tableOutput(ns("merged_head")),
+    downloadButton(ns("download_merged"), "Download merged CSV")
+  )
+}

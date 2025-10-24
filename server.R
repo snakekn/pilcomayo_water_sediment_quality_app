@@ -1,48 +1,3 @@
-## Import data
-dataUploadServer <- function(id) {
-  shiny::moduleServer(id, function(input, output, session) {
-    # Keep translate_to always opposite of current language
-    shiny::observe({
-      if (identical(input$lang, "en")) {
-        shiny::updateRadioButtons(session, "translate_to",
-                                  choices = c("Español" = "es"), selected = "es"
-        )
-      } else if (identical(input$lang, "es")) {
-        shiny::updateRadioButtons(session, "translate_to",
-                                  choices = c("English" = "en"), selected = "en"
-        )
-      }
-    })
-    
-    # Read uploaded data (CSV/TSV/Excel)
-    data <- shiny::reactive({
-      shiny::req(input$file)
-      ext <- tools::file_ext(input$file$name)
-      switch(tolower(ext),
-             "csv"  = readr::read_csv(input$file$datapath, show_col_types = FALSE),
-             "tsv"  = readr::read_tsv(input$file$datapath, show_col_types = FALSE),
-             "xlsx" = readxl::read_excel(input$file$datapath),
-             "xls"  = readxl::read_excel(input$file$datapath),
-             shiny::validate(shiny::need(FALSE, "Unsupported file type"))
-      )
-    })
-    
-    # Bundle user choices
-    settings <- shiny::reactive({
-      list(
-        language     = input$lang,
-        format       = input$format,           # "Pilcomayo.net" or "By Parameter"
-        do_translate = isTRUE(input$do_translate),
-        translate_to = if (isTRUE(input$do_translate)) input$translate_to else NA_character_
-      )
-    })
-    
-    # Return both data and settings for the host app
-    list(data = data, settings = settings)
-  })
-}
-
-
 # Define Server
 server <- function(input, output, session) {
   
@@ -63,11 +18,11 @@ server <- function(input, output, session) {
   ## End Risk Analysis work
 
   ## For importing data
-  imported <- dataUploadServer("import")
-  output$import_preview <- renderTable({
-    req(imported$data())
-    head(imported$data(), 8)
-  })
+  initial_water = reactive(all_water_clean())
+  merged_out <- dataMergeServer(
+    id = "import",
+    base_data = initial_water
+    )  
   
   output$import_meta <- renderPrint({
     req(imported$data())
@@ -77,36 +32,6 @@ server <- function(input, output, session) {
       settings = imported$settings()
     )
   })
-  
-  dataUploadUI <- function(id) {
-    ns <- shiny::NS(id)
-    shiny::tagList(
-      shiny::h4("Upload & Settings"),
-      shiny::fileInput(
-        ns("file"), "Upload data",
-        accept = c(".csv", ".tsv", ".xlsx", ".xls")
-      ),
-      shiny::radioButtons(
-        ns("lang"), "Current language",
-        choices = c("English" = "en", "Español" = "es"),
-        inline = TRUE
-      ),
-      shiny::radioButtons(
-        ns("format"), "Format",
-        choices = c("Pilcomayo.net", "By Parameter"),
-        inline = TRUE
-      ),
-      shiny::checkboxInput(ns("do_translate"), "Translate to the other language?", value = FALSE),
-      shiny::conditionalPanel(
-        condition = sprintf("input['%s']", ns("do_translate")),
-        shiny::radioButtons(
-          ns("translate_to"), "Translate to",
-          choices = c("English" = "en", "Español" = "es"),
-          inline = TRUE
-        )
-      )
-    )
-  }
   
   pilco_line <- st_read("data/geojson/pilco_line.geojson")
   

@@ -1,8 +1,159 @@
 # helpers.R - Place this in your app directory and source it before ui.R/server.R
+# Small helper to reconcile legacy coord names the app expects
+.reconcile_legacy_names <- function(df) {
+  rename_map <- c(
+    "Decimal latitude"  = "Latitude Decimal",
+    "Decimal Longitude" = "Longitude Decimal",
+    "Decimal longitude" = "Longitude Decimal",
+    "Latitud Decimal"   = "Latitude Decimal",
+    "Longitud Decimal"  = "Longitude Decimal",
+    "Estación"          = "Station",
+    "Fecha"             = "Date"
+  )
+  hit <- intersect(names(rename_map), names(df))
+  names(df)[match(hit, names(df))] <- rename_map[hit]
+  df
+}
+
+# Align a list of data.frames to same columns (union), keeping col order of the first
+.align_cols <- function(dfs) {
+  all_cols <- Reduce(union, lapply(dfs, names))
+  lapply(dfs, function(df) {
+    miss <- setdiff(all_cols, names(df))
+    for (m in miss) df[[m]] <- NA
+    df[, all_cols, drop = FALSE]
+  })
+}
+dataMergeServer <- function(id, base_data) {
+  moduleServer(id, function(input, output, session) {
+    
+    # keep parsed uploads (filename -> df)
+    r_store <- reactiveVal(list())
+    
+    # add files using your canonical loader
+    observeEvent(input$files, {
+      req(input$files)
+      
+      cur <- r_store()
+      for (i in seq_len(nrow(input$files))) {
+        nm  <- input$files$name[i]
+        pth <- input$files$datapath[i]
+        
+        df <- load_water_data(path = pth, translate_to = translate_to)
+        
+        # normalize to app conventions
+        df <- .reconcile_legacy_names(df)
+        df <- .coerce_key_types(df)
+        
+        df$SourceFile <- nm
+        cur[[nm]] <- df
+      }
+      r_store(cur)
+    }, ignoreInit = TRUE)
+    
+    # file list
+    output$files_table <- renderTable({
+      lst <- r_store()
+      if (!length(lst)) return(NULL)
+      data.frame(
+        file = names(lst),
+        rows = vapply(lst, nrow, integer(1)),
+        cols = vapply(lst, ncol, integer(1)),
+        check.names = FALSE
+      )
+    })
+    
+    # parsed uploads (appended)
+    parsed_uploads <- reactive({
+      lst <- r_store()
+      if (!length(lst)) return(NULL)
+      dfs <- lapply(unname(lst), .coerce_key_types)
+      dfs <- .align_cols(dfs)
+      dplyr::bind_rows(dfs)
+    })
+    
+    output$parsed_table <- renderTable({
+      req(parsed_uploads())
+      head(parsed_uploads(), 12)
+    })
+    
+    # merged = initial dataset + uploads
+    merged <- reactive({
+      base <- if (is.function(base_data)) base_data() else base_data
+      req(!is.null(base))
+      base <- .coerce_key_types(.reconcile_legacy_names(base))
+      up <- parsed_uploads()
+      if (is.null(up)) return(base)
+      dfs <- .align_cols(list(base, up))
+      dplyr::bind_rows(dfs)
+    })
+    
+    output$merged_head <- renderTable({ head(merged(), 12) })
+    
+    output$download_merged <- downloadHandler(
+      filename = function() paste0("merged_", Sys.Date(), ".csv"),
+      content  = function(file) readr::write_csv(merged(), file)
+    )
+    
+    list(merged = merged, parsed = parsed_uploads, files = reactive(names(r_store())))
+  })
+}
 
 # ============================================================================
 # STATIC DATA LOADING (load once at app startup)
 # ============================================================================
+
+# ensure legacy names used by the rest of the app
+.reconcile_legacy_names <- function(df) {
+  rename_map <- c(
+    "Decimal latitude"  = "Latitude Decimal",
+    "Decimal Longitude" = "Longitude Decimal",
+    "Decimal longitude" = "Longitude Decimal",
+    "Latitud Decimal"   = "Latitude Decimal",
+    "Longitud Decimal"  = "Longitude Decimal",
+    "Estación"          = "Station",
+    "Fecha"             = "Date"
+  )
+  hit <- intersect(names(rename_map), names(df))
+  names(df)[match(hit, names(df))] <- rename_map[hit]
+  df
+}
+
+# coerce key columns to stable types so bind_rows never clashes
+.coerce_key_types <- function(df) {
+  # Station
+  if ("Station" %in% names(df)) df$Station <- as.character(df$Station)
+  # Date / Year
+  if ("Date" %in% names(df) && !inherits(df$Date, "Date")) {
+    suppressWarnings({
+      a <- try(as.Date(df$Date, "%Y-%m-%d"))
+      b <- try(as.Date(df$Date, "%d/%m/%Y"))
+      df$Date <- if (all(!is.na(a))) a else if (all(!is.na(b))) b else as.Date(df$Date)
+    })
+  }
+  if ("Date" %in% names(df) && !"Year" %in% names(df)) {
+    df$Year <- as.integer(format(df$Date, "%Y"))
+  }
+  if ("Year" %in% names(df)) df$Year <- suppressWarnings(as.integer(df$Year))
+  # Coordinates
+  for (nm in c("Latitude Decimal","Longitude Decimal","Lat_dd","Long_dd","Lat_dd","Long_dd")) {
+    if (nm %in% names(df) && !is.numeric(df[[nm]])) {
+      df[[nm]] <- suppressWarnings(as.numeric(df[[nm]]))
+    }
+  }
+  df
+}
+
+# align list of dfs to same columns (union) with the column order of the first
+.align_cols <- function(dfs) {
+  all_cols <- Reduce(union, lapply(dfs, names))
+  lapply(dfs, function(df) {
+    miss <- setdiff(all_cols, names(df))
+    for (m in miss) df[[m]] <- NA
+    df[, all_cols, drop = FALSE]
+  })
+}
+
 
 # Load spatial data
 pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
