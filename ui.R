@@ -1,3 +1,18 @@
+dataUploadUI <- function(id) {
+  ns <- NS(id)
+  tagList(
+    h4("Upload & Settings"),
+    fileInput(ns("file"), "Upload data", accept = c(".csv",".tsv",".xlsx",".xls")),
+    radioButtons(ns("lang"), "Current language", choices = c("English"="en","Español"="es"), inline = TRUE),
+    radioButtons(ns("format"), "Format", choices = c("Pilcomayo.net","By Parameter"), inline = TRUE),
+    checkboxInput(ns("do_translate"), "Translate to the other language?", FALSE),
+    conditionalPanel(
+      condition = sprintf("input['%s'] == true", ns("do_translate")),
+      radioButtons(ns("translate_to"), "Translate to", choices = c("English"="en","Español"="es"), inline = TRUE)
+    )
+  )
+}
+
 # Define UI
 ui <- fluidPage(
   tags$head(tags$style(HTML("
@@ -50,6 +65,13 @@ ui <- fluidPage(
                          ),
                          
                          tags$hr(),
+                         
+                         tabPanel("Import", dataUploadUI("import")),  # <— drop-in
+                         tags$hr(),
+                         h5("Preview of uploaded file"),
+                         tableOutput("import_preview"),
+                         verbatimTextOutput("import_meta"),
+                         
                          tags$hr(),
                          tags$hr(),
                          includeMarkdown("text/introduction_sources.md"),
@@ -499,6 +521,4 @@ ui <- fluidPage(
     setTimeout(moveScope, 250);
   });
 "))
-  
-  
 )

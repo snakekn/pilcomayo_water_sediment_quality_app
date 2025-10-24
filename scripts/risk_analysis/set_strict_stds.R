@@ -14,8 +14,6 @@ FILE_LOCATION = "data/standards/all_standards.csv"
 std_file = read_csv(here(FILE_LOCATION)) |>
   clean_names()
 
-View(std_file)
-
 ### Main Script
 
 # group by parameter & media, get the lowest value, arrange by name of parameter
