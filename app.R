@@ -207,7 +207,6 @@ ui <- fluidPage(
                                 uiOutput("parameter_selector_ui")
                               ),
                               
-                              
                               conditionalPanel(
                                 condition = "input.map_tabs == 'classification_map'",
                                 uiOutput("metal_selector_ui")

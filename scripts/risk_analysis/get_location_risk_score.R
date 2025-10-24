@@ -49,20 +49,11 @@ calculate_location_score = function(sample_data) {
   # calculate summed score 
   hq_score = scored_data$hazard_index
   cr_score = scored_data$total_CR_cases_10k
-  
-  # reset weights if either component is missing. Static value for cr_weight at the top
-  cr_weight = NA_real_
-  if(cr_score == 0) {
-    cr_weight = 0
-  } else if (hq_score == 0) {
-    cr_weight = 1
-  } else { cr_weight = EXPOSURE_FACTORS$cr_weight }
-  
-  env_score = hq_score*(1-cr_weight) + cr_score*cr_weight
-  
+
   # return both the final score & the data behind it for future viewing
   list(
-    env_score = env_score,
+    hq_score = hq_score,
+    cr_score = cr_score,
     scored_data = scored_data
   )
 }
@@ -156,6 +147,8 @@ get_std <- function(parameter, media) {
   
   key = make_key(parameter, media)
   std <- std_map[[key]]
+  
+  # if there's no standard, send nothing back
   if (is.null(std)) return(NULL)
   return(std)
 }
@@ -176,11 +169,14 @@ get_weight = function(parameter, media, lookup=wts) {
 # For an individual parameter: get & prep the parameter standard, then compare with the found value
 calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should have: param, med, val, unit
   # set HQ & CR to NA in case we don't have the data, then calculate each separately
+
   hq = NA_real_
   cr = NA_real_
   
   ## Get the standards data
   std = get_std(param, med) # fetch standard
+  # confirm we got the standard, otherwise stop trying to calculate based on this parameter-media
+  if(is.null(std)) return(list(HQ=0,CR=0))
   
   ## Calculate HQ
   # check the units are the same and abort if they're not

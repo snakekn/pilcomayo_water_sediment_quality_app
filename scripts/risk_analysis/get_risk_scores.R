@@ -35,7 +35,7 @@ get_scores <- function(sample_data, loc_col = NULL, year_col = NULL) {
   if (!is.null(loc_col)  && loc_col  %in% names(df)) group_vars <- c(group_vars, loc_col)
   if (!is.null(year_col) && year_col %in% names(df)) group_vars <- c(group_vars, year_col)
   
-  # --- 3) run calculate_location_score per group (or once if no groups) ---
+  # --- 3) run score_data per group (or once if no groups) ---
   if (length(group_vars) == 0) {
     # Single score (no grouping)
     res <- calculate_location_score(df)
@@ -43,9 +43,8 @@ get_scores <- function(sample_data, loc_col = NULL, year_col = NULL) {
 
     return(
       tibble(
-        env_score = res$env_score,
-        hazard_index = res_data$hazard_index,
-        total_CR_cases_10k = res_data$total_CR_cases_10k,
+        hq_score = res_data$hazard_index,
+        cr_score = res_data$total_CR_cases_10k,
         by_parameter = list(res_data$by_parameter)
       )
     )
@@ -61,7 +60,6 @@ get_scores <- function(sample_data, loc_col = NULL, year_col = NULL) {
       # emit one row per group, keeping the group keys from .y
       tibble(
         !!!.y,
-        env_score = res$env_score,
         hazard_index = res_data$hazard_index,
         total_CR_cases_10k = res_data$total_CR_cases_10k,
         by_parameter = list(res_data$by_parameter)
