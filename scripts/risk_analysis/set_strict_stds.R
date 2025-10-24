@@ -14,12 +14,14 @@ FILE_LOCATION = "data/standards/all_standards.csv"
 std_file = read_csv(here(FILE_LOCATION)) |>
   clean_names()
 
+View(std_file)
+
 ### Main Script
 
 # group by parameter & media, get the lowest value, arrange by name of parameter
 strict_std = std_file |>
   group_by(parameter, media) |>
-  slice_min(order_by=concentration, n=1, with_ties=FALSE) |>
+  slice_min(order_by=value, n=1, with_ties=FALSE) |>
   arrange(parameter) |>
   ungroup()
 

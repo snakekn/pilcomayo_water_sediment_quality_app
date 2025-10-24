@@ -1,5 +1,4 @@
 # Purpose: allow Jackson's existing code to work with the risk anaylsis functionality
-source(here::here("scripts/get_risk_scores.R"))
 
 library(dplyr)
 library(tidyr)

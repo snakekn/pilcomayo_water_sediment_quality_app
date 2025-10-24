@@ -1,6 +1,3 @@
-# get the base functions loaded
-source(here::here("scripts/risk_analysis/get_risk_scores.R"))
-
 # Load libraries
 library(dplyr)
 library(purrr)
@@ -105,7 +102,3 @@ split_locations <- function(sample_data,
     list_rbind() %>%
     arrange(!!sym(loc_col), !!sym(year_col))
 }
-
-
-# example for running it:
-results <- split_locations(all_samples_df, loc_col = "site_id", year_col = "year")
