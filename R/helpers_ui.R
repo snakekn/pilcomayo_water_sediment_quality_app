@@ -47,40 +47,40 @@ station_selector <- function(input_id, label = "Select Station:", choices = NULL
 dataUploadUI <- function(id) {
   ns <- NS(id)
   tagList(
-    h4("Upload water data"),
-    fileInput(ns("files"), "Choose files", multiple = TRUE,
+    h4("Upload data"),
+    fileInput(ns("files"), "Choose files", multiple = FALSE,
               accept = c(".csv",".tsv",".xlsx",".xls")),
-    fluidRow(
-      column(6,
-             radioButtons(ns("current_lang"), "Current language in file(s):",
-                          choices = c("English" = "en", "Español" = "es"),
-                          inline = TRUE, selected = "es")  # default to your usual raw language
-      ),
-      column(6,
-               radioButtons("translate_to", "Translate to:",
-                            choices = c("English"="en","Español"="es"),
-                            inline = TRUE, selected = "en")
-      )
-    ),
     fluidRow(
       column(6,
              radioButtons(ns("source_format"), "Source format:",
                           choices = c("Pilcomayo.net"="pilco", "By Parameter"="by_param"),
                           inline = TRUE, selected = "pilco")
       ),
-      column(6, 
-             actionButton("upload_data", "Upload data file")
-             )
+      column(6,
+             radioButtons(ns("current_lang"), "Current language in file(s):",
+                          choices = c("English" = "en", "Español" = "es"),
+                          inline = TRUE, selected = "es")  # default to your usual raw language
+      )
     ),
+    fluidRow(
+      column(6,
+             radioButtons(ns("media_type"), "Media included (select one):",
+                          choices = c("Sediment"="sediment", "Water"="drinking water"),
+                          inline = TRUE, selected = "sed")
+      ),
+      column(6,
+             radioButtons(ns("translate_to"), "Translate to:",
+                          choices = c("English"="en","Español"="es"),
+                          inline = TRUE, selected = "en")
+      ),
+      column(6, 
+             actionButton(ns("upload_data"), "Upload data file")
+             )
+    ), 
     tags$hr(),
     h5("Files received"),
     tableOutput(ns("files_table")),
-    tags$hr(),
-    h5("Parsed uploads (appended)"),
-    tableOutput(ns("parsed_table")),
-    tags$hr(),
-    h5("Merged dataset (initial + uploads)"),
-    tableOutput(ns("merged_head")),
-    downloadButton(ns("download_merged"), "Download merged CSV")
+    # tags$hr(),
+    # downloadButton(ns("download_merged"), "Download all available data")
   )
 }

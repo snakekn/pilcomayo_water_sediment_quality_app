@@ -31,7 +31,7 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
   files <- list.files(dir, pattern = "[.]R$", full.names = TRUE, recursive = TRUE)
   for (f in files) {
     # source into the *current* app environment to avoid globals
-    sys.source(f, envir = environment()) 
+    sys.source(f, envir = globalenv()) 
   }
 }
 

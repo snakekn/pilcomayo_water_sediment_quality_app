@@ -24,79 +24,137 @@
     df[, all_cols, drop = FALSE]
   })
 }
-dataMergeServer <- function(id, base_data) {
+
+# read an uploaded file
+read_uploaded_file = function(path) {
+  
+  # get the file type
+  ftype = get_file_type(path)
+
+  # read the data
+  switch(ftype,
+         "csv" = readr::read_csv(path),
+         "tsv" = readr::read_tsv(path),
+         "xls" = readxl::read_xls(path),
+         "xlsx" = readxl::read_xlsx(path),
+         abort("Unsupported file type: ", ftype)
+         )
+}
+
+# determine the file type of an uploaded file
+get_file_type <- function(path) {
+  ext <- tolower(tools::file_ext(path)[1])
+  print(paste("get_file_type: ", ext))
+  ext
+}
+
+dataUploadServer <- function(id, base_data) {
   moduleServer(id, function(input, output, session) {
+    print("dataUploadServer!")
     
-    # keep parsed uploads (filename -> df)
-    r_store <- reactiveVal(list())
+    parsed_upload = reactiveVal(NULL)
     
-    # add files using your canonical loader
-    observeEvent(input$files, {
-      req(input$files)
+    # add files
+    observeEvent(input$upload_data, {
       
-      cur <- r_store()
-      for (i in seq_len(nrow(input$files))) {
-        nm  <- input$files$name[i]
-        pth <- input$files$datapath[i]
-        
-        df <- load_water_data(path = pth, translate_to = translate_to)
-        
-        # normalize to app conventions
-        df <- .reconcile_legacy_names(df)
-        df <- .coerce_key_types(df)
-        
-        df$SourceFile <- nm
-        cur[[nm]] <- df
+      # make sure a file is uploaded
+      if (is.null(input$files) || nrow(input$files) == 0) {
+        showNotification("Please select a file before processing.", type="error")
+        return()
       }
-      r_store(cur)
-    }, ignoreInit = TRUE)
+      
+      # get file data
+      req(input$files)
+      View(input$files)
+      fpath <- input$files$datapath[1]
+      fname <- input$files$name[1]
+      print(paste(fpath, fname))
+      message("File type detected: ", tools::file_ext(fname))
+      
+      showNotification(paste("Processing:", fname), type="message")
+      
+      withProgress(message = "Processing uploads...", value = 0, {
+        file_data = read_uploaded_file(fpath)
+        
+        src_format = input$source_format
+        src_lang = input$current_lang
+        src_media = input$media_type
+        src_target_lang = input$translate_to
+  
+        print(paste(fpath, src_media, src_target_lang, fname)) # sanity check p2 :))
+        
+        # confirm what we got
+        print(paste("Format:", src_format, 
+                    "Lang:", src_lang, 
+                    "Media:", src_media, 
+                    "Target:", src_target_lang))
+      
+        # convert data (if pilco.net format, others not created yet)
+        df = upload_sampled_data(file_data, media=src_media, format=src_format)
+        df$data_source = fname
+        
+        parsed_upload(df)
+        })
+      
+      showNotification("Upload processed successfully!", type = "message")
+      }, ignoreInit = TRUE)
     
-    # file list
-    output$files_table <- renderTable({
-      lst <- r_store()
-      if (!length(lst)) return(NULL)
-      data.frame(
-        file = names(lst),
-        rows = vapply(lst, nrow, integer(1)),
-        cols = vapply(lst, ncol, integer(1)),
-        check.names = FALSE
-      )
-    })
+    list(parsed=parsed_upload)
     
-    # parsed uploads (appended)
-    parsed_uploads <- reactive({
-      lst <- r_store()
-      if (!length(lst)) return(NULL)
-      dfs <- lapply(unname(lst), .coerce_key_types)
-      dfs <- .align_cols(dfs)
-      dplyr::bind_rows(dfs)
-    })
+  })  
+
     
-    output$parsed_table <- renderTable({
-      req(parsed_uploads())
-      head(parsed_uploads(), 12)
-    })
     
-    # merged = initial dataset + uploads
-    merged <- reactive({
-      base <- if (is.function(base_data)) base_data() else base_data
-      req(!is.null(base))
-      base <- .coerce_key_types(.reconcile_legacy_names(base))
-      up <- parsed_uploads()
-      if (is.null(up)) return(base)
-      dfs <- .align_cols(list(base, up))
-      dplyr::bind_rows(dfs)
-    })
-    
-    output$merged_head <- renderTable({ head(merged(), 12) })
-    
-    output$download_merged <- downloadHandler(
-      filename = function() paste0("merged_", Sys.Date(), ".csv"),
-      content  = function(file) readr::write_csv(merged(), file)
-    )
-    
-    list(merged = merged, parsed = parsed_uploads, files = reactive(names(r_store())))
-  })
+  # Was created when we were allowing more than one upload at a time  
+  #   # keep parsed uploads (filename -> df)
+  #   r_store <- reactiveVal(list())
+  # 
+  #   
+  #   # file list
+  #   output$files_table <- renderTable({
+  #     lst <- r_store()
+  #     if (!length(lst)) return(NULL)
+  #     data.frame(
+  #       file = names(lst),
+  #       rows = vapply(lst, nrow, integer(1)),
+  #       cols = vapply(lst, ncol, integer(1)),
+  #       check.names = FALSE
+  #     )
+  #   })
+  #   
+  #   # parsed uploads (appended)
+  #   parsed_uploads <- reactive({
+  #     lst <- r_store()
+  #     if (!length(lst)) return(NULL)
+  #     dfs <- lapply(unname(lst), .coerce_key_types)
+  #     dfs <- .align_cols(dfs)
+  #     dplyr::bind_rows(dfs)
+  #   })
+  #   
+  #   output$parsed_table <- renderTable({
+  #     req(parsed_uploads())
+  #     head(parsed_uploads(), 12)
+  #   })
+  #   
+  #   # merged = initial dataset + uploads
+  #   merged <- reactive({
+  #     base <- if (is.function(base_data)) base_data() else base_data
+  #     req(!is.null(base))
+  #     base <- .coerce_key_types(.reconcile_legacy_names(base))
+  #     up <- parsed_uploads()
+  #     if (is.null(up)) return(base)
+  #     dfs <- .align_cols(list(base, up))
+  #     dplyr::bind_rows(dfs)
+  #   })
+  #   
+  #   output$merged_head <- renderTable({ head(merged(), 12) })
+  #   
+  #   output$download_merged <- downloadHandler(
+  #     filename = function() paste0("merged_", Sys.Date(), ".csv"),
+  #     content  = function(file) readr::write_csv(merged(), file)
+  #   )
+  #   
+  #   list(merged = merged, parsed = parsed_uploads, files = reactive(names(r_store())))
 }
 
 # ============================================================================

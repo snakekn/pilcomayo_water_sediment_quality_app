@@ -7,7 +7,7 @@ library(janitor)
 library(readr)
 
 
-convert_sampled_data_types = function(sample_data, type = NULL) {
+upload_sampled_data = function(sample_data, media = NA, format = NA) {
   ## pseudocode 
   # 1. check if we know what format we're getting
   # 2. check the df and see what format it's in
@@ -18,15 +18,19 @@ convert_sampled_data_types = function(sample_data, type = NULL) {
   # todo: chat to get current format to what we need
   
   names(sample_data) <- fix_headers(names(sample_data))
-  if(type=="Pilcomayo.net") {
-    formatted_data = pivot_pilcomayo_data(sample_data)
-  } else if (type=="sediment") {} 
+  View(sample_data)
+  
+  if(format=="pilco") {
+    formatted_data = pivot_pilcomayo_data(sample_data, media_type = media)
+  } else if (format=="sediment") {} 
   else { abort("Data format not recognized. Please check your file and try again")
-    }
+  }
+  
+  View(formatted_data)
   
 }
 
-# intake raw data
+# intake raw data -- JMills
 
 
 # fix to UTF-8

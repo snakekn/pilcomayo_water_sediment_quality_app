@@ -51,7 +51,7 @@ ui <- fluidPage(
                          
                          tags$hr(),
                          
-                         tabPanel("Import", dataUploadUI("import")),  # <— drop-in
+                         tabPanel("Import", dataUploadUI("upload_data")),
                          
                          tags$hr(),
                          tags$hr(),

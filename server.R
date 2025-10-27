@@ -18,9 +18,10 @@ server <- function(input, output, session) {
   ## End Risk Analysis work
 
   ## For importing data
+  
   initial_water = reactive(all_water_clean())
-  merged_out <- dataMergeServer(
-    id = "import",
+  merged_out <- dataUploadServer(
+    id = "upload_data",
     base_data = initial_water
     )  
   
@@ -127,6 +128,13 @@ server <- function(input, output, session) {
   
   # Read and combine water data (1333 version)
   all_water_1333 <- reactive({
+    ## Nadav's Note: there are a bunch of these data manipulation functions. We want to:
+    ### 1. All data (which can be in several formats) goes thru a unified function, where their media is considered and all relevant standards are calculated
+    ### 2. Data is all compiled into one dataset that can be loaded in any part of the app
+    ### 3. Uploaded data is added to this dataset 
+    ### 4. All maps showing data use this single dataset
+    ### 5. Users can still download pre-loaded datasets, or filter as needed
+    
     water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
     
     water_dfs <- lapply(water_files, function(f) {
@@ -169,6 +177,11 @@ server <- function(input, output, session) {
       select(all_data, ends_with("Class")) == "Class B",
       na.rm = TRUE
     )
+    
+    all_data = all_data |>
+      mutate(potato = rowSums(
+        select(all_data, ends_with("Class")) == "Class B", na.rm = TRUE
+      ))
     
     return(all_data)
   })
