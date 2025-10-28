@@ -37,3 +37,22 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
 
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
+
+# global values are kept centrally to help us easily redefine if needed
+
+# 1) Shared constants
+EXCLUDED_COLS <- c(
+  "Decimal Latitude","Decimal Longitude","Latitude Decimal","Longitude Decimal",
+  "Lat_dd","Long_dd","Distance from Bank","Distance from Shore",
+  "Average Velocity (m/s)","Flow (m3/s)",
+  "Clay (%)","Silt (%)","Sand (%)",
+  "0.032 mm - No. 450 (ASTM) (%)","0.063 mm - No. 230 (ASTM) (%)","0.125 mm - No. 120 (ASTM) (%)",
+  "0.250 mm - No. 060 (ASTM) (%)","0.500 mm - No. 035 (ASTM) (%)","1.00 mm - No. 018 (ASTM) (%)",
+  "2.00 mm - No. 010 (ASTM) (%)","4.75 mm - No. 004 (ASTM) (%)","0.016 mm (%)",
+  "Year","num_unclass","num_class_b","num_class_c","num_class_d"
+)
+
+REVERSE_PARAMS <- c("Oxygen Saturation (%)","Dissolved Oxygen (mg/l O2)","pH","Resistivity (Ohm.cm)")
+
+CLASS_MAP <- c("Class A"=0,"Class B"=1,"Class C"=2,"Class D"=3,"Unclassified"=4)
+USGS_MAP  <- c("Below TEL"=0,"Above TEL"=1,"Above PEL"=2)

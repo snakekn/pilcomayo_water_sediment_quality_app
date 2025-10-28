@@ -1,6 +1,10 @@
-clean_water_data <- function(data, source = "TNC") {
+
+#' Clean raw water data from pilco format
+#' @param data Raw data frame from pilco
+#' @param source Data source ("pilco" currently supported)
+clean_water_data <- function(data, source = "pilco") {
   
-  if (source == "TNC") {
+  if (source == "pilco") {
     
     # STEP 1: load raw water data
     raw <- data
@@ -41,6 +45,9 @@ clean_water_data <- function(data, source = "TNC") {
                       TRUE ~ as.numeric(.)
                     )))
     
+    View(df_clean)
+    return(df_clean)
   }
-  return(df_clean)
+  stop(paste("Function clean_water_data: Source", source, "not supported"))
+
 }

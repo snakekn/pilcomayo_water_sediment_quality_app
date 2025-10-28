@@ -64,6 +64,8 @@ bolivian_1333 <- readr::read_csv("data/standards/bolivian_standards_1333.csv") |
 
 # ---------------- Loader functions (return PLAIN tibbles) ----------------
 
+# may be helpful in creating one datahub, where all data resides in the same format
+
 # Uses your inline cleaner/translator (you already inlined those in global).
 load_all_water_clean_tbl <- function(target_lang = "en") {
   fp <- file.path(water_data_path_clean, "water_clean_master.xlsx")
@@ -114,72 +116,5 @@ load_all_sed_usgs_tbl <- function() {
   df$num_above_pel  <- rowSums(usgs_cols == "Above PEL", na.rm = TRUE)
   df$sed_score      <- (df$num_above_tel + 2*df$num_above_pel) / df$n_params
   df$unique         <- paste(df$Station, df$Date, sep = " - ")
-  df
-}
-
-# ---- optional: parameter name mapping (leave empty if you don't need translation) ----
-# Example shape: param_mapping <- c("Color (u PtCo)" = "Color (u PtCo)", "pH" = "pH", ...)
-if (!exists("param_mapping")) param_mapping <- c()
-
-# ---- cleaner for TNC-style water files (header across first two rows; handles SIN DATOS and < / >) ----
-clean_water_data <- function(data) {
-  raw <- data
-  # keep columns that have at least one non-NA (skip trailing empty columns)
-  raw_clean <- raw |> dplyr::filter(dplyr::if_any(-c(1, 2), ~ !is.na(.)))
-  df <- as.data.frame(t(raw_clean))
-  df <- df %>% dplyr::filter(dplyr::if_any(dplyr::everything(), ~ !is.na(.)))
-  
-  new_names <- ifelse(!is.na(df[2, ]), paste0(df[1, ], " (", df[2, ], ")"), df[1, ])
-  colnames(df) <- new_names
-  df <- df[-c(1, 2), , drop = FALSE]
-  
-  df <- df %>%
-    dplyr::mutate(dplyr::across(dplyr::everything(), ~ na_if(., "SIN DATOS"))) %>%
-    dplyr::mutate(dplyr::across(
-      where(~ any(grepl("^[<>]", .[!is.na(.)]))),
-      ~ dplyr::case_when(
-        grepl("^<", .) ~ 0.5 * as.numeric(gsub("^<", "", .)),
-        grepl("^>", .) ~ 1.5 * as.numeric(gsub("^>", "", .)),
-        TRUE ~ suppressWarnings(as.numeric(.))
-      )
-    ))
-  df
-}
-
-# ---- ES<->EN column translator (no-op if mapping missing) ----
-translate_water_data <- function(data, source_lang = "es", target_lang = "en") {
-  if (identical(source_lang, target_lang)) return(data)
-  if (!length(param_mapping)) return(data)  # no mapping provided → skip
-  
-  if (source_lang == "es" && target_lang == "en") {
-    map <- param_mapping
-  } else {
-    # invert mapping
-    map <- stats::setNames(names(param_mapping), unname(param_mapping))
-  }
-  nm <- colnames(data)
-  colnames(data) <- ifelse(nm %in% names(map), unname(map[nm]), nm)
-  data
-}
-
-# path: .csv or .xlsx. If xlsx is a raw TNC sheet, set is.clean = FALSE to run the cleaner.
-# translate_to: "en" / "es" / NULL. If NULL, no translation.
-load_water_data <- function(path, is.clean = FALSE, translate_to = NULL) {
-  fmt <- tolower(tools::file_ext(path))
-  if (fmt == "csv") {
-    data_raw <- readr::read_csv(path, show_col_types = FALSE)
-  } else if (fmt %in% c("xlsx", "xls")) {
-    # TNC xlsx often ships without headers in row 1; we read raw to allow cleaning
-    data_raw <- readxl::read_xlsx(path, col_names = !isTRUE(!is.clean))
-  } else {
-    stop("Unsupported file type: ", fmt)
-  }
-  
-  df <- if (is.clean) data_raw else clean_water_data(data_raw)
-  
-  if (!is.null(translate_to)) {
-    src <- if (translate_to == "en") "es" else "en"
-    df <- translate_water_data(df, source_lang = src, target_lang = translate_to)
-  }
   df
 }

@@ -1,4 +1,10 @@
 translate_water_data <- function(data, source_lang, target_lang) {
+  # stop if either is NA
+  if(is.na(source_lang) || is.na(target_lang)) {
+    warning(paste("Missing language selection. Will skip translations: ", source_lang, target_lang))
+    return(data)
+  }
+  
   # Validate inputs
   if (!source_lang %in% c("en", "es") || !target_lang %in% c("en", "es")) {
     stop("Languages must be 'en' (English) or 'es' (Spanish)")

@@ -50,8 +50,6 @@ get_file_type <- function(path) {
 
 dataUploadServer <- function(id, base_data) {
   moduleServer(id, function(input, output, session) {
-    print("dataUploadServer!")
-    
     parsed_upload = reactiveVal(NULL)
     
     # add files
@@ -65,11 +63,9 @@ dataUploadServer <- function(id, base_data) {
       
       # get file data
       req(input$files)
-      View(input$files)
       fpath <- input$files$datapath[1]
       fname <- input$files$name[1]
-      print(paste(fpath, fname))
-      message("File type detected: ", tools::file_ext(fname))
+      # message("File type detected: ", tools::file_ext(fname))
       
       showNotification(paste("Processing:", fname), type="message")
       
@@ -81,8 +77,6 @@ dataUploadServer <- function(id, base_data) {
         src_media = input$media_type
         src_target_lang = input$translate_to
   
-        print(paste(fpath, src_media, src_target_lang, fname)) # sanity check p2 :))
-        
         # confirm what we got
         print(paste("Format:", src_format, 
                     "Lang:", src_lang, 
@@ -90,13 +84,13 @@ dataUploadServer <- function(id, base_data) {
                     "Target:", src_target_lang))
       
         # convert data (if pilco.net format, others not created yet)
-        df = upload_sampled_data(file_data, media=src_media, format=src_format)
+        df = upload_sampled_data(file_data, media=src_media, format=src_format, debug_prepped = FALSE, src_lang = src_lang, target_lang = src_target_lang)
+        print("df upload_sampled_data finished")
         df$data_source = fname
+        View(df)
         
         parsed_upload(df)
         })
-      
-      showNotification("Upload processed successfully!", type = "message")
       }, ignoreInit = TRUE)
     
     list(parsed=parsed_upload)
@@ -603,140 +597,6 @@ clip_to_bolivia <- function(df, lon_col, lat_col, bol_border) {
   
   # return plain data.frame with geometry dropped (preserves original columns)
   sf::st_drop_geometry(clipped)
-}
-
-# ============================================================================
-# FLEXIBLE DATA LOADING FUNCTIONS
-# ============================================================================
-
-#' Load water data with optional cleaning and translation
-#' @param path File path to water data
-#' @param is_clean Logical, whether data is already cleaned
-#' @param translate_to Target language ('en' or 'es'), NULL for no translation
-load_water_data <- function(path, is_clean = FALSE, translate_to = NULL) {
-  
-  file_path <- path
-  
-  # Detect format
-  if (str_detect(file_path, ".csv")) {
-    format <- "csv"
-  } else if (str_detect(file_path, ".xlsx")) {
-    format <- "xlsx"
-  } else {
-    stop("Unsupported file format. Use .csv or .xlsx")
-  }
-  
-  # Read data
-  if (format == "csv") {
-    data_raw <- read_csv(file_path, show_col_types = FALSE)
-  } else {
-    data_raw <- read_xlsx(file_path, col_names = FALSE)
-  }
-  
-  # Clean if needed
-  if (!is_clean) {
-    data <- clean_water_data(data_raw, source = "TNC")
-  } else {
-    data <- data_raw
-  }
-  
-  # Translate if requested
-  translate_to = input$translate_to
-  
-  if (!is.null(translate_to)) {
-    target_lang <- translate_to
-    source_lang <- ifelse(translate_to == "en", "es", "en")
-    data <- translate_water_data(data, source_lang = source_lang, target_lang = target_lang)
-  }
-  
-  return(data)
-}
-
-#' Clean raw water data from TNC format
-#' @param data Raw data frame from TNC
-#' @param source Data source ("TNC" currently supported)
-clean_water_data <- function(data, source = "TNC") {
-  
-  if (source == "TNC") {
-    raw <- data
-    
-    # Remove blank rows
-    raw_clean <- raw |> filter(if_any(-c(1, 2), ~ !is.na(.)))
-    
-    # Transpose and convert to data frame
-    df <- as.data.frame(t(raw_clean))
-    
-    # Remove blank rows
-    df_clean <- df %>% filter(if_any(everything(), ~ !is.na(.)))
-    
-    # Combine parameter names with units
-    new_names <- ifelse(!is.na(df_clean[2, ]), 
-                        paste0(df_clean[1, ], " (", df_clean[2, ], ")"), 
-                        df_clean[1, ])
-    
-    colnames(df_clean) <- new_names
-    
-    # Remove first 2 rows
-    df_clean <- df_clean[-c(1, 2), ]
-    
-    # Replace "SIN DATOS" with NA
-    df_clean <- df_clean %>%
-      mutate(across(everything(), ~ na_if(., "SIN DATOS")))
-    
-    # Handle < and > symbols
-    df_clean <- df_clean %>%
-      mutate(across(where(~ any(grepl("^[<>]", .[!is.na(.)]))), 
-                    ~ case_when(
-                      grepl("^<", .) ~ 0.5 * as.numeric(gsub("^<", "", .)),
-                      grepl("^>", .) ~ 1.5 * as.numeric(gsub("^>", "", .)),
-                      TRUE ~ as.numeric(.)
-                    )))
-    
-    return(df_clean)
-  }
-  
-  stop(paste("Source", source, "not supported"))
-}
-
-#' Translate water data column names between English and Spanish
-#' @param data Data frame with water quality data
-#' @param source_lang Source language ('en' or 'es')
-#' @param target_lang Target language ('en' or 'es')
-translate_water_data <- function(data, source_lang, target_lang) {
-  
-  # Validate inputs
-  if (!source_lang %in% c("en", "es") || !target_lang %in% c("en", "es")) {
-    stop("Languages must be 'en' (English) or 'es' (Spanish)")
-  }
-  
-  if (source_lang == target_lang) {
-    warning("Source and target languages are the same. Returning data unchanged.")
-    return(data)
-  }
-  
-  # Get current column names
-  current_cols <- colnames(data)
-  
-  # Create translation based on direction
-  if (source_lang == "es" && target_lang == "en") {
-    translation_map <- param_mapping
-  } else {
-    translation_map <- setNames(names(param_mapping), unname(unlist(param_mapping)))
-  }
-  
-  # Translate column names
-  new_cols <- sapply(current_cols, function(col) {
-    if (col %in% names(translation_map)) {
-      return(translation_map[[col]])
-    } else {
-      # Keep original if not in mapping
-      return(col)
-    }
-  }, USE.NAMES = FALSE)
-  
-  colnames(data) <- new_cols
-  
-  return(data)
 }
 
 #' Enhanced yearly data loader with flexible cleaning and translation

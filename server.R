@@ -20,6 +20,8 @@ server <- function(input, output, session) {
   ## For importing data
   
   initial_water = reactive(all_water_clean())
+  
+  # Upload button
   merged_out <- dataUploadServer(
     id = "upload_data",
     base_data = initial_water
@@ -33,56 +35,6 @@ server <- function(input, output, session) {
       settings = imported$settings()
     )
   })
-  
-  pilco_line <- st_read("data/geojson/pilco_line.geojson")
-  
-  bol_border <- st_read("data/geojson/bol_borders.geojson")
-  
-  usgs_sqg <- read_csv("data/standards/USGS_SQG.csv") |>
-    mutate(match_name = c("Arsenic (mg/kg As)",
-                          "Cadmium (mg/kg Cd)",
-                          "Copper (mg/kg Cu)",
-                          "Chromium (mg/kg Cr)",
-                          "Lead (mg/kg Pb)",
-                          "Mercury (mg/kg Hg)",
-                          "Nickel (mg/kg Ni)",
-                          "Zinc (mg/kg Zn)"))
-  
-  bolivian_1333 <- read_csv("data/standards/bolivian_standards_1333.csv") |>
-    mutate(match_name = c("pH", "pH", 
-                          "Color (u PtCo)", 
-                          "Total Dissolved Solids (mg/l)", 
-                          "Oxygen Saturation (%)", 
-                          "Biochemical Oxygen Demand (mg/l O2)", 
-                          "Chemical Oxygen Demand (mg/l O2)", 
-                          NA, NA, NA, 
-                          "Total Arsenic (ug/l As)", 
-                          NA, NA, 
-                          "Total Boron (ug/l B)", 
-                          "Total Cadmium (ug/l Cd)",
-                          "Total Calcium (mg/l Ca)",
-                          "Chlorides (mg/l Cl-)",
-                          "Total Chromium (ug/l Cr)",
-                          "Total Chromium (ug/l Cr)",
-                          NA,
-                          "Total Copper (ug/l Cu)",
-                          "Total Iron (ug/l Fe)",
-                          "Total Lead (ug/l Pb)",
-                          NA,
-                          "Total Magnesium (mg/l Mg)",
-                          "Total Manganese (ug/l Mn)",
-                          "Total Mercury (ug/l Hg)",
-                          "Total Nickel (ug/l Ni)",
-                          "Nitrate (mg/l NO3)",
-                          "Total Kjeldahl Nitrogen (mg/l N)",
-                          "Total Phosphorus (mg/l PO4)",
-                          "Total Selenium (ug/l Se)",
-                          "Total Silver (ug/l Ag)",
-                          "Total Sodium (mg/l Na)",
-                          "Sulfates (mg/l SO4)",
-                          NA, NA, NA, 
-                          "Total Zinc (ug/l Zn)"
-    ))
   
   # Read and combine water data (clean version)
   all_water_clean <- reactive({
@@ -1284,102 +1236,6 @@ server <- function(input, output, session) {
       
     }
   })
-  
-  plot_class_proportions_overlay <- function(data, class_cols = NULL, class_label, bar_color, plot_title, plot_subtitle = NULL, hover_text = NULL) {
-    total_rows <- nrow(data)  # Total number of observations
-    
-    summary_df <- sapply(data[class_cols], function(col) {
-      num_class <- sum(col == class_label, na.rm = TRUE)
-      non_na_count <- sum(!is.na(col))
-      
-      prop_total <- num_class / total_rows
-      prop_non_na <- if (non_na_count == 0) NA else num_class / non_na_count
-      
-      c(Percent_Total = prop_total*100,
-        Percent_NonNA = prop_non_na*100)
-    }) %>%
-      t() %>%
-      as.data.frame() %>%
-      mutate(Parameter = rownames(.)) %>%
-      rename(Percent_Total = Percent_Total,
-             Percent_NonNA = Percent_NonNA)
-    
-    # Clean up parameter names
-    summary_df$Parameter <- str_remove(summary_df$Parameter, " Class$")
-    summary_df$Parameter <- str_remove(summary_df$Parameter, " USGS$")
-    
-    # Select top 15 parameters by total proportion
-    top_15 <- summary_df %>%
-      arrange(desc(Percent_Total)) %>%
-      slice(1:15)
-    
-    # Prepare long format for plotting
-    plot_data <- top_15 %>%
-      pivot_longer(cols = c(Percent_Total, Percent_NonNA),
-                   names_to = "Metric", values_to = "Value")
-    
-    # Set factor levels to preserve bar order
-    plot_data$Parameter <- factor(plot_data$Parameter,
-                                  levels = rev(top_15$Parameter))
-    
-    # Add hover text if provided
-    if (!is.null(hover_text)) {
-      # Create Type column to match the expected format
-      plot_data$Type <- ifelse(plot_data$Metric == "Percent_Total", "Raw", "Standardized")
-      plot_data$Proportion <- plot_data$Value
-      
-      # Apply the hover text function
-      plot_data <- hover_text(plot_data)
-      
-      # Create the plot with hover text
-      ggplot(plot_data, aes(x = Parameter, y = Value, fill = Metric, text = hover_text)) +
-        geom_col(
-          position = "identity",
-          alpha = ifelse(plot_data$Metric == "Percent_Total", 1, 0.4)
-        ) +
-        scale_fill_manual(
-          values = c(Percent_Total = bar_color, Percent_NonNA = bar_color),
-          labels = c(
-            Percent_Total = paste("Percent of", class_label, "over all observations"),
-            Percent_NonNA = paste("Percent of", class_label, "over non-NA observations")
-          )
-        ) +
-        coord_flip() +
-        labs(
-          title = plot_title,
-          subtitle = plot_subtitle,
-          x = NULL,
-          y = "Percent",
-          fill = NULL
-        ) +
-        theme_minimal() +
-        theme(legend.position = "none")
-    } else {
-      # Create the plot without hover text (original functionality)
-      ggplot(plot_data, aes(x = Parameter, y = Value, fill = Metric)) +
-        geom_col(
-          position = "identity",
-          alpha = ifelse(plot_data$Metric == "Percent_Total", 1, 0.4)
-        ) +
-        scale_fill_manual(
-          values = c(Percent_Total = bar_color, Percent_NonNA = bar_color),
-          labels = c(
-            Percent_Total = paste("Percent of", class_label, "over all observations"),
-            Percent_NonNA = paste("Percent of", class_label, "over non-NA observations")
-          )
-        ) +
-        coord_flip() +
-        labs(
-          title = plot_title,
-          subtitle = plot_subtitle,
-          x = NULL,
-          y = "Percent",
-          fill = NULL
-        ) +
-        theme_minimal() +
-        theme(legend.position = "none")
-    }
-  }
   
   observe({
     df <- active_water_1333()
@@ -2823,63 +2679,6 @@ server <- function(input, output, session) {
     water_df %>%
       filter(Campaign == input$water_campaign)
   })
-  
-  # Get USGS status column based on selected metal
-  # Function to get USGS column based on selected metal column
-  get_usgs_column <- function(sed_metal_col, sed_df) {
-    # Extract the last parenthetical symbol from metal_col, e.g. "As" from "Arsenic (mg/kg fraccion) (mg/kg As)"
-    symbol <- stringr::str_extract(sed_metal_col, "(?<=\\(mg/kg )[A-Za-z]+(?=\\)$)")
-    
-    pattern <- paste0(symbol, ".*USGS")
-    usgs_cols <- grep(pattern, names(sed_df), value = TRUE)
-    
-    if (length(usgs_cols) > 0) {
-      return(usgs_cols[1])
-    } else {
-      return(NULL)
-    }
-  }
-  
-  get_water_column_name <- function(metal, type) {
-    # Normalize input to match expected format
-    metal <- tolower(metal)
-    type <- tolower(type)
-    
-    # Lookup table for proper casing and symbols
-    metal_info <- list(
-      arsenic   = list(name = "Arsenic",   symbol = "As"),
-      silver    = list(name = "Silver",    symbol = "Ag"),
-      cadmium   = list(name = "Cadmium",   symbol = "Cd"),
-      copper    = list(name = "Copper",    symbol = "Cu"),
-      chromium  = list(name = "Chromium",  symbol = "Cr"),
-      iron      = list(name = "Iron",      symbol = "Fe"),
-      mercury   = list(name = "Mercury",   symbol = "Hg"),
-      magnesium = list(name = "Magnesium", symbol = "Mg"),
-      manganese = list(name = "Manganese", symbol = "Mn"),
-      nickel    = list(name = "Nickel",    symbol = "Ni"),
-      lead      = list(name = "Lead",      symbol = "Pb"),
-      zinc      = list(name = "Zinc",      symbol = "Zn")
-    )
-    
-    if (!metal %in% names(metal_info)) {
-      stop("Unrecognized metal: ", metal)
-    }
-    
-    metal_name <- metal_info[[metal]]$name
-    metal_symbol <- metal_info[[metal]]$symbol
-    
-    column_name <- switch(type,
-                          "water_dissolved" = paste0("Dissolved ", metal_name, " (mg/l ", metal_symbol, ")"),
-                          "water_suspended" = paste0("Suspended ", metal_name, " (mg/kg ", metal_symbol, ")"),
-                          "water_total"     = paste0("Total ", metal_name, " (mg/l ", metal_symbol, ")"),
-                          "water_1333"     = paste0(metal_name, " Class"),
-                          stop("Unrecognized type: ", type)
-    )
-    
-    return(column_name)
-  }
-  
-  
   
   # Render leaflet map
   output$sed_map <- renderLeaflet({

@@ -66,7 +66,7 @@ dataUploadUI <- function(id) {
       column(6,
              radioButtons(ns("media_type"), "Media included (select one):",
                           choices = c("Sediment"="sediment", "Water"="drinking water"),
-                          inline = TRUE, selected = "sed")
+                          inline = TRUE, selected = "drinking water")
       ),
       column(6,
              radioButtons(ns("translate_to"), "Translate to:",
