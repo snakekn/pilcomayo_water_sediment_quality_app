@@ -28,8 +28,6 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
   # english for backend work, es/en for front-end
   translated_data = translate_water_data(sample_data, src_lang, target_lang)
   View(translated_data) 
-  ## Nadav's Note: Sanity check. Something here isn't translating properly. 
-  # After this, getting issue: "Error in UseMethod: no applicable method for 'mutate' applied to an object of class "character"
   
   if(format=="pilco") {
     formatted_data = pivot_pilcomayo_data(translated_data, media_type = media)

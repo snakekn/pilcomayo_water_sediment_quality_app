@@ -79,8 +79,6 @@ dataUploadUI <- function(id) {
     ), 
     tags$hr(),
     h5("Files received"),
-    tableOutput(ns("files_table")),
-    # tags$hr(),
-    # downloadButton(ns("download_merged"), "Download all available data")
-  )
+    tableOutput(ns("files_table"))
+    )
 }

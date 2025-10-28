@@ -1,3 +1,98 @@
+####### Data hub -- one file to hold them all ######
+datahub = function(data_file, format = NA) {
+  ### load all existing data types
+  
+  # if a compiled file exists, use it. Otherwise, recompile
+  all_water_files = manual_compile_water(water_data_path_1333)
+  all_sediment_files = manual_compile_sediment()
+  
+  # standards should be compiled in scripts/risk_analysis/set_strict_stds.R
+  stds_list = read.csv(here::here("data/standards/strict_standards.csv"))
+
+  ### make all comparisons from existing data against standards
+  
+  return(list(water_data_hqcr=water_calc, sed_data_hqcr=sed_calc))
+}
+
+# a one-off method to compile all water data. Can be rerun if our compiled datafile doesn't exist 
+manual_compile_water = function(path, override_check = FALSE) {
+  
+  # find all files
+  water_files <- list.files(path, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
+  print(water_files) # what does it look like?
+  
+  # check if water data has already been compiled. If so, just send that back (don't recompile)
+  existing_data = readr::read_csv(here::here(included_water_files_path))
+  print(existing_data) # what does it look like?
+
+  # this likely doesn't work yet! the == check is unlikely to be the same
+  if (existing_data == water_files && !override_check) {
+    return(read.csv(here::here())) # share what we already have, skip the recompilation
+  }
+  
+  # add specific columns to each one based on the file name
+  water_dfs <- lapply(water_files, function(f) {
+    year <- stringr::str_extract(basename(f), "\\d{4}")
+    df <- read_xlsx(f)
+    df$Year <- as.integer(year)
+    df$Date <- as.Date(df$Date, "%Y-%m-%d")
+    df$Source = basename(f) # not tested, goal is to keep where all data comes from to filter if necessary
+    df
+  })
+  # compile data into one dataframe and fix some minor issues
+  all_data <- bind_rows(water_dfs) |> 
+    mutate(Station = str_replace(Station,
+                                 "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                 "Tacobamba arriba Pilcomayo")) |>
+    mutate(Station = str_replace(Station,
+                                 "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                 "Pilcomayo arriba Tacobamba")) |>
+    filter(!is.na(`Latitude Decimal`))
+  
+  # existing function all_water_1333() (reactive) counts up the Classes. We should outsource that if we still want to support it
+
+  # save the file so we can easily get it in the future
+  write.csv(all_data, file="data/compiled/water_compiled.csv")
+  write.csv(water_files, file=included_water_data_path) # the current list of water_files are now saved
+  
+}
+
+manual_compile_sediment = function(path, override_check = FALSE) {
+  # find all sediment files
+  sed_files <- list.files(sed_data_path_clean, pattern = "^sed_\\d{4}_clean\\.xlsx$", full.names = TRUE)
+  print("sed_files, a list.files output")
+  print(sed_files)
+  
+  # check if sed data has already been compiled. If so, just send that back (don't recompile)
+  existing_data = readr::read_csv(here::here(included_sed_files_path))
+  print(existing_data) # what does it look like?
+  
+  # this likely doesn't work yet! the == check is unlikely to be the same
+  if (existing_data == sed_files && !override_check) {
+    return(read.csv(here::here(compiled_sed_data_path))) # share what we already have, skip the recompilation
+  }
+  
+  # otherwise, make edits 
+  sed_dfs_clean <- lapply(sed_files_clean, function(f) {
+    year <- stringr::str_extract(basename(f), "\\d{4}")
+    df <- read_xlsx(f)
+    df$Year <- as.integer(year)
+    df$Date <- as.Date(df$Date, "%d/%m/%Y")
+    df$Source = basename(f)
+    df
+  })
+  
+  df <- bind_rows(sed_dfs_clean) |>
+    mutate(Station = str_replace(Station,
+                                 "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                 "Tacobamba arriba Pilcomayo")) |>
+    mutate(Station = str_replace(Station,
+                                 "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+                                 "Pilcomayo arriba Tacobamba"))
+  
+  return(df)
+}
+
 # ---------------- One-time reads (pure; OK outside server) ----------------
 pilco_line   <- sf::st_read("data/geojson/pilco_line.geojson")
 bol_border   <- sf::st_read("data/geojson/bol_borders.geojson")

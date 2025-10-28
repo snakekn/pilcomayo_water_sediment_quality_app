@@ -18,13 +18,6 @@ library(factoextra)
 library(shinyWidgets)
 library(bslib)
 
-## Define file paths to data
-sed_data_path_usgs <- "data/sed/usgs"
-water_data_path_1333 <- "data/water/1333"
-
-sed_data_path_clean <- "data/sed/clean"
-water_data_path_clean <- "data/water/clean"
-
 ## load all scripts 
 load_scripts <- function(dir = "scripts/risk_analysis") {
   if (!dir.exists(dir)) return(invisible())
@@ -37,6 +30,19 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
 
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
+
+## Define file paths to data
+sed_data_path_usgs <- "data/sed/usgs"
+water_data_path_1333 <- "data/water/1333"
+
+sed_data_path_clean <- "data/sed/clean"
+water_data_path_clean <- "data/water/clean"
+
+included_water_files_path = "data/compiled/water_data_list.csv"
+included_sed_files_path = "data/compiled/sed_data_list.csv"
+
+compiled_water_data_path = "data/compiled/water_compiled.csv"
+compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
 # global values are kept centrally to help us easily redefine if needed
 
@@ -51,6 +57,11 @@ EXCLUDED_COLS <- c(
   "2.00 mm - No. 010 (ASTM) (%)","4.75 mm - No. 004 (ASTM) (%)","0.016 mm (%)",
   "Year","num_unclass","num_class_b","num_class_c","num_class_d"
 )
+
+ID_COLS = c("data_source",
+             "Station","Code","Date","Time","Campaign","Responsible","Institution",
+             "River","Basin","Latitude","Longitude","Latitude Decimal","Longitude Decimal",
+             "Year")
 
 REVERSE_PARAMS <- c("Oxygen Saturation (%)","Dissolved Oxygen (mg/l O2)","pH","Resistivity (Ohm.cm)")
 

@@ -14,42 +14,42 @@ ui <- fluidPage(
                          tags$img(src = "pilcomayo.jpg", height = "350px"),
                          tags$hr(),
                          includeMarkdown("text/introduction.md"), # load from a .md to reduce clutter
-                         tags$hr(),
-                         tags$h4("Download Data:"),
-                         
-                         radioButtons(
-                           inputId = "data_scope",
-                           label = "Select Data Scope:",
-                           choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-                           selected = "bol",  # or "all" if you want to default to everything
-                           inline = TRUE
-                         ),
-                         
-                         # Optional year selection
-                         fluidRow(
-                           column(6,
-                                  uiOutput("download_year_ui")
-                           )
-                         ),
-                         
-                         # Download buttons
-                         fluidRow(
-                           column(6, downloadButton("download_sed_clean", "Sediment Data (Clean)")),
-                           column(6, downloadButton("download_water_clean", "Water Data (Clean)")),
-                           
-                         ),
-                         tags$p(),
-                         fluidRow(
-                           column(6, downloadButton("download_sed_usgs", "Sediment Data (Compared to SQGs)")),
-                           column(6, downloadButton("download_water_1333", "Water Data (Compared to Bolivian Standards)"))
-                         ),
-                         tags$p(),
-                         fluidRow(
-                           column(6, downloadButton("download_usgs_standards", "USGS Sediment Quality Guidelines Table")),
-                           column(6, downloadButton("download_1333_standards", "Bolivian Ley No. 1333 Standards Table"))
-                         ),
-                         
-                         tags$hr(),
+                         # tags$hr(),
+                         # tags$h4("Download Data:"),
+                         # 
+                         # radioButtons(
+                         #   inputId = "data_scope",
+                         #   label = "Select Data Scope:",
+                         #   choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+                         #   selected = "bol",  # or "all" if you want to default to everything
+                         #   inline = TRUE
+                         # ),
+                         # 
+                         # # Optional year selection
+                         # fluidRow(
+                         #   column(6,
+                         #          uiOutput("download_year_ui")
+                         #   )
+                         # ),
+                         # 
+                         # # Download buttons
+                         # fluidRow(
+                         #   column(6, downloadButton("download_sed_clean", "Sediment Data (Clean)")),
+                         #   column(6, downloadButton("download_water_clean", "Water Data (Clean)")),
+                         #   
+                         # ),
+                         # tags$p(),
+                         # fluidRow(
+                         #   column(6, downloadButton("download_sed_usgs", "Sediment Data (Compared to SQGs)")),
+                         #   column(6, downloadButton("download_water_1333", "Water Data (Compared to Bolivian Standards)"))
+                         # ),
+                         # tags$p(),
+                         # fluidRow(
+                         #   column(6, downloadButton("download_usgs_standards", "USGS Sediment Quality Guidelines Table")),
+                         #   column(6, downloadButton("download_1333_standards", "Bolivian Ley No. 1333 Standards Table"))
+                         # ),
+                         # 
+                         # tags$hr(),
                          
                          tabPanel("Import", dataUploadUI("upload_data")),
                          

@@ -510,7 +510,7 @@ create_base_map <- function(zoom = 7, center_lng = -63.5, center_lat = -21.3) {
 #' Get standard threshold values for a parameter
 get_standard_thresholds <- function(param, data_type = c("water", "sediment")) {
   data_type <- match.arg(data_type)
-  
+  # 
   if (data_type == "water") {
     matches <- bolivian_1333$match_name == param & !is.na(bolivian_1333$match_name)
     if (sum(matches) == 0) return(NULL)

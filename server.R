@@ -87,6 +87,8 @@ server <- function(input, output, session) {
     ### 4. All maps showing data use this single dataset
     ### 5. Users can still download pre-loaded datasets, or filter as needed
     
+    
+    # can replace much of this with manual_compile_water. Goal is to replace with datahub later on
     water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
     
     water_dfs <- lapply(water_files, function(f) {
