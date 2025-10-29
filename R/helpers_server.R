@@ -641,3 +641,111 @@ load_yearly_data_flexible <- function(path, pattern, date_format = "%d/%m/%Y",
   
   result
 }
+
+#### Unit conversion helpers ####
+
+# normalize unit text (remove spaces, lower-case, handle micro symbol)
+normalize_unit <- function(u) {
+  if (is.null(u)) return(NA_character_)
+  u <- as.character(u)
+  u <- trimws(u)
+  u <- gsub("\u00B5", "u", u, fixed = TRUE)    # micro sign µ -> u
+  u <- gsub("\u03BC", "u", u, fixed = TRUE)    # Greek mu -> u (just in case)
+  u <- gsub("µ", "u", u, fixed = TRUE)         # micro char
+  u <- gsub(" ", "", u, fixed = TRUE)          # drop spaces
+  u <- tolower(u)
+  u
+}
+
+# parse a unit like "ug/l" or "mg/kg" or "mg/l" or "ug/kg"
+# returns list(num = numerator token like "ug", denom = denominator token like "l")
+parse_unit_tokens <- function(u) {
+  u <- normalize_unit(u)
+  if (is.na(u) || nchar(u) == 0) return(NULL)
+  # split on "/" or "per"
+  if (grepl("/", u, fixed = TRUE)) {
+    parts <- strsplit(u, "/", fixed = TRUE)[[1]]
+  } else if (grepl("per", u, fixed = TRUE)) {
+    parts <- strsplit(u, "per", fixed = TRUE)[[1]]
+  } else {
+    parts <- c(u, "")  # e.g., "mg" no denominator
+  }
+  parts <- trimws(parts)
+  list(num = parts[[1]], denom = parts[[2]])
+}
+
+# numeric multiplier to convert "num" to grams (g)
+numerator_to_gram <- function(num_token) {
+  num_token <- normalize_unit(num_token)
+  # handle common tokens
+  # ng -> 1e-9 g, ug -> 1e-6 g, mg -> 1e-3 g, g -> 1, kg -> 1e3
+  res = switch(num_token,
+         "ng"  = 1e-9,
+         "ng/l"= 1e-9, # tolerant
+         "ug"  = 1e-6,
+         "µg"  = 1e-6,
+         "ug/l"= 1e-6,
+         "mg"  = 1e-3,
+         "g"   = 1,
+         "kg"  = 1e3,
+         NA_real_)
+  print(paste0("numerator_to_gram result: ", res))
+}
+
+# denominator factor to canonical base:
+# we choose canonical denominator base: "l" (liters) for volumes, "kg" for mass
+denom_base_and_factor <- function(denom_token) {
+  denom_token <- normalize_unit(denom_token)
+  if (denom_token %in% c("l","litre","liter","liters","litres")) return(list(base = "L", factor = 1))
+  if (denom_token %in% c("m3","m^3","cubicmeter","cubicmeters")) return(list(base = "L", factor = 1000)) # 1 m3 = 1000 L
+  if (denom_token %in% c("kg","kilogram","kilograms")) return(list(base = "kg", factor = 1))
+  if (denom_token == "") return(list(base = NA_character_, factor = NA_real_))
+  # unknown denominator: return it (so comparison can detect mismatch)
+  list(base = denom_token, factor = 1)
+}
+
+# check if two units are compatible (same dimension)
+units_compatible <- function(from_unit, to_unit) {
+  ft <- parse_unit_tokens(from_unit)
+  tt <- parse_unit_tokens(to_unit)
+  if (is.null(ft) || is.null(tt)) return(FALSE)
+  # numerator must be mass-like (we only handle mass prefixes)
+  # denominator bases must be equal after mapping (L vs kg)
+  from_den <- denom_base_and_factor(ft$denom)$base
+  to_den   <- denom_base_and_factor(tt$denom)$base
+  identical(from_den, to_den)
+}
+
+# main convert function: values *should* be numeric vector
+convert_units <- function(values, from_unit, to_unit) {
+  if (is.null(from_unit) || is.null(to_unit)) {
+    rlang::abort("from_unit and to_unit must be provided")
+  }
+  if (!units_compatible(from_unit, to_unit)) {
+    rlang::abort(paste0("Incompatible units: cannot convert '", from_unit,
+                        "' to '", to_unit, "'. Denominators differ or unknown."))
+  }
+  
+  ft <- parse_unit_tokens(from_unit)
+  tt <- parse_unit_tokens(to_unit)
+  
+  num_from_factor <- numerator_to_gram(ft$num)
+  num_to_factor   <- numerator_to_gram(tt$num)
+  if (is.na(num_from_factor) || is.na(num_to_factor)) {
+    rlang::abort(paste0("Unsupported numerator unit. from='", ft$num, "' to='", tt$num, "'"))
+  }
+  
+  denom_from <- denom_base_and_factor(ft$denom)
+  denom_to   <- denom_base_and_factor(tt$denom)
+  if (is.na(denom_from$factor) || is.na(denom_to$factor)) {
+    rlang::abort(paste0("Unsupported denominator unit: from='", ft$denom, "' to='", tt$denom, "'"))
+  }
+  
+  # conversion multiplier:
+  # value_in_from * (num_from_factor [g/unit_from] / num_to_factor [g/unit_to]) *
+  #                 (denom_to_factor / denom_from_factor)
+  multiplier <- (num_from_factor / num_to_factor) * (denom_to$factor / denom_from$factor)
+  
+  # vectorized multiply, preserve NA
+  as.numeric(values) * multiplier
+}

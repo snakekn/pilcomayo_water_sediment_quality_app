@@ -2,9 +2,9 @@
 datahub = function(data_file, format = NA) {
   ### load all existing data types
   
-  # if a compiled file exists, use it. Otherwise, recompile
-  all_water_files = manual_compile_water(water_data_path_1333)
-  all_sediment_files = manual_compile_sediment()
+  # water & sed data were compiled & saved in the data folder
+  water_clean = readr::read_csv(here::here("data/merged_water_clean.csv"))
+  sed_clean = readr::read_csv(here::here("data/merged_sed_clean.csv"))
   
   # standards should be compiled in scripts/risk_analysis/set_strict_stds.R
   stds_list = read.csv(here::here("data/standards/strict_standards.csv"))

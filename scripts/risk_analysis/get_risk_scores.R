@@ -31,6 +31,7 @@ get_scores <- function(sample_data, loc_col = NULL, year_col = NULL) {
   group_vars <- character(0)
   if (!is.null(loc_col)  && loc_col  %in% names(df)) group_vars <- c(group_vars, loc_col)
   if (!is.null(year_col) && year_col %in% names(df)) group_vars <- c(group_vars, year_col)
+  print(group_vars)
   
   # --- 3) run score_data per group (or once if no groups) ---
   if (length(group_vars) == 0) {

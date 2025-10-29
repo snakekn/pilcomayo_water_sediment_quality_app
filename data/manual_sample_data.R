@@ -30,24 +30,10 @@ standardize_headers <- function(nms) {
   nms
 }
 
-
-
 # --- 2) Light type coercion for key columns -----------------------------------
 .coerce_key_types <- function(df) {
   # Station
   if ("Station" %in% names(df)) df$Station <- as.character(df$Station)
-  
-  # Date/Year
-  if ("Date" %in% names(df) && !inherits(df$Date, "Date")) {
-    suppressWarnings({
-      a <- try(as.Date(df$Date, "%Y-%m-%d"))
-      b <- try(as.Date(df$Date, "%d/%m/%Y"))
-      df$Date <- if (all(!is.na(a))) a else if (all(!is.na(b))) b else as.Date(df$Date)
-    })
-  }
-  if ("Date" %in% names(df) && !"Year" %in% names(df)) {
-    df$Year <- suppressWarnings(as.integer(format(df$Date, "%Y")))
-  }
   
   # Coords
   for (nm in c("Latitude Decimal","Longitude Decimal","Lat_dd","Long_dd")) {
@@ -105,8 +91,11 @@ merge_measurement_files <- function(files_or_dfs) {
   lst <- Map(function(df, nm) {
     if (is.null(df)) return(NULL)
     names(df) <- standardize_headers(names(df))
+
     df <- .coerce_key_types(df)
     df$data_source <- basename(nm)   # now we can safely use the name
+    df$Date = as.Date(df$Date, format = "%d/%m/%Y")
+    str(df$Date)
     df
   }, lst, names(lst))
   
@@ -260,14 +249,25 @@ find_merge_candidates_from_files <- function(files_or_dfs) {
   invisible(out)
 }
 
+#### convert data into by_parameter type ####
+pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
+  pivot_pilcomayo_data(merged_df, media_type = media, date_format=date_format)
+}
 
+# pivot the data & include the pivot method
+pivoted_water = pivot_merged_samples(merged_df_water, "drinking water")
+pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
+
+#### calculate HQ & CR from each media ####
+water_scored = score_data(pivoted_water)
+sed_scored = score_data(pivoted_sed)
 
 ## run the dang code
 
 # merge the files - water
 merged_df_water <- merge_measurement_folder(here::here("data/water/clean"))
 # save to a file we can look at later
-save_path_water = here::here("data/merged_water_clean.csv")
+save_path_water = here::here("data/merged_water_clean2.csv")
 dir.create(dirname(save_path_water), recursive = TRUE, showWarnings = FALSE)
 
 write_csv(merged_df_water, file=save_path_water)

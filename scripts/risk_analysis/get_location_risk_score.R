@@ -6,12 +6,9 @@ library(tidyverse)
 make_key = function(parameter, media) paste0(parameter, "||", media)
 
 stds = readr::read_csv(here::here("data/standards/strict_standards.csv")) |>
-  mutate(.key = make_key(parameter, media))
+  mutate(.key = make_key(parameter, media)) |>
+  filter(!is.na(value)) # skip any values that we don't have data for, HQ or CR
 std_map <- split(stds, stds$.key)
-
-wts = readr::read_csv(here::here("data/risk_weights.csv")) |>
-  janitor::clean_names() |> # turn headers into easy variable names
-  mutate(.key = make_key(parameter, media))
 
 # create a standardized set of exposure factors for simple CR calculations
 EXPOSURE_FACTORS <- list(
@@ -23,7 +20,6 @@ EXPOSURE_FACTORS <- list(
   ED = 30,      # Exposure duration, years
   BW = 70,      # Body weight, kg
   EL = 365*70,  # Expected lifespan, days (70 yrs * 365)
-  cr_weight = 0.3
 )
 
 # to get the total environmental score for a set of data at a station
@@ -58,12 +54,15 @@ calculate_location_score = function(sample_data) {
   )
 }
 
-# to get HQ, CR, weights, and calculated scores for each data point
+# to get HQ, CR, and calculated scores for each data point. Note that data points with more data will have higher HQs, rather than being normalized
+# Nadav's Note: may want to only calculate ones above 1?? 
 score_data <- function(sample_data) {
   # need: parameter, media, concentration, unit, cr_route
   req <- c("parameter","media","concentration","unit","cr_route")
   miss <- setdiff(req, names(sample_data))
   if (length(miss)) rlang::abort(paste0("sample_data missing: ", paste(miss, collapse=", ")))
+  
+  print(nrow(sample_data))
   
   scored <- sample_data |>
     dplyr::mutate(
@@ -74,7 +73,6 @@ score_data <- function(sample_data) {
     ) |>
     tidyr::unnest_wider(hqcr) |>
     dplyr::mutate(
-      weight_param = purrr::map2_dbl(parameter, media, get_weight),
       CR_cases_10k = ifelse(is.na(CR), NA_real_, CR * 1e4),
       has_HQ = !is.na(HQ),
       has_CR = !is.na(CR)
@@ -87,27 +85,9 @@ score_data <- function(sample_data) {
     dplyr::group_by(parameter, media) |>
     dplyr::summarize(
       HQ_max       = max(HQ, na.rm = TRUE),
-      weight_param = dplyr::first(weight_param),   # your scheme is per param/media
       .groups = "drop"
-    )
-  
-  # Normalize weights among the params that actually contributed HQ
-  total_w <- sum(hq_by_param$weight_param, na.rm = TRUE)
-  if (nrow(hq_by_param) > 0) {
-    if (total_w > 0) {
-      hq_by_param <- hq_by_param |>
-        dplyr::mutate(weight_norm = weight_param / total_w)
-    } else {
-      hq_by_param <- hq_by_param |>
-        dplyr::mutate(weight_norm = 1 / dplyr::n())
-    }
-  } else {
-    # no HQ data available
-    hq_by_param$weight_norm <- numeric(0)
-  }
-  
-  hq_by_param = hq_by_param |>
-    mutate(hazard_quotient = weight_norm * HQ_max)
+    ) |>
+    mutate(hazard_quotient = HQ_max)
   
   hazard_index <- sum(hq_by_param$hazard_quotient, na.rm = TRUE)
   
@@ -143,7 +123,7 @@ score_data <- function(sample_data) {
 }
 
 # for quickly retrieving standards 
-get_std <- function(parameter, media) {
+get_std <- function(parameter, hqcr, media) {
   
   key = make_key(parameter, media)
   std <- std_map[[key]]
@@ -153,65 +133,136 @@ get_std <- function(parameter, media) {
   return(std)
 }
 
-get_weight = function(parameter, media, lookup=wts) {
-  # easy lookups with a key
-  key = make_key(parameter, media)
-  # try getting the right weight
-  w = lookup |> filter(key == !!key)
-  # if the perfect param/media doesn't exist, **just use any weight for the parameter itself**
-  if (nrow(w)==0) w = lookup |> filter(parameter == !!parameter) 
-  # if no weight found, assign 0 to this parameter
-  if(nrow(w)==0) return(0)
-  
-  return(w$weight[[1]])
-}
-
 # For an individual parameter: get & prep the parameter standard, then compare with the found value
 calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should have: param, med, val, unit
   # set HQ & CR to NA in case we don't have the data, then calculate each separately
-
+  # print(paste0(param, med, val, unit, route)) # for sanity :)
   hq = NA_real_
   cr = NA_real_
   
   ## Get the standards data
-  std = get_std(param, med) # fetch standard
+  std = get_std(param, "hq", med) # fetch HQ standard
+  # print(std)
   # confirm we got the standard, otherwise stop trying to calculate based on this parameter-media
   if(is.null(std)) return(list(HQ=0,CR=0))
   
+  # Edge Case: pH. Skip CR
+  if (grepl("^pH\\b", param, ignore.case = TRUE)) {
+    # attempt to extract lower / upper bounds from std in a robust way
+    
+    # helper to pick numeric named fields
+    try_numeric_field <- function(df, names_vec) {
+      for (nm in names_vec) {
+        if (!is.null(df[[nm]]) && is.numeric(df[[nm]]) && !all(is.na(df[[nm]]))) {
+          v <- as.numeric(df[[nm]])
+          v <- v[!is.na(v)]
+          if (length(v)) return(range(v, na.rm = TRUE))
+        }
+      }
+      NULL
+    }
+    
+    # 1) explicit lower/upper/min/max
+    rng <- try_numeric_field(std, c("lower", "upper", "min", "max"))
+    # if explicit fields returned a 2-value range, use directly
+    if (!is.null(rng) && length(rng) == 2) {
+      lower <- rng[1]; upper <- rng[2]
+    } else {
+      # 2) try "Class A/B/C/D" style numeric fields or any numeric columns
+      numeric_cols <- vapply(std, is.numeric, logical(1))
+      if (any(numeric_cols)) {
+        vals <- unlist(std[ , numeric_cols, drop = FALSE], use.names = FALSE)
+        vals <- as.numeric(vals[!is.na(vals)])
+        if (length(vals) >= 2) {
+          lower <- min(vals, na.rm = TRUE)
+          upper <- max(vals, na.rm = TRUE)
+        } else {
+          lower <- upper <- NA_real_
+        }
+      } else {
+        lower <- upper <- NA_real_
+      }
+    }
+    
+    # If still NA, give a friendly error
+    if (is.na(lower) || is.na(upper)) {
+      rlang::abort(paste0("Could not determine pH acceptable range from std for '", param,
+                          "'. Std object needs numeric lower/upper or numeric class thresholds."))
+    }
+    
+    # ensure proper ordering
+    if (lower > upper) {
+      tmp <- lower; lower <- upper; upper <- tmp
+    }
+    
+    # compute HQ:
+    # - inside range -> HQ = 0
+    # - below lower  -> HQ = lower / val (simple ratio)
+    # - above upper  -> HQ = val / upper
+    if (is.na(val)) {
+      hq <- NA_real_
+    } else if (val >= lower && val <= upper) {
+      hq <- 0
+    } else if (val < lower) {
+      # avoid divide-by-zero
+      if (val == 0) {
+        hq <- Inf
+      } else {
+        hq <- lower / val
+      }
+    } else { # val > upper
+      if (upper == 0) {
+        hq <- Inf
+      } else {
+        hq <- val / upper
+      }
+    }
+    
+    # pH has no CR; return early
+    return(list(HQ = hq, CR = NA_real_))
+  } # end pH special-case
+  
   ## Calculate HQ
   # check the units are the same and abort if they're not
-  if(unit != std$unit) rlang::abort(paste0("Unit mismatch for ", param, " in ", med, "! Received ", unit, " but standard is in", std$unit)) 
-  
-  hq = val/std$concentration
+  unit_check_hq = compare_units(unit, std$unit) # in helpers_server.R. Gives helpful responses
+  if(!unit_check_hq$convertible) { # can't convert
+    message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
+  } else {
+    val = val & unit_check_hq$conversion_factor
+    hq = val/std$value
+  }
   
   ## calculate CR - not as simple :))
   
-  # we don't always have CR data -- can just set to 0 if so
-  if (!is.null(std$cr_slope) && !is.na(std$cr_slope) && !is.null(std$cr_route) && !is.na(std$cr_route)) {
+  # get_std using oral only -- no air samples now :( will just need a dictionary to check for it
+  std = get_std(param, "cr", "oral")
+  
+  # we don't always have CR data -- will leave as NA if so
+  if (!is.null(std$value) && !is.na(std$value) && !is.null(std$unit) && !is.na(std$unit)) {
     
-    # optional CR unit guard: only check if provided
-    cr_unit <- std$cr_unit[[1]]
-    if (!is.na(cr_unit) && isTRUE(unit != cr_unit)) {
-      rlang::abort(paste0("CR unit mismatch for ", param, " in ", med,
-                          ": got '", unit, "', expected '", cr_unit, "'"))
+    unit_check_cr = compare_units(unit, std$unit)
+    if(!unit_check_cr$convertible) { # can't convert
+      message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
+    } else {
+      val = val & unit_check_cr$conversion_factor
+      
+      ep <- EXPOSURE_FACTORS
+      sf <- std$value
+      
+      cr = switch(route,
+                  "inhalation" = val * sf,  # val in µg/m^3; sf is unit risk (µg/m^3)^-1
+                  "oral" = {
+                    dose <- (val * ep$IR$oral_L_per_day * ep$EF * ep$ED) / (ep$BW * ep$EL)
+                    dose * sf
+                  },
+                  "soil_oral" = {
+                    CF <- 1e-6
+                    dose <- (val * ep$IR$soil_mg_per_day * CF * ep$EF * ep$ED) / (ep$BW * ep$EL)
+                    dose * sf
+                  },
+                  0
+      )
     }
-    
-    ep <- EXPOSURE_FACTORS
-    sf <- std$cr_slope[[1]]
-    
-    cr = switch(route,
-                 "inhalation" = val * sf,  # val in µg/m^3; sf is unit risk (µg/m^3)^-1
-                 "oral" = {
-                   dose <- (val * ep$IR$oral_L_per_day * ep$EF * ep$ED) / (ep$BW * ep$EL)
-                   dose * sf
-                 },
-                 "soil_oral" = {
-                   CF <- 1e-6
-                   dose <- (val * ep$IR$soil_mg_per_day * CF * ep$EF * ep$ED) / (ep$BW * ep$EL)
-                   dose * sf
-                 },
-                 0
-    )
   }
   return(list(HQ=hq, CR = cr))
 }

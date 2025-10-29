@@ -18,7 +18,7 @@ library(factoextra)
 library(shinyWidgets)
 library(bslib)
 
-## load all scripts 
+#### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {
   if (!dir.exists(dir)) return(invisible())
   files <- list.files(dir, pattern = "[.]R$", full.names = TRUE, recursive = TRUE)
@@ -31,6 +31,7 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
 
+#### define paths to things ####
 ## Define file paths to data
 sed_data_path_usgs <- "data/sed/usgs"
 water_data_path_1333 <- "data/water/1333"
@@ -44,7 +45,12 @@ included_sed_files_path = "data/compiled/sed_data_list.csv"
 compiled_water_data_path = "data/compiled/water_compiled.csv"
 compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
-# global values are kept centrally to help us easily redefine if needed
+#### load pre-compiled data ####
+water_clean = readr::read_csv(here::here("data/merged_water_clean.csv"))
+sed_clean = readr::read_csv(here::here("data/merged_sed_clean.csv"))
+
+#### load global values ####
+# these are kept centrally to help us easily redefine if needed
 
 # 1) Shared constants
 EXCLUDED_COLS <- c(
