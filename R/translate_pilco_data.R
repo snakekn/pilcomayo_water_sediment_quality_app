@@ -1,4 +1,4 @@
-translate_water_data <- function(data, source_lang, target_lang) {
+translate_pilco_data <- function(data, source_lang, target_lang, media) {
   # stop if either is NA
   if(is.na(source_lang) || is.na(target_lang)) {
     warning(paste("Missing language selection. Will skip translations: ", source_lang, target_lang))
@@ -18,14 +18,25 @@ translate_water_data <- function(data, source_lang, target_lang) {
   # Get current column names
   current_cols <- colnames(data)
   
-  # Create translation based on direction
-  if (source_lang == "es" && target_lang == "en") {
-    # Spanish to English: use param_mapping as is
-    translation_map <- param_mapping
-  } else {
-    # English to Spanish: reverse the param_mapping
-    translation_map <- setNames(names(param_mapping), unname(unlist(param_mapping)))
-  }
+  # Create translation based on direction and media
+  if (media == "water") {
+    if (source_lang == "es" && target_lang == "en") {
+      # Spanish to English: use param_mapping as is
+      translation_map <- param_mapping
+    } else {
+      # English to Spanish: reverse the param_mapping
+      translation_map <- setNames(names(param_mapping), unname(unlist(param_mapping)))
+    }
+  } else if(media == "sed") {
+    if (source_lang == "es" && target_lang == "en") {
+      # Spanish to English: use param_mapping as is
+      translation_map <- param_mapping_sed
+    } else {
+      # English to Spanish: reverse the param_mapping
+      translation_map <- setNames(names(param_mapping_sed), unname(unlist(param_mapping_sed)))
+    }
+  } 
+  
   
   # Translate column names
   new_cols <- sapply(current_cols, function(col) {
