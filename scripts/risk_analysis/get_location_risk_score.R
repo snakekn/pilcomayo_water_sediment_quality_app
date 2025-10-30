@@ -78,7 +78,6 @@ score_data <- function(sample_data) {
       has_CR = !is.na(CR)
     )
   
-
   # --- HQ branch: collapse to one row per parameter-media using worst HQ ---
   hq_by_param <- scored |>
     filter(has_HQ) |>
@@ -219,14 +218,14 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     }
     
     # pH has no CR; return early
-    return(list(HQ = hq, CR = NA_real_))
+    return(list(HQ = hq, CR = NA_real_, std_reg = std$regulator, std_val = std$value, std_unit = std$unit))
   } # end pH special-case
   
   ## Calculate HQ
   # check the units are the same and abort if they're not
   unit_check_hq = compare_units(unit, std$unit) # in helpers_server.R. Gives helpful responses
   if(!unit_check_hq$convertible) { # can't convert
-    message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
+    # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
   } else {
     val = val & unit_check_hq$conversion_factor
     hq = val/std$value
@@ -264,6 +263,9 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
       )
     }
   }
-  return(list(HQ=hq, CR = cr))
+  # print(std) # had an issue with !is.null(std) failing when the std wasn't null (received properly)
+  if (!is.null(std) && !is.na(std)) { # ensure they're not null
+    return(list(HQ=hq, CR = cr, std_reg = std$regulator, std_val = std$value, std_unit = std$unit))
+  } else {return(list(HQ=hq, CR = cr, std_reg = NA, std_val = NA, std_unit = NA))}
 }
 

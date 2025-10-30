@@ -42,7 +42,7 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
 
 pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type = NA, date_format = "mdy") {
   if (is.null(df) || !is.data.frame(df)) stop("df NULL/not data.frame")
-  print(names(df)) # what cols are we getting?
+  # print(names(df)) # what cols are we getting?
   if (!"data_source" %in% names(df)) df$data_source <- NA_character_
   # force data_source to be first so id_cols catches it easily
   df <- dplyr::relocate(df, data_source, .before = 1)
@@ -56,19 +56,14 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
     
     # also: replace g/100 with %, get decimal location, 
   }
-  
   # create lat & lon in decimal if it doesn't already exist
-  if(!"Latitude Decimal" %in% names(df) || !"Longitude Decimal" %in% names) {
+  if(!"Latitude Decimal" %in% names(df) || !"Longitude Decimal" %in% names(df)) {
     df$"Latitude Decimal" = to_decimal_loc(df$Latitude)
     df$"Longitude Decimal" = to_decimal_loc(df$Longitude)
   }
-  
   # recalc id columns (ensure data_source included)
   present_ids <- intersect(ID_COLS, names(df))
   missing_ids <- setdiff(ID_COLS, names(df))
-  
-  print(present_ids)
-  print(missing_ids)
   
   src_label <- if (!is.na(unique(df$data_source)[1])) paste0(" [", unique(df$data_source)[1], "]") else ""
   if (length(missing_ids)) {

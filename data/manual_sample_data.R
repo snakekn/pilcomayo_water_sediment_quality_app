@@ -249,25 +249,13 @@ find_merge_candidates_from_files <- function(files_or_dfs) {
   invisible(out)
 }
 
-#### convert data into by_parameter type ####
-pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
-  pivot_pilcomayo_data(merged_df, media_type = media, date_format=date_format)
-}
 
-# pivot the data & include the pivot method
-pivoted_water = pivot_merged_samples(merged_df_water, "drinking water")
-pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
-
-#### calculate HQ & CR from each media ####
-water_scored = score_data(pivoted_water)
-sed_scored = score_data(pivoted_sed)
-
-## run the dang code
+#### merge clean data files ####
 
 # merge the files - water
 merged_df_water <- merge_measurement_folder(here::here("data/water/clean"))
 # save to a file we can look at later
-save_path_water = here::here("data/merged_water_clean2.csv")
+save_path_water = here::here("data/merged_water_clean.csv")
 dir.create(dirname(save_path_water), recursive = TRUE, showWarnings = FALSE)
 
 write_csv(merged_df_water, file=save_path_water)
@@ -280,11 +268,10 @@ dir.create(dirname(save_path_sed), recursive = TRUE, showWarnings = FALSE)
 
 write_csv(merged_df_sed, file=save_path_sed)
 
-
 ## checks!
 
 # check if any columns are completely NA -- for sanity!
-merged_df = merged_df_sed
+merged_df = merged_df_water
 names(merged_df)[vapply(merged_df, function(col) all(is.na(col)), logical(1))] # char(0) means no columns!
 
 # print column names 
@@ -293,3 +280,15 @@ print(names(merged_df))
 files <- list.files(here::here("data/sed/clean"), full.names = TRUE)
 cands = find_merge_candidates_from_files(files)
 
+#### convert data into by_parameter type ####
+pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
+  pivot_pilcomayo_data(merged_df, media_type = media, date_format=date_format)
+}
+
+# pivot the data & include the pivot method
+pivoted_water = pivot_merged_samples(merged_df_water, "drinking water")
+pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
+
+#### calculate HQ & CR from each media ####
+water_scored = score_data(pivoted_water)
+sed_scored = score_data(pivoted_sed)
