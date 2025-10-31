@@ -264,8 +264,8 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     }
   }
   # print(std) # had an issue with !is.null(std) failing when the std wasn't null (received properly)
-  if (!is.null(std) && !is.na(std)) { # ensure they're not null
-    return(list(HQ=hq, CR = cr, std_reg = std$regulator, std_val = std$value, std_unit = std$unit))
-  } else {return(list(HQ=hq, CR = cr, std_reg = NA, std_val = NA, std_unit = NA))}
+  if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
+   return(list(HQ=hq, CR = cr, std_reg = std$regulator, std_val = std$value, std_unit = std$unit))
+  } else return(list(HQ=hq, CR = cr, std_reg = NA, std_val = NA, std_unit = NA))
 }
 

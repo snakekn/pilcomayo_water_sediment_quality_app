@@ -26,7 +26,7 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
   
   # translate file to appropriate language - should probably make everything english, handle, then revert to es as desired in the front-facing app
   # english for backend work, es/en for front-end
-  translated_data = translate_water_data(sample_data, src_lang, target_lang)
+  translated_data = translate_pilco_data(sample_data, src_lang, target_lang)
   View(translated_data) 
   
   if(format=="pilco") {
