@@ -1,4 +1,4 @@
-,regulator,param_abbr,parameter,parameter_full,value,unit,media,notes,source,hqcr
+,regulator,param_abbr,parameter,parameter_full,value,unit,media,notes,source,std_type
 1,Bolivian Law 1333,Al,Aluminum,Aluminum (Al),0.2,mg/L,drinking water,Class A limit,NA,hq
 2,Bolivian Law 1333,NH3,Ammonia,Ammonia (NH3),0.05,mg/L,drinking water,Class A limit,NA,hq
 3,Bolivian Law 1333,Sb,Antimony,Antimony (Sb),0.1,mg/L,drinking water,Class A limit,NA,hq
@@ -59,10 +59,10 @@
 58,USGS,Zn,Zinc,Zinc (Zn),123,mg/kg,sediment,NA,NA,hq
 59,Bolivian Law 1333,pH,pH,pH high,8.5,pH unit,drinking water,Class A limit,NA,hq
 60,Bolivian Law 1333,pH,pH ,pH low,6,pH unit,drinking water,Class A limit,NA,hq
-61,EPA,Hg,Mercury,Mercury (Hg),0.77,ug/L,drinking water,Chronic impacts from Mercury,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wildlife
-,EPA,Zn,Zinc,Zinc (Zn),120,ug/L,drinking water,Chronic impacts from Mercury,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wildlife
-,EPA,Ag,Silver,Silver (Ag),3.2,ug/L,drinking water,Acute impacts from Silver,https://www.epa.gov/sites/default/files/2019-03/documents/ambient-wqc-silver-1980.pdf,wildlife
-,EPA,Ni,Nickel,Nickel (Ni),52,ug/L,drinking water,Chronic impacts from Nickel,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wildlife
-,EPA,Pb,Lead,Lead (Pb),2.5,ug/L,drinking water,Chronic impacts from Lead,https://www.epa.gov/wqc/aquatic-life-criteria-lead,wildlife
-,EPA,Fe,Iron,Iron (Fe),1000,ug/L,drinking water,Chronic impacts of Iron,https://www.epa.gov/sites/default/files/2018-10/documents/quality-criteria-water-1986.pdf,wildlife
-,EPA,Al,Aluminum,Aluminum (Al),87,ug/L,drinking water,Freshwater chronic level,https://www.federalregister.gov/documents/2018/12/21/2018-27745/aquatic-life-ambient-water-quality-criteria-for-aluminum-in-freshwater,wildlife
+61,EPA,Hg,Mercury,Mercury (Hg),0.77,ug/L,drinking water,Chronic impacts from Mercury,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wl
+,EPA,Zn,Zinc,Zinc (Zn),120,ug/L,drinking water,Chronic impacts from Mercury,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wl
+,EPA,Ag,Silver,Silver (Ag),3.2,ug/L,drinking water,Acute impacts from Silver,https://www.epa.gov/sites/default/files/2019-03/documents/ambient-wqc-silver-1980.pdf,wl
+,EPA,Ni,Nickel,Nickel (Ni),52,ug/L,drinking water,Chronic impacts from Nickel,https://www.epa.gov/sites/default/files/2019-03/documents/1995-updates-wqc-protection-al.pdf,wl
+,EPA,Pb,Lead,Lead (Pb),2.5,ug/L,drinking water,Chronic impacts from Lead,https://www.epa.gov/wqc/aquatic-life-criteria-lead,wl
+,EPA,Fe,Iron,Iron (Fe),1000,ug/L,drinking water,Chronic impacts of Iron,https://www.epa.gov/sites/default/files/2018-10/documents/quality-criteria-water-1986.pdf,wl
+,EPA,Al,Aluminum,Aluminum (Al),87,ug/L,drinking water,Freshwater chronic level,https://www.federalregister.gov/documents/2018/12/21/2018-27745/aquatic-life-ambient-water-quality-criteria-for-aluminum-in-freshwater,wl

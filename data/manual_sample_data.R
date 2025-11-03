@@ -292,3 +292,15 @@ pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
 #### calculate HQ & CR from each media ####
 water_scored = score_data(pivoted_water)
 sed_scored = score_data(pivoted_sed)
+
+# save these scored files
+saveRDS(water_scored, "data/processed/water_scored.rds")
+saveRDS(sed_scored, "data/processed/sed_scored.rds")
+
+# pull them up -- can place into the code
+water_scored_data = readRDS(here::here("data/processed/water_scored.rds"))
+sed_scored_data = readRDS(here::here("data/processed/sed_scored.rds"))
+
+## save by locyear - from get_risk_scores.R
+water_locyear = score_by_loc_year(pivoted_water, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
+sed_locyear = score_by_loc_year(pivoted_sed, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
