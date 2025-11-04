@@ -1,47 +1,46 @@
-### Split dataset by station & year, get scores, then merge into a single set of scores per location
+
+#### Split scored df by station & year, merge into a single set of scores per location-year ####
 # potentially good for showing all on a map. Note: can take awhile to load, so we want to parse this (or show a loading bar) early if possible
-score_by_loc_year <- function(sample_data, loc_col = NULL, year_col = NULL, lat_col = NULL, lon_col = NULL) {
+score_to_loc_year <- function(scored_data, loc_col = NULL, year_col = NULL, lat_col = NULL, lon_col = NULL) {
+
+    req <- c("station", "year", "parameter","media","concentration","unit") # regular check
+  miss <- setdiff(req, names(scored_data))
+
+  if (length(miss)) {
+    message(paste0("scored_data missing: ", paste(miss, collapse = ", ")))
+    return(NULL)
+  } 
   
-  # --- 1) core column checks ---
-  req <- c("parameter","media","concentration","unit")
-  miss <- setdiff(req, names(sample_data))
-  if (length(miss)) abort(paste0("sample_data missing: ", paste(miss, collapse = ", ")))
-  
-  # If route is absent, add it as NA (so CR becomes NA but HQCRWL still compute)
-  if (!"cr_route" %in% names(sample_data)) {
-    sample_data <- mutate(sample_data, cr_route = NA_character_)
+  # If route is absent, add it as NA (so CR becomes NA but HQWL still compute)
+  if (!"cr_route" %in% names(scored_data)) {
+    scored_data <- mutate(scored_data, cr_route = NA_character_)
   }
   
-  # --- 2) figure out grouping columns we can actually use ---
-  df <- sample_data
-  
   # If year grouping requested but column not present, derive from 'date' if available
-  if (!is.null(year_col) && !(year_col %in% names(df)) && ("date" %in% names(df))) {
+  if (!is.null(year_col) && !(year_col %in% names(scored_data)) && ("date" %in% names(scored_data))) {
     # require lubridate for year()
     if (!requireNamespace("lubridate", quietly = TRUE)) {
-      abort("year_col requested but not found; install 'lubridate' or provide a year column.")
+      message("year_col requested but not found; install 'lubridate' or provide a year column.")
     }
-    df <- df %>% mutate(!!year_col := lubridate::year(.data$date))
+    scored_data <- scored_data %>% mutate(!!year_col := lubridate::year(.data$date))
   }
   
   group_vars <- character(0)
-  if (!is.null(loc_col)  && loc_col  %in% names(df)) group_vars <- c(group_vars, loc_col)
-  if (!is.null(year_col) && year_col %in% names(df)) group_vars <- c(group_vars, year_col)
-  print(paste0("[score_by_loc_year] Group vars: ", group_vars))
+  if (!is.null(loc_col)  && loc_col  %in% names(scored_data)) group_vars <- c(group_vars, loc_col)
+  if (!is.null(year_col) && year_col %in% names(scored_data)) group_vars <- c(group_vars, year_col)
+  print(paste0("[score_to_loc_year] Group vars: ", group_vars))
   
-  # --- 3) run score_data per group (or once if no groups) ---
+  # --- 3) run per group (or once if no groups) ---
   if (length(group_vars) == 0) {
     # Single score (no grouping)
-    res <- score_data(df)
-    return(res)
+    message("no group_vars!")
+    return(scored_data)
   }
-  
-  # Grouped scoring (location, year, or both)
-  res <- df %>%
+
+  # Grouping & calculating (location, year, or both)
+  res <- scored_data %>%
     group_by(across(all_of(group_vars))) %>%
     group_map(~{
-      s <- score_data(.x)  # s is a list of scalars + dfs
-      
       # grab lat/lon values (prefer .x values, fallback to .y if lat/lon were grouping keys)
       lat_val <- if (!is.null(lat_col) && lat_col %in% names(.x)) {
         .x[[lat_col]][1]    # first value in the group's rows
@@ -55,23 +54,42 @@ score_by_loc_year <- function(sample_data, loc_col = NULL, year_col = NULL, lat_
         .y[[lon_col]]
       } else NA_real_
       
+      s = .x # just to make it easy lol
+
       # defensive extraction in case some elements are missing
-      hazard_index <- if (!is.null(s$hazard_index)) s$hazard_index else NA_real_
-      total_CR <- if (!is.null(s$total_CR_cases_10k)) s$total_CR_cases_10k else NA_real_
-      wl_index <- if (!is.null(s$wl_index)) s$wl_index else NA_real_
-      by_param <- if (!is.null(s$by_parameter)) s$by_parameter else tibble()
-      detail_rows <- if (!is.null(s$detail_rows)) s$detail_rows else tibble()
+      hazard_index <- if (!is.null(s$HQ)) sum(s$HQ, na.rm=TRUE) else NA_real_
+      total_CR <- if (!is.null(s$CR)) sum(s$CR, na.rm=TRUE) else NA_real_
+      wl_index <- if (!is.null(s$WL)) sum(s$WL, na.rm=TRUE) else NA_real_
+      
+      by_param = .x |> 
+        group_by(parameter, unit) |>
+         summarise(
+          parameter = first(parameter, default = NA_character_),
+          media = first(media),
+          HQ_max    = if (all(is.na(HQ))) NA_real_ else max(HQ, na.rm = TRUE),
+          HQ_median = if (all(is.na(HQ))) NA_real_ else median(HQ, na.rm = TRUE),
+          HQ_n      = sum(!is.na(HQ)),
+          
+          CR_max    = if (all(is.na(CR))) NA_real_ else max(CR, na.rm = TRUE),
+          CR_median = if (all(is.na(CR))) NA_real_ else median(CR, na.rm = TRUE),
+          CR_n      = sum(!is.na(CR)),
+          
+          WL_max    = if (all(is.na(WL))) NA_real_ else max(WL, na.rm = TRUE),
+          WL_median = if (all(is.na(WL))) NA_real_ else median(WL, na.rm = TRUE),
+          WL_n      = sum(!is.na(WL)),
+          .groups = "drop"
+        )
       
       tibble(
         !!!.y,                           # keeps the group key columns and names
         lat = lat_val,
         lon = lon_val,
         hazard_index   = hazard_index,
-        total_CR_cases_10k = total_CR,
+        total_CR_cases_10k = total_CR*1e4,
         wl_index       = wl_index,
-        by_parameter   = list(by_param), # nested tibble
-        detail_rows       = list(detail_rows)  # nested tibble
-      )
+        detail_rows = list(.x), # all the rows for this group
+        by_parameter = list(by_param)
+        )
     }) %>%
     list_rbind() %>%
     arrange(across(all_of(group_vars)))
@@ -124,73 +142,15 @@ score_data <- function(sample_data) {
       has_CR = !is.na(CR),
       has_WL = !is.na(WL)
     )
-  
-  # --- HQ branch: collapse to one row per parameter-media using worst HQ ---
-  hq_by_param <- scored |>
-    filter(has_HQ, HQ>1) |>
-    dplyr::group_by(parameter, media) |>
-    dplyr::summarize(
-      HQ_max       = max(HQ, na.rm = TRUE),
-      HQ_median     = median(HQ, na.rm = TRUE),
-      HQ_n     = n(),
-      .groups = "drop"
-    )
-  
-  wl_by_param <- scored |>
-    filter(has_WL, WL>1) |>
-    dplyr::group_by(parameter, media) |>
-    dplyr::summarize(
-      WL_max       = max(WL, na.rm = TRUE),
-      WL_median     = median(WL, na.rm = TRUE),
-      WL_n     = n(),
-      .groups = "drop"
-    )
-  
-  # --- CR branch: sum cases per 10k across all rows (no parameter weights) ---
-  # If you prefer to sum per-parameter first, then total, do a group_by + summarize.
-  cr_by_param <- scored |>
-    filter(has_CR) |>
-    dplyr::group_by(parameter, media) |>
-    dplyr::summarize(
-      CR_max       = max(CR, na.rm = TRUE),
-      CR_cases_10k = sum(CR_max, na.rm = TRUE)*1e4,
-      CR_n     = n(),
-      .groups = "drop"
-    )
-  
-  #print("Viewing hq_by_param")
-  #View(hq_by_param)
-  
-  hazard_index <- sum(hq_by_param$HQ_max, na.rm = TRUE)
-  wl_index = sum(wl_by_param$WL_max, na.rm=TRUE)
-  total_CR_cases_10k <- sum(cr_by_param$CR_cases_10k, na.rm = TRUE)
-  
-  # --- merge HQ & CR per-parameter views for explainability ---
-  by_parameter <- hq_by_param |>
-    dplyr::left_join(cr_by_param, by = c("parameter","media")) |>
-    dplyr::left_join(wl_by_param, by = c("parameter","media")) |>
-    # dplyr::select(
-    #   parameter, media,
-    #   HQ_max,
-    #   weight_param, weight_norm, hazard_quotient,
-    #   CR_cases_10k
-    # ) |>
-    dplyr::arrange(dplyr::desc(HQ_max), dplyr::desc(CR_cases_10k), dplyr::desc(wl_index))
-  
-  list( # sent to calculate_location_score
-    hazard_index        = hazard_index,        # dimensionless index for human acute hazards
-    total_CR_cases_10k  = total_CR_cases_10k,  # expected excess cases per 10,000 (sum across params)
-    wl_index            = wl_index,            # dimensionless index for wildlife hazards
-    by_parameter        = by_parameter,        # tidy table per parameter-media
-    detail_rows         = scored               # every row with HQ, CR, CR_cases_10k, raw weight
-  )
 }
 
 # for quickly retrieving standards 
 get_std <- function(parameter, std_type, media) {
   
   key = make_key(parameter, media, std_type)
+  print(paste0("make_key", key))
   std <- std_map[[key]]
+  print(std)
   
   # if there's no standard, send nothing back
   if (is.null(std)) return(NULL)
@@ -200,17 +160,17 @@ get_std <- function(parameter, std_type, media) {
 # For an individual parameter: get & prep the parameter standard, then compare with the found value
 calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should have: param, med, val, unit
   ### set HQ/CR/WL to NA in case we don't have the data, then calculate each separately
-  # print(paste0(param, med, val, unit, route)) # for sanity :)
+  print(paste0(param, med, val, unit, route)) # for sanity :)
   hq = NA_real_
   cr = NA_real_
   wl = NA_real_
+  # print(list(param, med,val, unit, route))
   
   std_info <- list(
     HQ = list(std_reg = NA, std_val = NA, std_unit = NA),
     CR = list(std_reg = NA, std_val = NA, std_unit = NA),
     WL = list(std_reg = NA, std_val = NA, std_unit = NA)
   )
-  
   ### Manage special cases (pH)
   # Edge Case: pH. Only calculate HQ
   if (grepl("^pH\\b", param, ignore.case = TRUE)) {
@@ -219,7 +179,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
       return(list(HQ=hq, CR=cr, WL=wl, std_info = std_info))
     }
     
-    std = get_std(param, "hq", med) # get the std
+    std = get_std(parameter=param, std_type="hq", media=med) # get the std
     
     # stop computing if the standard isn't there
     if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
@@ -327,7 +287,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_wl$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_wl$message, " Received sample units ", unit_check_wl$sample_parsed$raw, " and standard ", unit_check_wl$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val & unit_check_wl$conversion_factor
+      val = val * unit_check_wl$conversion_factor
       wl = val/std$value
       
       std_info[["WL"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
@@ -346,7 +306,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_cr$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val & unit_check_cr$conversion_factor
+      val = val * unit_check_cr$conversion_factor
       
       ep <- EXPOSURE_FACTORS
       sf <- std$value

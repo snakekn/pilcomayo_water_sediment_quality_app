@@ -21,6 +21,26 @@ server <- function(input, output, session) {
   
   initial_water = reactive(all_water_clean())
   
+  get_initial_data = reactive({
+    req(master_data())
+    master_data()
+  })
+  
+  master_data = reactiveValues(
+    water_scored = NULL,
+    water_locyear = NULL,
+    sed_scored = NULL,
+    sed_locyear = NULL
+  )
+  
+  # initialize master_data
+  master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
+  master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
+  master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
+  master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
+  
+  
+  
   # Upload button
   merged_out <- dataUploadServer(
     id = "upload_data",
