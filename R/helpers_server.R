@@ -306,6 +306,17 @@ dataUploadServer <- function(id, base_data) {
         return()
       }
       
+      src_format = input$source_format
+      src_lang = input$current_lang
+      src_media = input$media_type
+      src_target_lang = input$translate_to
+
+      # confirm what we got - may want to set failsafe options
+      print(paste("Format:", src_format,
+                  "Lang:", src_lang,
+                  "Media:", src_media,
+                  "Target:", src_target_lang))
+      
       # get file data
       req(input$files)
       fpath <- input$files$datapath[1]
@@ -315,49 +326,66 @@ dataUploadServer <- function(id, base_data) {
       showNotification(paste("Processing:", fname), type="message")
       
       withProgress(message = "Processing uploads...", value = 0, {
-        file_data = read_uploaded_file(fpath)
+        # assume src_media may apply globally; if not, detect per-file
+        n_files <- nrow(input$files)
+        existing_scored <- if (src_media == "drinking water") isolate(master_data$water_scored) else isolate(master_data$sed_scored)
+        scored_merged <- existing_scored
         
-        src_format = input$source_format
-        src_lang = input$current_lang
-        src_media = input$media_type
-        src_target_lang = input$translate_to
+        for (i in seq_len(n_files)) {
+          fname_i <- input$files$name[i]
+          fpath_i <- input$files$datapath[i]
+          
+          incProgress(1/n_files, message = paste("Processing", fname_i))
+          try({
+            file_data_i <- read_uploaded_file(fpath_i)
+            print(paste0("[dataUploadServer]: ", fname_i))
+            
+            # detect or reuse options per-file if needed:
+            df_i <- upload_sampled_data(file_data_i,
+                                        media = src_media,         # or detect per-file
+                                        format = src_format,
+                                        debug_prepped = FALSE,
+                                        src_lang = src_lang,
+                                        target_lang = src_target_lang)
+            print("completed upload_sampled_data")
+            
+            dup_names <- names(df_i)[duplicated(names(df_i))]
+            if (length(dup_names)) {
+              warning(sprintf("File '%s' has duplicate column names: %s", fname_i, paste(unique(dup_names), collapse=", ")))
+              # optional: show all names to console for debugging
+              print(names(df_i))
+            }
+            
+            # janitor::make_clean_names() will also normalise names (lowercase, underscores) and can make unique
+            if (any(duplicated(names(df_i)))) {
+              names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
+            }
+            
+            df_i$data_source <- fname_i
+            
+            upload_scored_i <- score_data(df_i)
+            print("[dataUploadServer]: finished score_data")
+            
+            # merge (uploaded wins existing by default)
+            scored_merged <- merge_scored(scored_merged, upload_scored_i)
+            print("[dataUploadServer]: finished merge_scored")
+          }, silent = FALSE)
+        }
         
-        # confirm what we got
-        print(paste("Format:", src_format, 
-                    "Lang:", src_lang, 
-                    "Media:", src_media, 
-                    "Target:", src_target_lang))
+        # write back to reactive master_data (choose media)
+        print("updating master_data")
+        if (src_media == "drinking water") {
+          master_data$water_scored <- scored_merged
+          master_data$water_locyear <- score_to_loc_year(scored_merged)
+          View(master_data$water_locyear)
+        } else {
+          master_data$sed_scored <- scored_merged
+          master_data$sed_locyear <- score_to_loc_year(scored_merged)
+          View(master_data$sed_locyear)
+        }
         
-        # pivot data (if pilco.net format, others not created yet)
-        df = upload_sampled_data(file_data, media=src_media, format=src_format, debug_prepped = FALSE, src_lang = src_lang, target_lang = src_target_lang)
-        print("df upload_sampled_data finished")
-        df$data_source = fname
-        # View(df)
-        
-        # score data
-        upload_scored = score_data(df)
-        
-        # merge with the current scored data
-        existing_scored = case_when(src_media,
-                                    "drinking water" ~ isolate(master_data$water_scored),
-                                    "sediment" ~ isolate(master_data$sed_scored))
-        scored_merged = merge_scored(existing_scored, upload_scored)
-        
-        # save the master_data reactive val with the new data
-        if(src_media == "drinking water") master_data$water_scored = scored_merged
-        else if (src_media == "sediment") master_data$sed_scored = scored_merged
-        
-        #optional: save the new file to file
-        if(src_media == "drinking water") saveRDS(scored_merged, "data/processed/water_scored.rds")
-        else if (src_media == "sediment") saveRDS(scored_merged, "data/processed/sed_scored.rds")
-
-        # make the data into format locyear
-        locyear = score_to_loc_year(scored_merged)
-        
-        # save the master_data reactive val with the new data
-        if(src_media == "drinking water") master_data$water_locyear = scored_merged
-        else if (src_media == "sediment") master_data$sed_locyear = scored_merged
-        
+        # optional persistence
+        if (src_media == "drinking water") saveRDS(scored_merged, "data/processed/water_scored_user_update.rds") else saveRDS(scored_merged, "data/processed/sed_scored_user_updated.rds")
         
       })
     }, ignoreInit = TRUE)
@@ -365,59 +393,6 @@ dataUploadServer <- function(id, base_data) {
     list(parsed=parsed_upload)
     
   })  
-  
-  
-  
-  # Was created when we were allowing more than one upload at a time  
-  #   # keep parsed uploads (filename -> df)
-  #   r_store <- reactiveVal(list())
-  # 
-  #   
-  #   # file list
-  #   output$files_table <- renderTable({
-  #     lst <- r_store()
-  #     if (!length(lst)) return(NULL)
-  #     data.frame(
-  #       file = names(lst),
-  #       rows = vapply(lst, nrow, integer(1)),
-  #       cols = vapply(lst, ncol, integer(1)),
-  #       check.names = FALSE
-  #     )
-  #   })
-  #   
-  #   # parsed uploads (appended)
-  #   parsed_uploads <- reactive({
-  #     lst <- r_store()
-  #     if (!length(lst)) return(NULL)
-  #     dfs <- lapply(unname(lst), .coerce_key_types)
-  #     dfs <- .align_cols(dfs)
-  #     dplyr::bind_rows(dfs)
-  #   })
-  #   
-  #   output$parsed_table <- renderTable({
-  #     req(parsed_uploads())
-  #     head(parsed_uploads(), 12)
-  #   })
-  #   
-  #   # merged = initial dataset + uploads
-  #   merged <- reactive({
-  #     base <- if (is.function(base_data)) base_data() else base_data
-  #     req(!is.null(base))
-  #     base <- .coerce_key_types(.reconcile_legacy_names(base))
-  #     up <- parsed_uploads()
-  #     if (is.null(up)) return(base)
-  #     dfs <- .align_cols(list(base, up))
-  #     dplyr::bind_rows(dfs)
-  #   })
-  #   
-  #   output$merged_head <- renderTable({ head(merged(), 12) })
-  #   
-  #   output$download_merged <- downloadHandler(
-  #     filename = function() paste0("merged_", Sys.Date(), ".csv"),
-  #     content  = function(file) readr::write_csv(merged(), file)
-  #   )
-  #   
-  #   list(merged = merged, parsed = parsed_uploads, files = reactive(names(r_store())))
 }
 
 # ============================================================================

@@ -301,9 +301,12 @@ saveRDS(sed_scored, "data/processed/sed_scored.rds")
 water_scored_data = readRDS(here::here("data/processed/water_scored.rds"))
 sed_scored_data = readRDS(here::here("data/processed/sed_scored.rds"))
 
+# merge files together :)
+
+
 ## score by locyear - from get_risk_scores.R
-water_locyear = score_by_loc_year(pivoted_water, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
-sed_locyear = score_by_loc_year(pivoted_sed, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
+water_locyear = score_to_loc_year(pivoted_water, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
+sed_locyear = score_to_loc_year(pivoted_sed, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
 
 ## save the locyear data
 saveRDS(water_locyear, "data/processed/water_locyear.rds")

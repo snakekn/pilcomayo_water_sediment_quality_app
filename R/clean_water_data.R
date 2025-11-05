@@ -45,7 +45,7 @@ clean_water_data <- function(data, source = "pilco") {
                       TRUE ~ as.numeric(.)
                     )))
     
-    View(df_clean)
+    # View(df_clean)
     return(df_clean)
   }
   stop(paste("Function clean_water_data: Source", source, "not supported"))

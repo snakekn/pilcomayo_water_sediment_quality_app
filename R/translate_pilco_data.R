@@ -19,7 +19,7 @@ translate_pilco_data <- function(data, source_lang, target_lang, media) {
   current_cols <- colnames(data)
   
   # Create translation based on direction and media
-  if (media == "water") {
+  if (media == "drinking water") {
     if (source_lang == "es" && target_lang == "en") {
       # Spanish to English: use param_mapping as is
       translation_map <- param_mapping

@@ -1,7 +1,7 @@
 
 #### Split scored df by station & year, merge into a single set of scores per location-year ####
 # potentially good for showing all on a map. Note: can take awhile to load, so we want to parse this (or show a loading bar) early if possible
-score_to_loc_year <- function(scored_data, loc_col = NULL, year_col = NULL, lat_col = NULL, lon_col = NULL) {
+score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal") {
 
     req <- c("station", "year", "parameter","media","concentration","unit") # regular check
   miss <- setdiff(req, names(scored_data))
@@ -57,9 +57,9 @@ score_to_loc_year <- function(scored_data, loc_col = NULL, year_col = NULL, lat_
       s = .x # just to make it easy lol
 
       # defensive extraction in case some elements are missing
-      hazard_index <- if (!is.null(s$HQ)) sum(s$HQ, na.rm=TRUE) else NA_real_
+      hazard_index <- if (!is.null(s$HQ)) sum(s$HQ[s$HQ>1], na.rm=TRUE) else NA_real_
       total_CR <- if (!is.null(s$CR)) sum(s$CR, na.rm=TRUE) else NA_real_
-      wl_index <- if (!is.null(s$WL)) sum(s$WL, na.rm=TRUE) else NA_real_
+      wl_index <- if (!is.null(s$WL)) sum(s$WL[s$WL>1], na.rm=TRUE) else NA_real_
       
       by_param = .x |> 
         group_by(parameter, unit) |>
@@ -102,7 +102,7 @@ score_to_loc_year <- function(scored_data, loc_col = NULL, year_col = NULL, lat_
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
 stds = readr::read_csv(here::here("data/standards/strict_standards.csv")) |>
-  mutate(.key = make_key(parameter, media, std_type)) |>
+  mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
 
@@ -115,7 +115,7 @@ EXPOSURE_FACTORS <- list(
   EF = 350,     # Exposure frequency, days/year
   ED = 30,      # Exposure duration, years
   BW = 70,      # Body weight, kg
-  EL = 365*70,  # Expected lifespan, days (70 yrs * 365)
+  EL = 365*70  # Expected lifespan, days (70 yrs * 365)
 )
 
 # to get HQ, CR, and calculated scores for each data point. Note that data points with more data will have higher HQs, rather than being normalized
@@ -148,9 +148,9 @@ score_data <- function(sample_data) {
 get_std <- function(parameter, std_type, media) {
   
   key = make_key(parameter, media, std_type)
-  print(paste0("make_key", key))
+  #print(paste0("make_key", key))
   std <- std_map[[key]]
-  print(std)
+  #print(std)
   
   # if there's no standard, send nothing back
   if (is.null(std)) return(NULL)
@@ -160,7 +160,7 @@ get_std <- function(parameter, std_type, media) {
 # For an individual parameter: get & prep the parameter standard, then compare with the found value
 calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should have: param, med, val, unit
   ### set HQ/CR/WL to NA in case we don't have the data, then calculate each separately
-  print(paste0(param, med, val, unit, route)) # for sanity :)
+  # print(paste0(param, med, val, unit, route)) # for sanity :)
   hq = NA_real_
   cr = NA_real_
   wl = NA_real_

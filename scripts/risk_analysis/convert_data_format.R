@@ -20,13 +20,15 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
 
   # take raw pilco data and turn it into prepped clean version
   # will only not run if we're sending in pre-cleaned data, which shouldn't happen in production
+  
+  print("[upload_sampled_data] about to clean_water_data")
   if(format=="pilco" && !debug_prepped) {
     sample_data = clean_water_data(sample_data, source=format)
   }
   
   # translate file to appropriate language - should probably make everything english, handle, then revert to es as desired in the front-facing app
   # english for backend work, es/en for front-end
-  translated_data = translate_pilco_data(sample_data, src_lang, target_lang)
+  translated_data = translate_pilco_data(sample_data, src_lang, target_lang, media)
   View(translated_data) 
   
   if(format=="pilco") {
@@ -102,6 +104,11 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
                  values_to = "concentration",
                  values_drop_na = TRUE)
   
+  date_lubridated = switch(media_type,
+                              "drinking water" ~ lubridate::mdy(df_long$Date),
+                              "sediment" ~ lubridate::ymd(df_long$Date),
+                              .default ~ NULL)
+  
   # parse and tidy
   df_long <- df_long %>%
     mutate(
@@ -111,7 +118,7 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
       unit_blob = stringr::str_match(clean_name, "\\((.*)\\)")[,2] %>% coalesce(""),
       unit = str_extract(unit_blob, "^[^ ]+(/[^ ]+)?"),
       media = media_type,
-      Date = lubridate::ymd(Date), ## NOTE: ymd ONLY WORKS WITH SED DATA. WATER DATA USES MDY. CAN'T IFELSE :/
+      Date = date_lubridated, ## NOTE: ymd ONLY WORKS WITH SED DATA. WATER DATA USES MDY. CAN'T IFELSE :/
       Year = lubridate::year(Date),
       unit = case_when(
         str_detect(parameter, regex("^pH$", ignore_case = TRUE)) & is.na(unit) ~ "pH units",
