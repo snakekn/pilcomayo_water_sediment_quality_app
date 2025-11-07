@@ -1,4 +1,17 @@
-# Define Server
+# initialize master_data
+master_data = reactiveValues(
+  water_scored = NULL,
+  water_locyear = NULL,
+  sed_scored = NULL,
+  sed_locyear = NULL
+)
+master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
+master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
+master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
+master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
+
+
+#Define Server
 server <- function(input, output, session) {
   
   ################# LOAD DATA #########################
@@ -24,7 +37,8 @@ server <- function(input, output, session) {
   # Upload button
   merged_out <- dataUploadServer(
     id = "upload_data",
-    base_data = initial_water
+    base_data = initial_water,
+    master_data = master_data
     )  
   
   output$import_meta <- renderPrint({

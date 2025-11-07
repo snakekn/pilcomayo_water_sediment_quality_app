@@ -46,8 +46,14 @@ compiled_water_data_path = "data/compiled/water_compiled.csv"
 compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
 #### load pre-compiled data ####
-water_clean = readr::read_csv(here::here("data/merged_water_clean.csv"))
-sed_clean = readr::read_csv(here::here("data/merged_sed_clean.csv"))
+initial_water_clean = readr::read_csv(here::here("data/processed/merged_water_clean.csv"))
+initial_sed_clean = readr::read_csv(here::here("data/processed/merged_sed_clean.csv"))
+
+initial_water_scored = readRDS(here::here("data/processed/water_scored.rds")) # with HQCRWL scores
+initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
+
+initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
+initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
 
 #### load global values ####
 # these are kept centrally to help us easily redefine if needed

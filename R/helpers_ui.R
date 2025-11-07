@@ -48,7 +48,7 @@ dataUploadUI <- function(id) {
   ns <- NS(id)
   tagList(
     h4("Upload data"),
-    fileInput(ns("files"), "Choose files", multiple = FALSE,
+    fileInput(ns("files"), "Choose files", multiple = TRUE,
               accept = c(".csv",".tsv",".xlsx",".xls")),
     fluidRow(
       column(6,

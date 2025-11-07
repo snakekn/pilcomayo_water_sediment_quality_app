@@ -48,7 +48,252 @@ get_file_type <- function(path) {
   ext
 }
 
-dataUploadServer <- function(id, base_data) {
+
+
+#### Merge upload with existing locyear data (unused) ####
+merge_keep_uploaded_param <- function(existing,
+                                      uploaded, 
+                                      key_cols = c("station","year"),
+                                      param_key_cols = c("parameter","media"),
+                                      nested_param_col = "by_parameter",
+                                      nested_detail_col = "detail_rows",
+                                      scalar_from_params = c(hazard_index = "hazard_index",
+                                                             total_CR_cases_10k = "CR_cases_10k",
+                                                             wl_index = "wl_index"),
+                                      detail_id_col = NULL # optional: column in detail_rows to dedupe by
+) {
+  # prepare schema
+  existing <- ensure_listcol_tbl(existing, nested_param_col)
+  existing <- ensure_listcol_tbl(existing, nested_detail_col)
+  uploaded <- ensure_listcol_tbl(uploaded, nested_param_col)
+  uploaded <- ensure_listcol_tbl(uploaded, nested_detail_col)
+  
+  # add source flag (preserve order if you want)
+  existing2 <- existing %>% mutate(.source = "existing")
+  uploaded2 <- uploaded %>% mutate(.source = "uploaded")
+  
+  # bind so keys + source align order
+  all_rows <- bind_rows(existing2, uploaded2)
+  
+  # helper: compute params merged for one group
+  merge_params_for_group <- function(param_list_existing, param_list_uploaded) {
+    # param_list_existing/uploaded are tibbles (may be zero-row)
+    ex <- if (nrow(param_list_existing)) param_list_existing else tibble()
+    up <- if (nrow(param_list_uploaded)) param_list_uploaded else tibble()
+
+    # unify column sets
+    cols_union <- union(names(ex), names(up))
+    ex <- ex %>% select(any_of(cols_union))
+    up <- up %>% select(any_of(cols_union))
+    
+    if (nrow(up) == 0) return(list(merged = ex, replaced = tibble()))
+    if (nrow(ex) == 0) return(list(merged = up, replaced = tibble()))
+
+    # define matching key for parameter equality
+    # create an id by pasting the param_key_cols (NA -> "")
+    mk_id <- function(df) {
+      df %>% mutate(.param_id = pmap_chr(across(all_of(param_key_cols)), ~paste0(..., collapse = "|")))
+    }
+    
+    ex2 <- mk_id(ex)
+    up2 <- mk_id(up)
+    
+    # which param ids appear in both
+    common_ids <- intersect(ex2$.param_id, up2$.param_id)
+    
+    # keep uploaded rows for common ids; keep all unique rows from both
+    keep_up <- up2
+    keep_ex_only <- ex2 %>% filter(!(.param_id %in% common_ids))
+    merged <- bind_rows(keep_ex_only %>% select(-.param_id), keep_up %>% select(-.param_id))
+    
+    # report replaced params (from existing -> uploaded)
+    replaced <- ex2 %>% filter(.param_id %in% common_ids) %>%
+      select(-.param_id) %>%
+      mutate(replaced_by_uploaded = TRUE)
+    
+    list(merged = merged, replaced = replaced)
+  }
+  
+  # group, merge
+  keys_tbl <- all_rows %>% group_by(across(all_of(key_cols))) %>% group_keys()
+
+  merged_rows <- all_rows %>%
+    group_by(across(all_of(key_cols))) %>%
+    group_map(~{
+      rows <- .x
+      keys <- .y
+      print(paste0("[merge_keep_uploaded_param merged_rows] Keys: ", .y))
+      
+      # split by source to get nested param tables
+      params_existing <- rows %>% filter(.source == "existing") %>% pull(!!sym(nested_param_col))
+      params_uploaded <- rows %>% filter(.source == "uploaded") %>% pull(!!sym(nested_param_col))
+      # those are lists of tibbles; if multiple original rows per source exist, bind them first
+      params_existing <- if (length(params_existing) == 0) tibble() else bind_rows(params_existing)
+      params_uploaded <- if (length(params_uploaded) == 0) tibble() else bind_rows(params_uploaded)
+
+      merged_params_res <- merge_params_for_group(params_existing, params_uploaded)
+      merged_params <- merged_params_res$merged
+      
+      # detail_rows: stack existing + uploaded, optionally dedupe by id
+      details_existing <- rows %>% filter(.source == "existing") %>% pull(!!sym(nested_detail_col))
+      details_uploaded <- rows %>% filter(.source == "uploaded") %>% pull(!!sym(nested_detail_col))
+      details_all <- bind_rows( if (length(details_existing)) bind_rows(details_existing) else tibble(),
+                                if (length(details_uploaded)) bind_rows(details_uploaded) else tibble() )
+      if (!is.null(detail_id_col) && detail_id_col %in% names(details_all)) {
+        details_all <- details_all %>% distinct( !!sym(detail_id_col), .keep_all = TRUE )
+      }
+      
+      # recompute scalars by summing designated columns from merged_params
+      compute_scalar <- function(colname, param_colname) {
+        if (!param_colname %in% names(merged_params)) return(NA_real_)
+        sum_val <- suppressWarnings(sum(as.numeric(merged_params[[param_colname]]), na.rm = TRUE))
+        if (is.nan(sum_val)) NA_real_ else sum_val
+      }
+      scalars <- map_dbl(names(scalar_from_params), ~ compute_scalar(.x, scalar_from_params[[.x]]))
+      names(scalars) <- names(scalar_from_params)
+
+      # build output row: keys + scalars + nested list-cols
+      out <- tibble(!!!keys)
+      # scalars:
+      for (nm in names(scalars)) out[[nm]] <- scalars[[nm]]
+      if ("env_score" %in% names(rows)) out$env_score <- env_score_val
+      # nested list columns
+      out[[nested_param_col]] <- list(merged_params)
+      out[[nested_detail_col]] <- list(details_all)
+      
+      # add small provenance counts
+      out$N_existing_rows <- nrow(rows %>% filter(.source == "existing"))
+      out$N_uploaded_rows <- nrow(rows %>% filter(.source == "uploaded"))
+      out$N_params_existing <- nrow(params_existing)
+      out$N_params_uploaded <- nrow(params_uploaded)
+      out$N_params_merged <- nrow(merged_params)
+      
+      # also return replaced report as attr for later; but group_map can't return both easily,
+      # so collect replaced info into a list column to be used later in a report
+      out$replaced_params <- list(merged_params_res$replaced)
+      
+      out
+    }) %>%
+    list_rbind()
+  
+  # prepare a human-readable report: which parameters were replaced in each key
+  report <- merged_rows %>%
+    select(all_of(key_cols), N_existing_rows, N_uploaded_rows, N_params_existing, N_params_uploaded, N_params_merged, replaced_params) %>%
+    mutate(replaced_count = map_int(replaced_params, ~ nrow(.x))) %>%
+    select(-replaced_params)
+  
+  # drop internal .source if present in original bound df (we didn't save it on merged_rows)
+  # return list
+  list(merged = merged_rows %>% select(-starts_with(".source")), report = report)
+}
+
+
+merge_processed <- function(existing, uploaded,
+                            key_cols = c("station","year"),
+                            scalar_cols = c("hazard_index","total_CR_cases_10k","wl_index"),
+                            nested_cols = c("by_parameter","detail_rows"),
+                            scalar_strategy = c("prefer_uploaded","sum","mean","first")) {
+  
+  scalar_strategy <- match.arg(scalar_strategy)
+  # ensure schema: add missing columns with sensible defaults
+  existing <- ensure_schema(existing, group_cols = key_cols, scalar_cols = scalar_cols, nested_cols = nested_cols)
+  uploaded <- ensure_schema(uploaded, group_cols = key_cols, scalar_cols = scalar_cols, nested_cols = nested_cols)
+  
+  existing <- existing %>% mutate(.source = "existing")
+  uploaded <- uploaded %>% mutate(.source = "uploaded")
+  
+  all <- bind_rows(existing, uploaded)
+  
+  pick_scalar_for_group <- function(rows_df, col) {
+    vals <- rows_df[[col]]
+    src <- rows_df$.source
+    
+    if (scalar_strategy == "prefer_uploaded") {
+      up <- rows_df %>% filter(.source == "uploaded") %>% pull(!!sym(col))
+      if (length(up) && !all(is.na(up))) return(up[1])
+      ex <- rows_df %>% filter(.source == "existing") %>% pull(!!sym(col))
+      if (length(ex) && !all(is.na(ex))) return(ex[1])
+      return(NA_real_)
+    } else if (scalar_strategy == "sum") {
+      num <- suppressWarnings(as.numeric(unlist(vals)))
+      if (all(is.na(num))) return(NA_real_) else return(sum(num, na.rm = TRUE))
+    } else if (scalar_strategy == "mean") {
+      num <- suppressWarnings(as.numeric(unlist(vals)))
+      if (all(is.na(num))) return(NA_real_) else return(mean(num, na.rm = TRUE))
+    } else { # first
+      v <- vals[!is.na(vals)]
+      if (length(v)) return(v[[1]]) else return(NA_real_)
+    }
+  }
+  
+  # combine per-group
+  out_list <- all %>%
+    group_by(across(all_of(key_cols))) %>%
+    group_map(~{
+      rows <- .x
+      keys  <- .y
+      
+      # scalars
+      scalars <- map_dbl(scalar_cols, ~ pick_scalar_for_group(rows, .x))
+      names(scalars) <- scalar_cols
+      
+      # nested: bind rows of each nested tibble found in the group
+      nested_result <- map(nested_cols, function(nc) {
+        # compact removes NULLs
+        nested_parts <- compact(rows[[nc]])
+        if (length(nested_parts) == 0) {
+          tibble()
+        } else {
+          bind_rows(nested_parts)
+        }
+      })
+      names(nested_result) <- nested_cols
+      
+      # create output row: keys + scalars + nested list-cols
+      out_row <- tibble(!!!keys)
+      # add scalar columns
+      for (nm in scalar_cols) out_row[[nm]] <- scalars[[nm]]
+      # add nested columns as list-columns (wrap combined tibble in list())
+      for (nc in nested_cols) out_row[[nc]] <- list(nested_result[[nc]])
+      out_row
+    }, .keep = TRUE) %>%
+    list_rbind()
+  
+  # tidy: remove .source if present, order cols
+  out_list
+}
+
+### ensure required columns exist, add empty list-columns if missing
+ensure_schema <- function(df, group_cols = c("station","year"),
+                          scalar_cols = c("env_score","hazard_index","total_CR_cases_10k","wl_index"),
+                          nested_cols = c("by_parameter","detail_rows")) {
+  
+  required <- c(group_cols, scalar_cols, nested_cols)
+  for (nm in required) {
+    if (!nm %in% names(df)) {
+      # scalar defaults to NA, nested defaults to empty tibble wrapped in list
+      if (nm %in% nested_cols) df[[nm]] <- replicate(nrow(df), tibble(), simplify = FALSE)
+      else df[[nm]] <- NA_real_
+    }
+  }
+  # coerce nested columns to list-column of tibbles if needed
+  for (nc in nested_cols) {
+    if (!is.list(df[[nc]])) df[[nc]] <- lapply(df[[nc]], function(x) if (is.data.frame(x)) x else tibble())
+  }
+  df
+}
+
+# helper: ensure nested list-column exists and is a list of tibbles
+ensure_listcol_tbl <- function(df, col) {
+  if (!col %in% names(df)) df[[col]] <- replicate(nrow(df), tibble(), simplify = FALSE)
+  if (!is.list(df[[col]])) df[[col]] <- lapply(df[[col]], function(x) if (is.data.frame(x)) as_tibble(x) else tibble())
+  df
+}
+
+#### Manage File Uploads ####
+# take data in either of 2 formats, format & score, merge
+# Output: locyear and scored files in master_data
+dataUploadServer <- function(id, base_data, master_data) {
   moduleServer(id, function(input, output, session) {
     parsed_upload = reactiveVal(NULL)
     
@@ -61,6 +306,17 @@ dataUploadServer <- function(id, base_data) {
         return()
       }
       
+      src_format = input$source_format
+      src_lang = input$current_lang
+      src_media = input$media_type
+      src_target_lang = input$translate_to
+
+      # confirm what we got - may want to set failsafe options
+      print(paste("Format:", src_format,
+                  "Lang:", src_lang,
+                  "Media:", src_media,
+                  "Target:", src_target_lang))
+      
       # get file data
       req(input$files)
       fpath <- input$files$datapath[1]
@@ -70,85 +326,73 @@ dataUploadServer <- function(id, base_data) {
       showNotification(paste("Processing:", fname), type="message")
       
       withProgress(message = "Processing uploads...", value = 0, {
-        file_data = read_uploaded_file(fpath)
+        # assume src_media may apply globally; if not, detect per-file
+        n_files <- nrow(input$files)
+        existing_scored <- if (src_media == "drinking water") isolate(master_data$water_scored) else isolate(master_data$sed_scored)
+        scored_merged <- existing_scored
         
-        src_format = input$source_format
-        src_lang = input$current_lang
-        src_media = input$media_type
-        src_target_lang = input$translate_to
+        for (i in seq_len(n_files)) {
+          fname_i <- input$files$name[i]
+          fpath_i <- input$files$datapath[i]
+          
+          incProgress(1/n_files, message = paste("Processing", fname_i))
+          try({
+            file_data_i <- read_uploaded_file(fpath_i)
+            print(paste0("[dataUploadServer]: ", fname_i))
+            
+            # detect or reuse options per-file if needed:
+            df_i <- upload_sampled_data(file_data_i,
+                                        media = src_media,         # or detect per-file
+                                        format = src_format,
+                                        debug_prepped = FALSE,
+                                        src_lang = src_lang,
+                                        target_lang = src_target_lang)
+            print("completed upload_sampled_data")
+            
+            dup_names <- names(df_i)[duplicated(names(df_i))]
+            if (length(dup_names)) {
+              warning(sprintf("File '%s' has duplicate column names: %s", fname_i, paste(unique(dup_names), collapse=", ")))
+              # optional: show all names to console for debugging
+              print(names(df_i))
+            }
+            
+            # janitor::make_clean_names() will also normalise names (lowercase, underscores) and can make unique
+            if (any(duplicated(names(df_i)))) {
+              names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
+            }
+            
+            df_i$data_source <- fname_i
+            
+            upload_scored_i <- score_data(df_i)
+            print("[dataUploadServer]: finished score_data")
+            
+            # merge (uploaded wins existing by default)
+            scored_merged <- merge_scored(scored_merged, upload_scored_i)
+            print("[dataUploadServer]: finished merge_scored")
+          }, silent = FALSE)
+        }
         
-        # confirm what we got
-        print(paste("Format:", src_format, 
-                    "Lang:", src_lang, 
-                    "Media:", src_media, 
-                    "Target:", src_target_lang))
+        # write back to reactive master_data (choose media)
+        print("updating master_data")
+        if (src_media == "drinking water") {
+          master_data$water_scored <- scored_merged
+          master_data$water_locyear <- score_to_loc_year(scored_merged)
+          View(master_data$water_locyear)
+        } else {
+          master_data$sed_scored <- scored_merged
+          master_data$sed_locyear <- score_to_loc_year(scored_merged)
+          View(master_data$sed_locyear)
+        }
         
-        # convert data (if pilco.net format, others not created yet)
-        df = upload_sampled_data(file_data, media=src_media, format=src_format, debug_prepped = FALSE, src_lang = src_lang, target_lang = src_target_lang)
-        print("df upload_sampled_data finished")
-        df$data_source = fname
-        View(df)
+        # optional persistence
+        if (src_media == "drinking water") saveRDS(scored_merged, "data/processed/water_scored_user_update.rds") else saveRDS(scored_merged, "data/processed/sed_scored_user_updated.rds")
         
-        parsed_upload(df)
       })
     }, ignoreInit = TRUE)
     
     list(parsed=parsed_upload)
     
   })  
-  
-  
-  
-  # Was created when we were allowing more than one upload at a time  
-  #   # keep parsed uploads (filename -> df)
-  #   r_store <- reactiveVal(list())
-  # 
-  #   
-  #   # file list
-  #   output$files_table <- renderTable({
-  #     lst <- r_store()
-  #     if (!length(lst)) return(NULL)
-  #     data.frame(
-  #       file = names(lst),
-  #       rows = vapply(lst, nrow, integer(1)),
-  #       cols = vapply(lst, ncol, integer(1)),
-  #       check.names = FALSE
-  #     )
-  #   })
-  #   
-  #   # parsed uploads (appended)
-  #   parsed_uploads <- reactive({
-  #     lst <- r_store()
-  #     if (!length(lst)) return(NULL)
-  #     dfs <- lapply(unname(lst), .coerce_key_types)
-  #     dfs <- .align_cols(dfs)
-  #     dplyr::bind_rows(dfs)
-  #   })
-  #   
-  #   output$parsed_table <- renderTable({
-  #     req(parsed_uploads())
-  #     head(parsed_uploads(), 12)
-  #   })
-  #   
-  #   # merged = initial dataset + uploads
-  #   merged <- reactive({
-  #     base <- if (is.function(base_data)) base_data() else base_data
-  #     req(!is.null(base))
-  #     base <- .coerce_key_types(.reconcile_legacy_names(base))
-  #     up <- parsed_uploads()
-  #     if (is.null(up)) return(base)
-  #     dfs <- .align_cols(list(base, up))
-  #     dplyr::bind_rows(dfs)
-  #   })
-  #   
-  #   output$merged_head <- renderTable({ head(merged(), 12) })
-  #   
-  #   output$download_merged <- downloadHandler(
-  #     filename = function() paste0("merged_", Sys.Date(), ".csv"),
-  #     content  = function(file) readr::write_csv(merged(), file)
-  #   )
-  #   
-  #   list(merged = merged, parsed = parsed_uploads, files = reactive(names(r_store())))
 }
 
 # ============================================================================
