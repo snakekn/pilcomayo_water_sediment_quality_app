@@ -293,7 +293,7 @@ ensure_listcol_tbl <- function(df, col) {
 #### Manage File Uploads ####
 # take data in either of 2 formats, format & score, merge
 # Output: locyear and scored files in master_data
-dataUploadServer <- function(id, base_data) {
+dataUploadServer <- function(id, base_data, master_data) {
   moduleServer(id, function(input, output, session) {
     parsed_upload = reactiveVal(NULL)
     

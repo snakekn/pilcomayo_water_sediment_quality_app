@@ -68,7 +68,7 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
           media = first(media),
           HQ_max    = if (all(is.na(HQ))) NA_real_ else max(HQ, na.rm = TRUE),
           HQ_median = if (all(is.na(HQ))) NA_real_ else median(HQ, na.rm = TRUE),
-          HQ_n      = sum(!is.na(HQ)),
+          HQ_n      = sum(HQ[HQ>1]),
           
           CR_max    = if (all(is.na(CR))) NA_real_ else max(CR, na.rm = TRUE),
           CR_median = if (all(is.na(CR))) NA_real_ else median(CR, na.rm = TRUE),
@@ -76,7 +76,7 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
           
           WL_max    = if (all(is.na(WL))) NA_real_ else max(WL, na.rm = TRUE),
           WL_median = if (all(is.na(WL))) NA_real_ else median(WL, na.rm = TRUE),
-          WL_n      = sum(!is.na(WL)),
+          WL_n      = sum(WL[WL>1]),
           .groups = "drop"
         )
       

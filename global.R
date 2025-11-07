@@ -55,8 +55,6 @@ initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
 initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
 initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
 
-
-
 #### load global values ####
 # these are kept centrally to help us easily redefine if needed
 

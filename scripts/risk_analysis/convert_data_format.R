@@ -105,9 +105,9 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
                  values_drop_na = TRUE)
   
   date_lubridated = switch(media_type,
-                              "drinking water" ~ lubridate::mdy(df_long$Date),
-                              "sediment" ~ lubridate::ymd(df_long$Date),
-                              .default ~ NULL)
+                              "drinking water" = lubridate::mdy(df_long$Date),
+                              "sediment" = lubridate::ymd(df_long$Date),
+                              .default = NULL)
   
   # parse and tidy
   df_long <- df_long %>%
