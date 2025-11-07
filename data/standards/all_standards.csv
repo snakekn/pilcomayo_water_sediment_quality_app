@@ -7,8 +7,8 @@ USGS,Lead (Pb),35,mg/kg,sediment,,,hq
 USGS,Mercury (Hg),0.174,mg/kg,sediment,,,hq
 USGS,Nickel (Ni),18,mg/kg,sediment,,,hq
 USGS,Zinc (Zn),123,mg/kg,sediment,,,hq
-Bolivian Law 1333,pH low,6,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,pH high,8.5,mg/L,drinking water,Class A limit,,hq
+Bolivian Law 1333,pH low,6,u pH,drinking water,Class A limit,,hq
+Bolivian Law 1333,pH high,8.5,u pH,drinking water,Class A limit,,hq
 Bolivian Law 1333,Color (mg Pt/l),10,mg/L,drinking water,Class A limit,,hq
 Bolivian Law 1333,TDS,1000,mg/L,drinking water,Class A limit,,hq
 Bolivian Law 1333,DO (% sat),80,mg/L,drinking water,Class A limit,,hq

@@ -106,6 +106,12 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
   df_long <- df_long %>%
     mutate(
       # Nadav's Notes: need to keep total, suspended, dissolved, then put into column "Fraction"
+      fraction = case_when(
+        str_detect(raw_name, regex("\\bTotal\\b", ignore_case = TRUE)) ~ "Total",
+        str_detect(raw_name, regex("\\bSuspended\\b", ignore_case = TRUE)) ~ "Suspended",
+        str_detect(raw_name, regex("\\bDissolved\\b", ignore_case = TRUE)) ~ "Dissolved",
+        TRUE ~ NA_character_
+      ),
       clean_name = str_remove_all(raw_name, regex("\\b(Total|Suspended|Dissolved)\\b", ignore_case = TRUE)),
       parameter = str_squish(str_remove(clean_name, "\\(.*\\)$")),
       unit_blob = stringr::str_match(clean_name, "\\((.*)\\)")[,2] %>% coalesce(""),
@@ -133,7 +139,7 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
   
   
   # keep id cols + standardized columns, preserve data_source
-  keep <- c(intersect(id_cols, names(df_long)), "Date", "Year", "parameter", "media", "concentration", "unit", "cr_route")
+  keep <- c(intersect(id_cols, names(df_long)), "Date", "Year", "parameter", "fraction", "media", "concentration", "unit", "cr_route")
   df_long %>% select(all_of(keep)) %>% janitor::clean_names()
 }
 

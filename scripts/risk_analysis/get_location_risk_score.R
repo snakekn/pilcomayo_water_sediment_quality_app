@@ -19,7 +19,7 @@ EXPOSURE_FACTORS <- list(
   EF = 350,     # Exposure frequency, days/year
   ED = 30,      # Exposure duration, years
   BW = 70,      # Body weight, kg
-  EL = 365*70,  # Expected lifespan, days (70 yrs * 365)
+  EL = 365*70  # Expected lifespan, days (70 yrs * 365)
 )
 
 # to get the total environmental score for a set of data at a station

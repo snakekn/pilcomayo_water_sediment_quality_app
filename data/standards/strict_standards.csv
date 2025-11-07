@@ -1,61 +1,61 @@
-,regulator,param_abbr,parameter,parameter_full,value,unit,media,notes,source,hqcr
-1,Bolivian Law 1333,Al,Aluminum,Aluminum (Al),0.2,mg/L,drinking water,Class A limit,NA,hq
-2,Bolivian Law 1333,NH3,Ammonia,Ammonia (NH3),0.05,mg/L,drinking water,Class A limit,NA,hq
-3,Bolivian Law 1333,Sb,Antimony,Antimony (Sb),0.1,mg/L,drinking water,Class A limit,NA,hq
-4,WHO,As,Arsenic,Arsenic (As),0.01,mg/L,drinking water,NA,NA,hq
-5,FAO,As,Arsenic,Arsenic (As),0.2,mg/kg,food,"For rice, polished",https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq
-6,CDC,As,Arsenic,Arsenic (As),10,ug/L,human urine,NA,NA,hq
-7,EPA,As,Arsenic,Arsenic (As),4.3,ng/m3,inhalation,NA,https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278,cr
-8,EPA,As,Arsenic,Arsenic (As),32,mg/kg-d,oral,NA,https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278,cr
-9,USGS,As,Arsenic,Arsenic (As),5.9,mg/kg,sediment,NA,NA,hq
-10,EPA,As,Arsenic,Arsenic (As),0.39,mg/kg,soil,For residential soil,NA,hq
-11,Bolivian Law 1333,BOD5,Biochemical Oxygen Demand,Biochemical Oxygen Demand (BOD5),2,mg/L,drinking water,Class A limit,NA,hq
-12,Bolivian Law 1333,Ba,Barium,Barium (Ba),1,mg/L,drinking water,Class A limit,NA,hq
-13,Bolivian Law 1333,Be,Beryllium,Beryllium (Be),0.001,mg/L,drinking water,Class A limit,NA,hq
-14,Bolivian Law 1333,B,Boron,Boron (B),1,mg/L,drinking water,Class A limit,NA,hq
-15,Bolivian Law 1333,COD,Chemical Oxygen Demand,Chemical Oxygen Demand (COD),5,mg/L,drinking water,Class A limit,NA,hq
-16,WHO,Cd,Cadmium,Cadmium (Cd),0.003,mg/L,drinking water,NA,NA,hq
-17,FAO,Cd,Cadmium,Cadmium (Cd),0.05,mg/kg,food,Lowest MCL for Cadmium in local crops. Should be considered on a monthly intake basis,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq
-18,CDC,Cd,Cadmium,Cadmium (Cd),1,ug/dL,human blood,NA,NA,hq
-19,USGS,Cd,Cadmium,Cadmium (Cd),0.596,mg/kg,sediment,NA,NA,hq
-20,EPA,Cd,Cadmium,Cadmium (Cd),71,mg/kg,soil,For composite workers in industrial land use,NA,hq
-21,Bolivian Law 1333,Na,Calcium,Calcium (Na),200,mg/L,drinking water,Class A limit,NA,hq
-22,Bolivian Law 1333,Cl,Chlorides,Chlorides (Cl),250,mg/L,drinking water,Class A limit,NA,hq
-23,Bolivian Law 1333,Cr hex,Chromium,Chromium (Cr hex),0.05,mg/L,drinking water,Class A limit,NA,hq
-24,Bolivian Law 1333,Cr tri,Chromium,Chromium (Cr tri),NA,mg/L,drinking water,Class A limit,NA,hq
-25,USGS,Cr,Chromium,Chromium (Cr),37.3,mg/kg,sediment,NA,NA,hq
-26,Bolivian Law 1333,Co,Cobalt,Cobalt (Co),0.1,mg/L,drinking water,Class A limit,NA,hq
-27,Bolivian Law 1333,mg Pt/l,Color,Color (mg Pt/l),10,mg/L,drinking water,Class A limit,NA,hq
-28,Bolivian Law 1333,Cu,Copper,Copper (Cu),0.05,mg/L,drinking water,Class A limit,NA,hq
-29,USGS,Cu,Copper,Copper (Cu),35.7,mg/kg,sediment,NA,NA,hq
-30,Bolivian Law 1333,% sat,DO,DO (% sat),80,mg/L,drinking water,Class A limit,NA,hq
-31,Bolivian Law 1333,Fe,Iron,Iron (Fe),0.3,mg/L,drinking water,Class A limit,NA,hq
-32,WHO,Pb,Lead,Lead (Pb),0.01,mg/L,drinking water,NA,NA,hq
-33,FAO,Pb,Lead,Lead (Pb),0.05,mg/kg,food,Lowest MCL for Lead in local crops,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq
-34,CDC,Pb,Lead,Lead (Pb),3.5,ug/dL,human blood,Reference limit for children ages 1-5.,https://www.cdc.gov/lead-prevention/php/news-features/updates-blood-lead-reference-value.html,hq
-35,USGS,Pb,Lead,Lead (Pb),35,mg/kg,sediment,NA,NA,hq
-36,EPA,Pb,Lead,Lead (Pb),400,mg/kg,soil,For residential soil,NA,hq
-37,Bolivian Law 1333,Li,Lithium,Lithium (Li),2.5,mg/L,drinking water,Class A limit,NA,hq
-38,Bolivian Law 1333,Mg,Magnesium,Magnesium (Mg),100,mg/L,drinking water,Class A limit,NA,hq
-39,Bolivian Law 1333,Mn,Manganese,Manganese (Mn),0.5,mg/L,drinking water,Class A limit,NA,hq
-40,Bolivian Law 1333,Hg,Mercury,Mercury (Hg),0.001,mg/L,drinking water,Class A limit,NA,hq
-41,CDC,Hg,Mercury,Mercury (Hg),5,ug/dL,human blood,NA,NA,hq
-42,US EPA,Hg,Mercury,Mercury (Hg),0.13,mg/kg,sediment,NA,NA,hq
-43,EPA,Hg,Mercury,Mercury (Hg),23,mg/kg,soil,For residential soil,NA,hq
-44,Bolivian Law 1333,Ni,Nickel,Nickel (Ni),0.05,mg/L,drinking water,Class A limit,NA,hq
-45,USGS,Ni,Nickel,Nickel (Ni),18,mg/kg,sediment,NA,NA,hq
-46,Bolivian Law 1333,NO3,Nitrate,Nitrate (NO3),20,mg/L,drinking water,Class A limit,NA,hq
-47,Bolivian Law 1333,PO4,Phosphates,Phosphates (PO4),0.4,mg/L,drinking water,Class A limit,NA,hq
-48,Bolivian Law 1333,Se,Selenium,Selenium (Se),0.01,mg/L,drinking water,Class A limit,NA,hq
-49,Bolivian Law 1333,Ag,Silver,Silver (Ag),0.05,mg/L,drinking water,Class A limit,NA,hq
-50,Bolivian Law 1333,Na,Sodium,Sodium (Na),200,mg/L,drinking water,Class A limit,NA,hq
-51,Bolivian Law 1333,SO4,Sulfate,Sulfate (SO4),300,mg/L,drinking water,Class A limit,NA,hq
-52,Bolivian Law 1333,TDS,Total Dissolved Solids,Total Dissolved Solids (TDS),1000,mg/L,drinking water,Class A limit,NA,hq
-53,Bolivian Law 1333,Sn,Tin,Tin (Sn),2,mg/L,drinking water,Class A limit,NA,hq
-54,Bolivian Law 1333,N,Total Nitrogen,Total Nitrogen (N),5,mg/L,drinking water,Class A limit,NA,hq
-55,Bolivian Law 1333,U,Uranium,Uranium (U),0.02,mg/L,drinking water,Class A limit,NA,hq
-56,Bolivian Law 1333,V,Vanadium,Vanadium (V),0.1,mg/L,drinking water,Class A limit,NA,hq
-57,Bolivian Law 1333,Zn,Zinc,Zinc (Zn),0.2,mg/L,drinking water,Class A limit,NA,hq
-58,USGS,Zn,Zinc,Zinc (Zn),123,mg/kg,sediment,NA,NA,hq
-59,Bolivian Law 1333,pH,pH,pH high,8.5,pH unit,drinking water,Class A limit,NA,hq
-60,Bolivian Law 1333,pH,pH ,pH low,6,pH unit,drinking water,Class A limit,NA,hq
+"","regulator","parameter","value","unit","media","notes","source","hqcr"
+"1","Bolivian Law 1333","Aluminum (Al)",0.2,"mg/L","drinking water","Class A limit",NA,"hq"
+"2","Bolivian Law 1333","Ammonia (NH3)",0.05,"mg/L","drinking water","Class A limit",NA,"hq"
+"3","Bolivian Law 1333","Antimony (Sb)",0.1,"mg/L","drinking water","Class A limit",NA,"hq"
+"4","WHO","Arsenic (As)",0.01,"mg/L","drinking water",NA,NA,"hq"
+"5","FAO","Arsenic (As)",0.2,"mg/kg","food","For rice, polished","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq"
+"6","CDC","Arsenic (As)",10,"ug/L","human urine",NA,NA,"hq"
+"7","EPA","Arsenic (As)",4.3,"ng/m3","inhalation",NA,"https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278","cr"
+"8","EPA","Arsenic (As)",32,"mg/kg-d","oral",NA,"https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278","cr"
+"9","USGS","Arsenic (As)",5.9,"mg/kg","sediment",NA,NA,"hq"
+"10","EPA","Arsenic (As)",0.39,"mg/kg","soil","For residential soil",NA,"hq"
+"11","Bolivian Law 1333","BOD5",2,"mg/L","drinking water","Class A limit",NA,"hq"
+"12","Bolivian Law 1333","Barium (Ba)",1,"mg/L","drinking water","Class A limit",NA,"hq"
+"13","Bolivian Law 1333","Beryllium (Be)",0.001,"mg/L","drinking water","Class A limit",NA,"hq"
+"14","Bolivian Law 1333","Boron (B)",1,"mg/L","drinking water","Class A limit",NA,"hq"
+"15","Bolivian Law 1333","COD",5,"mg/L","drinking water","Class A limit",NA,"hq"
+"16","WHO","Cadmium (Cd)",0.003,"mg/L","drinking water",NA,NA,"hq"
+"17","FAO","Cadmium (Cd)",0.05,"mg/kg","food","Lowest MCL for Cadmium in local crops. Should be considered on a monthly intake basis","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq"
+"18","CDC","Cadmium (Cd)",1,"ug/dL","human blood",NA,NA,"hq"
+"19","USGS","Cadmium (Cd)",0.596,"mg/kg","sediment",NA,NA,"hq"
+"20","EPA","Cadmium (Cd)",71,"mg/kg","soil","For composite workers in industrial land use",NA,"hq"
+"21","Bolivian Law 1333","Calcium (Na)",200,"mg/L","drinking water","Class A limit",NA,"hq"
+"22","Bolivian Law 1333","Chlorides (Cl)",250,"mg/L","drinking water","Class A limit",NA,"hq"
+"23","Bolivian Law 1333","Chromium (Cr hex)",0.05,"mg/L","drinking water","Class A limit",NA,"hq"
+"24","Bolivian Law 1333","Chromium (Cr tri)",NA,"mg/L","drinking water","Class A limit",NA,"hq"
+"25","USGS","Chromium (Cr)",37.3,"mg/kg","sediment",NA,NA,"hq"
+"26","Bolivian Law 1333","Cobalt (Co)",0.1,"mg/L","drinking water","Class A limit",NA,"hq"
+"27","Bolivian Law 1333","Color (mg Pt/l)",10,"mg/L","drinking water","Class A limit",NA,"hq"
+"28","Bolivian Law 1333","Copper (Cu)",0.05,"mg/L","drinking water","Class A limit",NA,"hq"
+"29","USGS","Copper (Cu)",35.7,"mg/kg","sediment",NA,NA,"hq"
+"30","Bolivian Law 1333","DO (% sat)",80,"mg/L","drinking water","Class A limit",NA,"hq"
+"31","Bolivian Law 1333","Iron (Fe)",0.3,"mg/L","drinking water","Class A limit",NA,"hq"
+"32","WHO","Lead (Pb)",0.01,"mg/L","drinking water",NA,NA,"hq"
+"33","FAO","Lead (Pb)",0.05,"mg/kg","food","Lowest MCL for Lead in local crops","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq"
+"34","CDC","Lead (Pb)",3.5,"ug/dL","human blood","Reference limit for children ages 1-5.","https://www.cdc.gov/lead-prevention/php/news-features/updates-blood-lead-reference-value.html","hq"
+"35","USGS","Lead (Pb)",35,"mg/kg","sediment",NA,NA,"hq"
+"36","EPA","Lead (Pb)",400,"mg/kg","soil","For residential soil",NA,"hq"
+"37","Bolivian Law 1333","Lithium (Li)",2.5,"mg/L","drinking water","Class A limit",NA,"hq"
+"38","Bolivian Law 1333","Magnesium (Mg)",100,"mg/L","drinking water","Class A limit",NA,"hq"
+"39","Bolivian Law 1333","Manganese (Mn)",0.5,"mg/L","drinking water","Class A limit",NA,"hq"
+"40","Bolivian Law 1333","Mercury (Hg)",0.001,"mg/L","drinking water","Class A limit",NA,"hq"
+"41","CDC","Mercury (Hg)",5,"ug/dL","human blood",NA,NA,"hq"
+"42","US EPA","Mercury (Hg)",0.13,"mg/kg","sediment",NA,NA,"hq"
+"43","EPA","Mercury (Hg)",23,"mg/kg","soil","For residential soil",NA,"hq"
+"44","Bolivian Law 1333","Nickel (Ni)",0.05,"mg/L","drinking water","Class A limit",NA,"hq"
+"45","USGS","Nickel (Ni)",18,"mg/kg","sediment",NA,NA,"hq"
+"46","Bolivian Law 1333","Nitrate (NO3)",20,"mg/L","drinking water","Class A limit",NA,"hq"
+"47","Bolivian Law 1333","Phosphates (PO4)",0.4,"mg/L","drinking water","Class A limit",NA,"hq"
+"48","Bolivian Law 1333","Selenium (Se)",0.01,"mg/L","drinking water","Class A limit",NA,"hq"
+"49","Bolivian Law 1333","Silver (Ag)",0.05,"mg/L","drinking water","Class A limit",NA,"hq"
+"50","Bolivian Law 1333","Sodium (Na)",200,"mg/L","drinking water","Class A limit",NA,"hq"
+"51","Bolivian Law 1333","Sulfate (SO4)",300,"mg/L","drinking water","Class A limit",NA,"hq"
+"52","Bolivian Law 1333","TDS",1000,"mg/L","drinking water","Class A limit",NA,"hq"
+"53","Bolivian Law 1333","Tin (Sn)",2,"mg/L","drinking water","Class A limit",NA,"hq"
+"54","Bolivian Law 1333","Total Nitrogen (N)",5,"mg/L","drinking water","Class A limit",NA,"hq"
+"55","Bolivian Law 1333","Uranium (U)",0.02,"mg/L","drinking water","Class A limit",NA,"hq"
+"56","Bolivian Law 1333","Vanadium (V)",0.1,"mg/L","drinking water","Class A limit",NA,"hq"
+"57","Bolivian Law 1333","Zinc (Zn)",0.2,"mg/L","drinking water","Class A limit",NA,"hq"
+"58","USGS","Zinc (Zn)",123,"mg/kg","sediment",NA,NA,"hq"
+"59","Bolivian Law 1333","pH high",8.5,"u pH","drinking water","Class A limit",NA,"hq"
+"60","Bolivian Law 1333","pH low",6,"u pH","drinking water","Class A limit",NA,"hq"

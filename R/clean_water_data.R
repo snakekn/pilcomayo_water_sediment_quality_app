@@ -18,9 +18,6 @@ clean_water_data <- function(data, source = "pilco") {
     # STEP 4: remove blank rows
     df_clean <- df %>% filter(if_any(everything(), ~ !is.na(.)))
     
-    # remove intermediate data frames
-    rm(raw_clean, df)
-    
     # move unit from row 2 to end of row 1
     new_names <- ifelse(!is.na(df_clean[2, ]), 
                         paste0(df_clean[1, ], " (", df_clean[2, ], ")"), 
@@ -36,6 +33,14 @@ clean_water_data <- function(data, source = "pilco") {
     df_clean <- df_clean %>%
       mutate(across(everything(), ~ na_if(., "SIN DATOS")))
     
+    # Replace "ND" with NA
+    df_clean <- df_clean %>%
+      mutate(across(everything(), ~ na_if(., "ND")))
+    
+    # Replace "Ausencia" with NA
+    df_clean <- df_clean %>%
+      mutate(across(everything(), ~ na_if(., "Ausencia")))
+    
     # Replace <n with 0.5*n and >n with 1.5*n (only for numeric-looking columns)
     df_clean <- df_clean %>%
       mutate(across(where(~ any(grepl("^[<>]", .[!is.na(.)]))), 
@@ -44,8 +49,28 @@ clean_water_data <- function(data, source = "pilco") {
                       grepl("^>", .) ~ 1.5 * as.numeric(gsub("^>", "", .)),
                       TRUE ~ as.numeric(.)
                     )))
+  
+    # make numeric-looking columns numeric
+    df_clean <- df_clean %>%
+      mutate(across(where(~ is.character(.) && 
+                            all(grepl("^-?[0-9.]+([eE][+-]?[0-9]+)?$", .[!is.na(.)], perl = TRUE))), 
+                    as.numeric))
     
-    View(df_clean)
+    # set "Fecha" column to data-type Date
+    df_clean$Fecha <- as.Date(df_clean$Fecha, format = "%d/%m/%Y")
+    
+    # create "data_source" column 
+    df_clean$data_source <- rep("pilcomayo.net", nrow(df_clean))
+
+    # shorten name of long station names
+    df_clean$Estación <- gsub("Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba", 
+                              "Pilcomayo arriba Tacobamba",
+                              df_clean$Estación)
+    
+    df_clean$Estación <- gsub("Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba", 
+                              "Tacobamba arriba Pilcomayo",
+                              df_clean$Estación)
+    
     return(df_clean)
   }
   stop(paste("Function clean_water_data: Source", source, "not supported"))
