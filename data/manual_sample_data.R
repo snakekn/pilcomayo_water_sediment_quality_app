@@ -286,7 +286,7 @@ pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
 }
 
 # pivot the data & include the pivot method
-pivoted_water = pivot_merged_samples(merged_df_water, "drinking water")
+pivoted_water = pivot_merged_samples(merged_df_water, "water")
 pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
 
 #### calculate HQ & CR from each media ####

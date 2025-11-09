@@ -1,14 +1,3 @@
-# initialize master_data
-master_data = reactiveValues(
-  water_scored = NULL,
-  water_locyear = NULL,
-  sed_scored = NULL,
-  sed_locyear = NULL
-)
-master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
-master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
-master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
-master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
 
 
 #Define Server
@@ -32,14 +21,43 @@ server <- function(input, output, session) {
 
   ## For importing data
   
-  initial_water = reactive(all_water_clean())
+  # initialize master_data
+  master_data = reactiveValues(
+    water_scored = NULL,
+    water_locyear = NULL,
+    sed_scored = NULL,
+    sed_locyear = NULL
+  )
+  master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
+  master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
+  master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
+  master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
   
   # Upload button
-  merged_out <- dataUploadServer(
+  upload_result <- dataUploadServer(
     id = "upload_data",
     base_data = initial_water,
     master_data = master_data
     )  
+  
+  # save upload to master_data file for all to access
+  observe({
+    result <- upload_result$parsed()
+    req(result)
+    
+    if (result$media == "water") {
+      master_data$water_scored <- result$scored
+      master_data$water_locyear <- result$locyear
+    } else { # assuming it's sediment
+      master_data$sed_scored <- result$scored
+      master_data$sed_locyear <- result$locyear
+    }
+    
+    showNotification(
+      paste("Updated", result$media, "data in master_data"),
+      type = "message"
+    )
+  })
   
   output$import_meta <- renderPrint({
     req(imported$data())

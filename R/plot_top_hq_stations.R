@@ -41,7 +41,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "drinking water") {
+  if (media == "water") {
     if (param != "pH" && any(data$fraction == fraction)) {
       df <- df |>
         filter(fraction == !!fraction)
@@ -49,7 +49,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   }
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "drinking water" && param != "pH" && any(data$fraction == fraction))
+  fraction_applied <- (media == "water" && param != "pH" && any(data$fraction == fraction))
   
   # Special handling for pH - filter to pH units only
   if (param == "pH") {

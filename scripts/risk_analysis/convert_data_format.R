@@ -22,9 +22,11 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
   # will only not run if we're sending in pre-cleaned data, which shouldn't happen in production
   
   print("[upload_sampled_data] about to clean_water_data")
-  if(format=="pilco" && !debug_prepped) {
+  if(format=="pilco" && !debug_prepped && media=="water") {
     sample_data = clean_water_data(sample_data, source=format)
-  }
+  } else if (format=="pilco" && !debug_prepped && media=="sediment") {
+    sample_data = clean_sediment_data(sample_data, source=format)
+  } else { message("[upload_sampled_data] Reached an unexpected else") }
   
   # translate file to appropriate language - should probably make everything english, handle, then revert to es as desired in the front-facing app
   # english for backend work, es/en for front-end
@@ -92,7 +94,7 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
   
   # prep CR route
   cr_route = switch(media_type,
-                    "drinking water" = "oral",
+                    "water" = "oral",
                     "sediment" = "oral",
                     default = NA
   )
@@ -105,7 +107,7 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
                  values_drop_na = TRUE)
   
   date_lubridated = switch(media_type,
-                              "drinking water" = lubridate::mdy(df_long$Date),
+                              "water" = lubridate::mdy(df_long$Date),
                               "sediment" = lubridate::ymd(df_long$Date),
                               .default = NULL)
   

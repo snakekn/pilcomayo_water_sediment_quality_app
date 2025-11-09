@@ -65,8 +65,8 @@ dataUploadUI <- function(id) {
     fluidRow(
       column(6,
              radioButtons(ns("media_type"), "Media included (select one):",
-                          choices = c("Sediment"="sediment", "Water"="drinking water"),
-                          inline = TRUE, selected = "drinking water")
+                          choices = c("Sediment"="sediment", "Water"="water"),
+                          inline = TRUE, selected = "water")
       ),
       column(6,
              radioButtons(ns("translate_to"), "Translate to:",

@@ -186,6 +186,6 @@ calc_hq_in_df <- function(data, media, param, plot_type) {
   
   df <- df |>
     mutate(is_range_param = is_range_param)
-  
+  View(df |> mutate(test=1))
   return(df)
 }

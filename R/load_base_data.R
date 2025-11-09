@@ -11,7 +11,7 @@ load_base_data <- function() {
   print("DONE")
   
   print("Pivoting water data...")
-  all_water_pivot <<- pivot_pilcomayo_data(all_water_data, media_type = "drinking water")
+  all_water_pivot <<- pivot_pilcomayo_data(all_water_data, media_type = "water")
   print("DONE")
   
   print("Pivoting sediment data...")

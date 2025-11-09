@@ -7,49 +7,49 @@ USGS,Lead (Pb),35,mg/kg,sediment,,,hq
 USGS,Mercury (Hg),0.174,mg/kg,sediment,,,hq
 USGS,Nickel (Ni),18,mg/kg,sediment,,,hq
 USGS,Zinc (Zn),123,mg/kg,sediment,,,hq
-Bolivian Law 1333,pH low,6,u pH,drinking water,Class A limit,,hq
-Bolivian Law 1333,pH high,8.5,u pH,drinking water,Class A limit,,hq
-Bolivian Law 1333,Color (mg Pt/l),10,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,TDS,1000,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,DO (% sat),80,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,BOD5,2,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,COD,5,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Aluminum (Al),0.2,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Ammonia (NH3),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Antimony (Sb),0.1,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Arsenic (As),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Barium (Ba),1,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Beryllium (Be),0.001,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Boron (B),1,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Cadmium (Cd),0.005,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Calcium (Na),200,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Chlorides (Cl),250,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Chromium (Cr hex),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Chromium (Cr tri),,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Cobalt (Co),0.1,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Copper (Cu),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Iron (Fe),0.3,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Lead (Pb),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Lithium (Li),2.5,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Magnesium (Mg),100,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Manganese (Mn),0.5,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Mercury (Hg),0.001,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Nickel (Ni),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Nitrate (NO3),20,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Total Nitrogen (N),5,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Phosphates (PO4),0.4,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Selenium (Se),0.01,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Silver (Ag),0.05,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Sodium (Na),200,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Sulfate (SO4),300,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Tin (Sn),2,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Uranium (U),0.02,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Vanadium (V),0.1,mg/L,drinking water,Class A limit,,hq
-Bolivian Law 1333,Zinc (Zn),0.2,mg/L,drinking water,Class A limit,,hq
-WHO,Lead (Pb),0.01,mg/L,drinking water,,,hq
-WHO,Arsenic (As),0.01,mg/L,drinking water,,,hq
-WHO,Cadmium (Cd),0.003,mg/L,drinking water,,,hq
-WHO,Mercury (Hg),0.006,mg/L,drinking water,,,hq
+Bolivian Law 1333,pH low,6,u pH,water,Class A limit,,hq
+Bolivian Law 1333,pH high,8.5,u pH,water,Class A limit,,hq
+Bolivian Law 1333,Color (mg Pt/l),10,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,TDS,1000,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,DO (% sat),80,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,BOD5,2,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,COD,5,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Aluminum (Al),0.2,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Ammonia (NH3),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Antimony (Sb),0.1,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Arsenic (As),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Barium (Ba),1,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Beryllium (Be),0.001,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Boron (B),1,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Cadmium (Cd),0.005,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Calcium (Na),200,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Chlorides (Cl),250,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Chromium (Cr hex),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Chromium (Cr tri),,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Cobalt (Co),0.1,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Copper (Cu),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Iron (Fe),0.3,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Lead (Pb),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Lithium (Li),2.5,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Magnesium (Mg),100,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Manganese (Mn),0.5,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Mercury (Hg),0.001,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Nickel (Ni),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Nitrate (NO3),20,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Total Nitrogen (N),5,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Phosphates (PO4),0.4,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Selenium (Se),0.01,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Silver (Ag),0.05,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Sodium (Na),200,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Sulfate (SO4),300,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Tin (Sn),2,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Uranium (U),0.02,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Vanadium (V),0.1,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Zinc (Zn),0.2,mg/L,water,Class A limit,,hq
+WHO,Lead (Pb),0.01,mg/L,water,,,hq
+WHO,Arsenic (As),0.01,mg/L,water,,,hq
+WHO,Cadmium (Cd),0.003,mg/L,water,,,hq
+WHO,Mercury (Hg),0.006,mg/L,water,,,hq
 US EPA,Lead (Pb),35,mg/kg,sediment,,,hq
 US EPA,Arsenic (As),7.24,mg/kg,sediment,,,hq
 US EPA,Cadmium (Cd),0.676,mg/kg,sediment,,,hq
@@ -73,3 +73,10 @@ EPA,Cadmium (Cd),71,mg/kg,soil,For residential soil,,hq
 EPA,Mercury (Hg),23,mg/kg,soil,For residential soil,,hq
 EPA,Arsenic (As),32,mg/kg-d,oral,,https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278,cr
 EPA,Arsenic (As),4.3,ng/m3,inhalation,,https://iris.epa.gov/ChemicalLanding/&substance_nmbr=278,cr
+EPA,Arsenic (As),0.01,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Cadmium (Cd),0.005,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Antimony (Sb),0.006,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Copper (Cu),1.3,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Lead (Pb),0.01,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Mercury (Hg),0.002,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq
+EPA,Thallium (Tl),0.002,mg/L,water,,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq

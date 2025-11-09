@@ -295,40 +295,39 @@ ensure_listcol_tbl <- function(df, col) {
 # Output: locyear and scored files in master_data
 dataUploadServer <- function(id, base_data, master_data) {
   moduleServer(id, function(input, output, session) {
-    parsed_upload = reactiveVal(NULL)
+    parsed_upload <- reactiveVal(NULL)
     
-    # add files
     observeEvent(input$upload_data, {
       
-      # make sure a file is uploaded
+      # Validation
       if (is.null(input$files) || nrow(input$files) == 0) {
         showNotification("Please select a file before processing.", type="error")
-        return()
+        return()  # ✅ This return() exits the observeEvent, not the module
       }
       
-      src_format = input$source_format
-      src_lang = input$current_lang
-      src_media = input$media_type
-      src_target_lang = input$translate_to
-
-      # confirm what we got - may want to set failsafe options
+      src_format <- input$source_format
+      src_lang <- input$current_lang
+      src_media <- input$media_type
+      src_target_lang <- input$translate_to
+      
       print(paste("Format:", src_format,
                   "Lang:", src_lang,
                   "Media:", src_media,
                   "Target:", src_target_lang))
       
-      # get file data
       req(input$files)
       fpath <- input$files$datapath[1]
       fname <- input$files$name[1]
-      # message("File type detected: ", tools::file_ext(fname))
       
       showNotification(paste("Processing:", fname), type="message")
       
       withProgress(message = "Processing uploads...", value = 0, {
-        # assume src_media may apply globally; if not, detect per-file
         n_files <- nrow(input$files)
-        existing_scored <- if (src_media == "drinking water") isolate(master_data$water_scored) else isolate(master_data$sed_scored)
+        existing_scored <- if (src_media == "water") {
+          isolate(master_data$water_scored)
+        } else {
+          isolate(master_data$sed_scored)
+        }
         scored_merged <- existing_scored
         
         for (i in seq_len(n_files)) {
@@ -336,27 +335,30 @@ dataUploadServer <- function(id, base_data, master_data) {
           fpath_i <- input$files$datapath[i]
           
           incProgress(1/n_files, message = paste("Processing", fname_i))
-          try({
+          
+          tryCatch({
             file_data_i <- read_uploaded_file(fpath_i)
             print(paste0("[dataUploadServer]: ", fname_i))
             
-            # detect or reuse options per-file if needed:
-            df_i <- upload_sampled_data(file_data_i,
-                                        media = src_media,         # or detect per-file
-                                        format = src_format,
-                                        debug_prepped = FALSE,
-                                        src_lang = src_lang,
-                                        target_lang = src_target_lang)
+            df_i <- upload_sampled_data(
+              file_data_i,
+              media = src_media,
+              format = src_format,
+              debug_prepped = FALSE,
+              src_lang = src_lang,
+              target_lang = src_target_lang
+            )
             print("completed upload_sampled_data")
             
+            # Check for duplicate names
             dup_names <- names(df_i)[duplicated(names(df_i))]
             if (length(dup_names)) {
-              warning(sprintf("File '%s' has duplicate column names: %s", fname_i, paste(unique(dup_names), collapse=", ")))
-              # optional: show all names to console for debugging
+              warning(sprintf("File '%s' has duplicate column names: %s", 
+                              fname_i, paste(unique(dup_names), collapse=", ")))
               print(names(df_i))
             }
             
-            # janitor::make_clean_names() will also normalise names (lowercase, underscores) and can make unique
+            # Clean column names
             if (any(duplicated(names(df_i)))) {
               names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
             }
@@ -366,31 +368,51 @@ dataUploadServer <- function(id, base_data, master_data) {
             upload_scored_i <- score_data(df_i)
             print("[dataUploadServer]: finished score_data")
             
-            # merge (uploaded wins existing by default)
             scored_merged <- merge_scored(scored_merged, upload_scored_i)
             print("[dataUploadServer]: finished merge_scored")
-          }, silent = FALSE)
+            
+          }, error = function(e) {
+            showNotification(
+              paste("Error processing", fname_i, ":", e$message),
+              type = "error"
+            )
+          })
         }
         
-        # write back to reactive master_data (choose media)
-        print("updating master_data")
-        if (src_media == "drinking water") {
-          master_data$water_scored <- scored_merged
-          master_data$water_locyear <- score_to_loc_year(scored_merged)
-          View(master_data$water_locyear)
+        # ✅ Update the reactiveVal
+        print("updating parsed_upload")
+        parsed_upload(list(
+          scored = scored_merged,
+          locyear = score_to_loc_year(scored_merged),
+          media = src_media
+        ))
+        
+        # Optional persistence
+        save_path <- if (src_media == "water") {
+          "data/processed/water_scored_user_update.rds"
         } else {
-          master_data$sed_scored <- scored_merged
-          master_data$sed_locyear <- score_to_loc_year(scored_merged)
-          View(master_data$sed_locyear)
+          "data/processed/sed_scored_user_updated.rds"
         }
+        saveRDS(scored_merged, save_path)
         
-        # optional persistence
-        if (src_media == "drinking water") saveRDS(scored_merged, "data/processed/water_scored_user_update.rds") else saveRDS(scored_merged, "data/processed/sed_scored_user_updated.rds")
-        
+        showNotification("Upload processing complete!", type = "message")
       })
+      
     }, ignoreInit = TRUE)
     
-    list(parsed=parsed_upload)
+    # ✅ Debug REACTIVELY (optional)
+    observe({
+      result <- parsed_upload()
+      if (!is.null(result)) {
+        cat("parsed_upload contains:\n")
+        cat("  - media:", result$media, "\n")
+        cat("  - scored rows:", nrow(result$scored), "\n")
+        cat("  - locyear rows:", nrow(result$locyear), "\n")
+      }
+    })
+    
+    # ✅ Return the reactiveVal (NOT inside observeEvent)
+    return(list(parsed = parsed_upload))
     
   })  
 }

@@ -38,7 +38,7 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     filter(media == !!media)
   
   # Only apply fraction filter for drinking water and non-pH parameters
-  if (media == "drinking water") {
+  if (media == "water") {
     # Get unique parameters that have the specified fraction
     params_with_fraction <- df |>
       filter(fraction == !!fraction) |>
@@ -221,7 +221,7 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     )
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "drinking water" && any(data$fraction == fraction))
+  fraction_applied <- (media == "water" && any(data$fraction == fraction))
   
   method_label <- if (method == "max") {
     "Maximum"

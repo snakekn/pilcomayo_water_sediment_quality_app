@@ -1,5 +1,9 @@
 plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
+  # Nadav's Notes: make work with new format
+  # expects scored data with standards pre-calculated, should filter by param
+  # if param = all, use hazard index (load _locyear for that spot)
   
+  # to remove & replace
   date <- as.Date(date)
   
   # Reverse color scheme for parameters where lower values are worse
@@ -18,7 +22,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "drinking water") {
+  if (media == "water") {
     if (param != "pH" && any(data$fraction == fraction)) {
       df <- df |>
         filter(fraction == !!fraction)
@@ -89,9 +93,9 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
                 fill = FALSE)
   
   # Add circle markers
-  if (first(df$has_standard)) {
+  if (first(df$has_standard)) { # if it has a HQ
     # Determine which points are out of compliance
-    if (exists("is_range_param") && first(df$is_range_param)) {
+    if (exists("is_range_param") && first(df$is_range_param)) { # check if pH
       # For range parameters, out of compliance if outside range
       df_compliant <- df |> filter(concentration >= param_std_low & concentration <= param_std_high)
       df_violation <- df |> filter(concentration < param_std_low | concentration > param_std_high)
@@ -102,7 +106,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
     }
     
     # Add compliant points
-    if (nrow(df_compliant) > 0) {
+    if (nrow(df_compliant) > 0) { # HQ<=1
       m <- m |>
         addCircleMarkers(
           data = df_compliant,
@@ -128,7 +132,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
     }
     
     # Add violation points with double outline
-    if (nrow(df_violation) > 0) {
+    if (nrow(df_violation) > 0) { # if HQ>1
       # First layer: black outer ring
       m <- m |>
         addCircleMarkers(
@@ -192,7 +196,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
   }
   
   # Add legend and standard info
-  if (first(df$has_standard)) {
+  if (first(df$has_standard)) { # legen of std in bottom right corner
     m <- m |>
       addLegend(
         position = "bottomright",

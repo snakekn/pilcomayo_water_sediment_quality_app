@@ -9,7 +9,7 @@ plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total") {
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "drinking water") {
+  if (media == "water") {
     if (param != "pH" && any(data$fraction == fraction)) {
       df <- df |>
         filter(fraction == !!fraction)
