@@ -26,14 +26,18 @@ server <- function(input, output, session) {
     water_scored = NULL,
     water_locyear = NULL,
     sed_scored = NULL,
-    sed_locyear = NULL
+    sed_locyear = NULL,
+    sed_loctime = NULL,
+    water_loctime = NULL
   )
   master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
   master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
   master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
   master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
+  master_data$sed_loctime = if(file.exists("data/processed/sed_loctime.rds")) readRDS("data/processed/sed_loctime.rds") else { print("no sed_loctime.rds"); tibble() }
+  master_data$water_loctime = if(file.exists("data/processed/water_loctime.rds")) readRDS("data/processed/water_loctime.rds") else { print("no water_loctime.rds"); tibble() }
   
-  # Upload button
+    # Upload button
   upload_result <- dataUploadServer(
     id = "upload_data",
     base_data = initial_water,

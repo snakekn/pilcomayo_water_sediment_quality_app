@@ -1,6 +1,6 @@
 #### Take in locyear data, rescore to return a time-weighted score ####
 
-# Note: The resulting df is quite large (water_locyear became 89MB)
+# Note: The resulting df is quite large (water_locyear became 89MB vs 19KB w/o it)
 # Note: This likely means we won't want to actually load it
 # Note: If we need it, we can load it from elsewhere
 # --> made a flag to allow us to remove the detailed datapoints 
