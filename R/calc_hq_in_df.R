@@ -1,3 +1,5 @@
+## Note: this was deprecated for the other score_data() function
+
 calc_hq_in_df <- function(data, media, param, plot_type) {
   df <- data
   

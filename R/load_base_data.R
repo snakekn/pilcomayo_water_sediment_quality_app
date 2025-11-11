@@ -17,5 +17,4 @@ load_base_data <- function() {
   print("Pivoting sediment data...")
   all_sed_pivot <<- pivot_pilcomayo_data(all_sed_data, media_type = "sediment")
   print("DONE")
-  
 }
