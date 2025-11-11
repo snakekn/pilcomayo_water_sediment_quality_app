@@ -1,9 +1,4 @@
 plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
-  # Nadav's Notes: make work with new format
-  # expects scored data with standards pre-calculated, should filter by param
-  # if param = all, use hazard index (load _locyear for that spot)
-  
-  # to remove & replace
   date <- as.Date(date)
   
   # Reverse color scheme for parameters where lower values are worse
@@ -55,10 +50,33 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
   # Combine current date data with most recent prior data
   df <- bind_rows(date_data, missing_stations)
   
+  if (!"HQ" %in% names(df)) {
+    print("scoring data")
+    df <- score_data(df)
+  }
+  
+  print("data scored")
+  
+  # Check if has_standard column exists, if not create it
+  if (!"has_standard" %in% names(df)) {
+    message("has_standard column missing, checking std_info...")
+    # Try to determine if standards exist from std_info
+    if ("std_info" %in% names(df)) {
+      df <- df |>
+        mutate(has_standard = !is.na(HQ) | !is.na(CR) | !is.na(WL))
+    } else {
+      # Default to FALSE if we can't determine
+      df <- df |>
+        mutate(has_standard = FALSE)
+    }
+  }
+  
   df <- df |>
-    calc_hq_in_df(param = param,
-                  media = media,
-                  plot_type = "map")
+    mutate(
+      marker_radius = 6,
+      stroke_color = "black",
+      stroke_weight = 1.5
+    )
   
   # Choose color palette based on parameter type
   if (param %in% reverse_params) {
@@ -92,21 +110,25 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
                 weight = 3,
                 fill = FALSE)
   
-  # Add circle markers
-  if (first(df$has_standard)) { # if it has a HQ
+  # Add circle markers - check if has_standard exists and is not NULL/NA
+  has_std <- if (nrow(df) > 0 && !is.null(df$has_standard)) {
+    first(df$has_standard, default = FALSE)
+  } else {
+    FALSE
+  }
+  
+  if (has_std) {
     # Determine which points are out of compliance
-    if (exists("is_range_param") && first(df$is_range_param)) { # check if pH
-      # For range parameters, out of compliance if outside range
+    if ("is_range_param" %in% names(df) && first(df$is_range_param, default = FALSE)) {
       df_compliant <- df |> filter(concentration >= param_std_low & concentration <= param_std_high)
       df_violation <- df |> filter(concentration < param_std_low | concentration > param_std_high)
     } else {
-      # For single threshold, out of compliance if HQ >= 1
-      df_compliant <- df |> filter(hq < 1)
-      df_violation <- df |> filter(hq >= 1)
+      df_compliant <- df |> filter(HQ < 1)
+      df_violation <- df |> filter(HQ >= 1)
     }
     
     # Add compliant points
-    if (nrow(df_compliant) > 0) { # HQ<=1
+    if (nrow(df_compliant) > 0) {
       m <- m |>
         addCircleMarkers(
           data = df_compliant,
@@ -125,15 +147,14 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
               "Long: ", df_compliant$longitude_decimal[i], "<br>",
               "Date: ", df_compliant$date[i], "<br>",
               param, ": ", df_compliant$concentration[i], " ", df_compliant$unit[i], "<br>",
-              "HQ: ", round(df_compliant$hq[i], 3)
+              "HQ: ", round(df_compliant$HQ[i], 3)
             ))
           })
         )
     }
     
     # Add violation points with double outline
-    if (nrow(df_violation) > 0) { # if HQ>1
-      # First layer: black outer ring
+    if (nrow(df_violation) > 0) {
       m <- m |>
         addCircleMarkers(
           data = df_violation,
@@ -145,10 +166,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
           weight = 1.5,
           fillOpacity = 1,
           fillColor = "yellow"
-        )
-      
-      # Second layer: yellow middle ring + colored fill
-      m <- m |>
+        ) |>
         addCircleMarkers(
           data = df_violation,
           lng = ~longitude_decimal,
@@ -166,7 +184,7 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
               "Long: ", df_violation$longitude_decimal[i], "<br>",
               "Date: ", df_violation$date[i], "<br>",
               param, ": ", df_violation$concentration[i], " ", df_violation$unit[i], "<br>",
-              "HQ: ", round(df_violation$hq[i], 3)
+              "HQ: ", round(df_violation$HQ[i], 3)
             ))
           })
         )
@@ -196,7 +214,8 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
   }
   
   # Add legend and standard info
-  if (first(df$has_standard)) { # legen of std in bottom right corner
+  # Add legend and standard info
+  if (has_std) {
     m <- m |>
       addLegend(
         position = "bottomright",
@@ -206,45 +225,65 @@ plot_pilcomayo_map <- function(data, media, param, date, fraction = "Total") {
         opacity = 0.8
       )
     
-    # Add standard info box
-    if (exists("is_range_param") && first(df$is_range_param)) {
-      # Range-based standard
-      m <- m |>
-        htmlwidgets::onRender(
-          paste0(
-            "function(el, x) {",
-            "  var legend = document.querySelector('.leaflet-bottom.leaflet-right');",
-            "  if (legend) {",
-            "    var standardDiv = document.createElement('div');",
-            "    standardDiv.className = 'leaflet-control';",
-            "    standardDiv.style.cssText = 'background: white; padding: 8px; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; margin-top: 10px; margin-bottom: 10px;';",
-            "    standardDiv.innerHTML = '<strong>Acceptable Range:</strong><br>", 
-            round(first(df$param_std_low), 3), " - ", round(first(df$param_std_high), 3), " ", first(df$display_unit), "<br>(",
-            first(df$std_source), ")';",
-            "    legend.appendChild(standardDiv);",
-            "  }",
-            "}"
-          )
-        )
-    } else {
-      # Single threshold standard
-      m <- m |>
-        htmlwidgets::onRender(
-          paste0(
-            "function(el, x) {",
-            "  var legend = document.querySelector('.leaflet-bottom.leaflet-right');",
-            "  if (legend) {",
-            "    var standardDiv = document.createElement('div');",
-            "    standardDiv.className = 'leaflet-control';",
-            "    standardDiv.style.cssText = 'background: white; padding: 8px; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; margin-top: 10px; margin-bottom: 10px;';",
-            "    standardDiv.innerHTML = '<strong>Standard:</strong><br>", 
-            round(first(df$param_std), 3), " ", first(df$display_unit), "<br>(",
-            first(df$std_source), ")';",
-            "    legend.appendChild(standardDiv);",
-            "  }",
-            "}"
-          )
-        )
+    # Extract standard info from std_info column
+    if ("std_info" %in% names(df) && nrow(df) > 0) {
+      std_info <- first(df$std_info)
+      
+      # Check if this is a range parameter
+      if ("is_range_param" %in% names(df) && first(df$is_range_param, default = FALSE)) {
+        # Extract range values (if they exist in std_info)
+        if ("param_std_low" %in% names(df) && "param_std_high" %in% names(df)) {
+          std_low <- first(df$param_std_low)
+          std_high <- first(df$param_std_high)
+          display_unit <- first(df$unit)
+          std_source <- "Standard"
+          
+          if (!is.na(std_low) && !is.na(std_high)) {
+            m <- m |>
+              htmlwidgets::onRender(
+                paste0(
+                  "function(el, x) {",
+                  "  var legend = document.querySelector('.leaflet-bottom.leaflet-right');",
+                  "  if (legend) {",
+                  "    var standardDiv = document.createElement('div');",
+                  "    standardDiv.className = 'leaflet-control';",
+                  "    standardDiv.style.cssText = 'background: white; padding: 8px; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; margin-top: 10px; margin-bottom: 10px;';",
+                  "    standardDiv.innerHTML = '<strong>Acceptable Range:</strong><br>", 
+                  round(std_low, 3), " - ", round(std_high, 3), " ", display_unit, "<br>(",
+                  std_source, ")';",
+                  "    legend.appendChild(standardDiv);",
+                  "  }",
+                  "}"
+                )
+              )
+          }
+        }
+      } else if (!is.null(std_info) && length(std_info) > 0) {
+        # Try to extract from HQ field in std_info
+        if (!is.null(std_info$HQ) && !is.na(std_info$HQ$std_val)) {
+          std_val <- std_info$HQ$std_val
+          std_unit <- std_info$HQ$std_unit
+          std_source <- std_info$HQ$std_reg
+          
+          m <- m |>
+            htmlwidgets::onRender(
+              paste0(
+                "function(el, x) {",
+                "  var legend = document.querySelector('.leaflet-bottom.leaflet-right');",
+                "  if (legend) {",
+                "    var standardDiv = document.createElement('div');",
+                "    standardDiv.className = 'leaflet-control';",
+                "    standardDiv.style.cssText = 'background: white; padding: 8px; border: 2px solid rgba(0,0,0,0.2); border-radius: 4px; margin-top: 10px; margin-bottom: 10px;';",
+                "    standardDiv.innerHTML = '<strong>Standard:</strong><br>", 
+                round(std_val, 3), " ", std_unit, "<br>(",
+                std_source, ")';",
+                "    legend.appendChild(standardDiv);",
+                "  }",
+                "}"
+              )
+            )
+        }
+      }
     }
   } else {
     m <- m |>

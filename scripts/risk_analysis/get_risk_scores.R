@@ -101,7 +101,7 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
-stds = readr::read_csv(here::here("data/standards/strict_standards.csv")) |>
+stds = readr::read_csv(here::here("data/standards/strict_standards_no_abbr.csv")) |>
   mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
@@ -118,6 +118,90 @@ EXPOSURE_FACTORS <- list(
   EL = 365*70  # Expected lifespan, days (70 yrs * 365)
 )
 
+
+# Add this helper function before score_data
+convert_suspended_concentrations <- function(sample_data) {
+  # Check if we have the necessary columns
+  if (!all(c("parameter", "unit", "concentration") %in% names(sample_data))) {
+    return(sample_data)
+  }
+  
+  # Check if media column exists
+  if (!"media" %in% names(sample_data)) {
+    message("Warning: 'media' column not found. Skipping conversion.")
+    return(sample_data)
+  }
+  
+  # Identify grouping columns (station, date, sample_id, etc.)
+  # Adjust these based on your actual data structure
+  group_cols <- intersect(names(sample_data), 
+                          c("station", "date", "sample_id", "sample_number"))
+  
+  if (length(group_cols) == 0) {
+    message("Warning: No grouping columns found for suspended solids conversion")
+    return(sample_data)
+  }
+  
+  # Extract TSS (Total Suspended Solids) data
+  tss_data <- sample_data %>%
+    filter(parameter == "solids" | parameter == "Solids" | 
+             grepl("suspended.*solid", parameter, ignore.case = TRUE)) %>%
+    filter(unit == "mg/l" | unit == "mg/L") %>%
+    filter(fraction == "Suspended") |>
+    select(all_of(group_cols), tss_mg_L = concentration)
+  
+  # Join TSS back to main data and convert mg/kg to mg/L
+  sample_data <- sample_data %>%
+    left_join(tss_data, by = group_cols) %>%
+    mutate(
+      # Convert mg/kg to mg/L using TSS - only for water media
+      # mg/L = (mg/kg) × (mg/L TSS) × (1 kg / 1e6 mg)
+      concentration_converted = if_else(
+        unit == "mg/kg" & !is.na(tss_mg_L) & media %in% c("water", "drinking water"),
+        concentration * tss_mg_L / 1e6,  # Convert TSS from mg/L to kg/L
+        concentration
+      ),
+      unit_converted = if_else(
+        unit == "mg/kg" & !is.na(tss_mg_L) & media %in% c("water", "drinking water"),
+        "mg/L",
+        unit
+      ),
+      # Track which values were converted
+      converted_from_mg_kg = unit == "mg/kg" & !is.na(tss_mg_L) & media %in% c("water", "drinking water")
+    ) %>%
+    # Use converted values
+    mutate(
+      concentration = concentration_converted,
+      unit = unit_converted
+    ) %>%
+    # Clean up temporary columns
+    select(-concentration_converted, -unit_converted, -tss_mg_L)
+  
+  # Report conversion stats
+  n_converted <- sum(sample_data$converted_from_mg_kg, na.rm = TRUE)
+  n_failed <- sum(sample_data$unit == "mg/kg" & 
+                    sample_data$parameter != "solids" &
+                    sample_data$media %in% c("water", "drinking water"), na.rm = TRUE)
+  n_skipped_non_water <- sum(sample_data$unit == "mg/kg" & 
+                               sample_data$parameter != "solids" &
+                               !sample_data$media %in% c("water", "drinking water"), na.rm = TRUE)
+  
+  if (n_converted > 0) {
+    message(paste0("Converted ", n_converted, " mg/kg measurements to mg/L using TSS"))
+  }
+  if (n_failed > 0) {
+    message(paste0("Warning: ", n_failed, 
+                   " mg/kg measurements could not be converted (no TSS data for those samples)"))
+  }
+  if (n_skipped_non_water > 0) {
+    message(paste0(n_skipped_non_water, 
+                   " mg/kg measurements skipped (not water media)"))
+  }
+  
+  return(sample_data)
+}
+
+
 # to get HQ, CR, and calculated scores for each data point. Note that data points with more data will have higher HQs, rather than being normalized
 # Nadav's Note: may want to only calculate ones above 1?? 
 score_data <- function(sample_data) {
@@ -126,22 +210,33 @@ score_data <- function(sample_data) {
   miss <- setdiff(req, names(sample_data))
   if (length(miss)) rlang::abort(paste0("sample_data missing: ", paste(miss, collapse=", ")))
   
-  # print(nrow(sample_data)) # many rows! 33,470 for water data
+  # Convert suspended sediment concentrations BEFORE scoring
+  sample_data <- convert_suspended_concentrations(sample_data)
   
+  # Calculate hqcr for each row
   scored <- sample_data |>
     dplyr::mutate(
       hqcr = purrr::pmap(
         list(parameter, media, concentration, unit, cr_route),
         calculate_hqcr
       )
-    ) |>
-    tidyr::unnest_wider(hqcr) |>
+    )
+  
+  # Unnest the hqcr list-column to extract HQ, CR, WL, and std_info
+  scored <- scored |>
+    tidyr::unnest_wider(hqcr)
+  
+  # Now add the derived columns after unnesting
+  scored <- scored |>
     dplyr::mutate(
-      CR_cases_10k = ifelse(is.na(CR), NA_real_, CR * 1e4),
+      CR_cases_10k = dplyr::if_else(is.na(CR), NA_real_, CR * 1e4),
       has_HQ = !is.na(HQ),
       has_CR = !is.na(CR),
-      has_WL = !is.na(WL)
+      has_WL = !is.na(WL),
+      has_standard = has_HQ | has_CR | has_WL  # Add this column
     )
+  
+  return(scored)
 }
 
 # for quickly retrieving standards 

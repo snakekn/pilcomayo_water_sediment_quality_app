@@ -17,6 +17,7 @@ library(FactoMineR)
 library(factoextra)
 library(shinyWidgets)
 library(bslib)
+library(terra)
 
 #### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {

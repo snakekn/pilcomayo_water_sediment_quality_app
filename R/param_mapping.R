@@ -5,7 +5,7 @@ param_mapping <- list(
   "Fecha" = "Date",
   "Hora" = "Time",
   "Campaña" = "Campaign",
-  "Responsable" = "Data Controller",
+  "Responsable" = "Responsible",
   "Institución" = "Institution",
   "Río" = "River",
   "Cuenca" = "Basin",

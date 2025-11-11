@@ -18,4 +18,13 @@ load_base_data <- function() {
   all_sed_pivot <<- pivot_pilcomayo_data(all_sed_data, media_type = "sediment")
   print("DONE")
   
+  print("Scoring water data...")
+  all_water_scored <<- score_data(all_water_pivot)
+  print("DONE")
+  
+  print("Scoring sediment data...")
+  all_sed_scored <<- score_data(all_sed_pivot)
+  print("DONE")
+  
+  print("All base data loaded, pivoted and scored.")
 }
