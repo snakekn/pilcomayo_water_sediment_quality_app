@@ -101,7 +101,7 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
-stds = readr::read_csv(here::here("data/standards/strict_standards_no_abbr.csv")) |>
+stds = readr::read_csv(here::here("data/standards/strict_standards.csv")) |>
   mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
