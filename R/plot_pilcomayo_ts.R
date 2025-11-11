@@ -22,69 +22,61 @@ plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total", m
     }
   }
   
-  
   # Special handling for pH - filter to pH units only
   if (param == "pH") {
     df <- df |>
       filter(unit == "u")
   }
   
-  # retrieve standard for this parameter-media combination
-  ### FIGURE OUT HOW TO HANDLE CHROMIUM (HEX VS TRI) ###
-  param_stds <- strict_std |>
-    filter(.data$media == .env$media,
-           str_detect(.data$parameter, .env$param))
+  # Score data if not already scored (same as plot_pilcomayo_map)
+  if (!"HQ" %in% names(df)) {
+    print("scoring data")
+    df <- score_data(df)
+  }
   
-  # Check if standard exists
-  has_standard <- nrow(param_stds) > 0
+  print("data scored")
   
-  if (has_standard) {
-    param_std <- param_stds$value
-    std_unit <- param_stds$unit
-    data_unit <- first(df$unit)
-    std_source <- param_stds$regulator
-    
-    # Unit conversion function
-    convert_units <- function(value, from_unit, to_unit) {
-      # Normalize units (remove spaces, make lowercase)
-      from <- tolower(gsub("\\s+", "", from_unit))
-      to <- tolower(gsub("\\s+", "", to_unit))
-      
-      # If units are the same, no conversion needed
-      if (from == to) return(value)
-      
-      # Conversion factors (to base unit)
-      conversions <- list(
-        # Mass conversions (to grams)
-        "kg" = 1000, "g" = 1, "mg" = 0.001, "ug" = 0.000001, "µg" = 0.000001,
-        # Concentration conversions
-        "mg/kg" = 1, "ug/kg" = 0.001, "µg/kg" = 0.001,
-        "mg/l" = 1, "ug/l" = 0.001, "µg/l" = 0.001,
-        "ppm" = 1, "ppb" = 0.001
-      )
-      
-      # Get conversion factors
-      from_factor <- conversions[[from]]
-      to_factor <- conversions[[to]]
-      
-      # Check if both units are recognized
-      if (is.null(from_factor) || is.null(to_factor)) {
-        warning(paste("Cannot convert from", from_unit, "to", to_unit, "- using original values"))
-        return(value)
-      }
-      
-      # Convert: value * (from_factor / to_factor)
-      converted <- value * (from_factor / to_factor)
-      return(converted)
-    }
-    
-    # Convert standard to match data units if needed
-    if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-      param_std <- convert_units(param_std, std_unit, data_unit)
-      message(paste("Converted standard from", std_unit, "to", data_unit))
-      display_unit <- data_unit
+  # Check if has_standard column exists, if not create it (same as plot_pilcomayo_map)
+  if (!"has_standard" %in% names(df)) {
+    message("has_standard column missing, checking std_info...")
+    # Try to determine if standards exist from std_info
+    if ("std_info" %in% names(df)) {
+      df <- df |>
+        mutate(has_standard = !is.na(HQ) | !is.na(CR) | !is.na(WL))
     } else {
-      display_unit <- std_unit
+      # Default to FALSE if we can't determine
+      df <- df |>
+        mutate(has_standard = FALSE)
+    }
+  }
+  
+  # Check if standard exists (using the same approach as plot_pilcomayo_map)
+  has_standard <- if (nrow(df) > 0 && !is.null(df$has_standard)) {
+    first(df$has_standard, default = FALSE)
+  } else {
+    FALSE
+  }
+  
+  # Extract standard info from std_info column if standard exists
+  if (has_standard && "std_info" %in% names(df) && nrow(df) > 0) {
+    std_info <- first(df$std_info)
+    
+    # Check if this is a range parameter
+    if ("is_range_param" %in% names(df) && first(df$is_range_param, default = FALSE)) {
+      # Extract range values
+      if ("param_std_low" %in% names(df) && "param_std_high" %in% names(df)) {
+        param_std_low <- first(df$param_std_low)
+        param_std_high <- first(df$param_std_high)
+        display_unit <- first(df$unit)
+        std_source <- "Standard"
+      }
+    } else if (!is.null(std_info) && length(std_info) > 0) {
+      # Try to extract from HQ field in std_info
+      if (!is.null(std_info$HQ) && !is.na(std_info$HQ$std_val)) {
+        param_std <- std_info$HQ$std_val
+        display_unit <- std_info$HQ$std_unit
+        std_source <- std_info$HQ$std_reg
+      }
     }
   }
   
@@ -134,28 +126,43 @@ plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total", m
   }
   
   
-  df <- df |>
-    mutate(
-      hover_text = paste0(
-        "Station: ", station, "<br>",
-        "Date: ", format(date, "%Y-%m-%d"), "<br>",
-        str_to_title(parameter), ": ", round(concentration, 3), " ", unit, "<br>",
-        if (has_standard) {
-          paste0("HQ: ", round(concentration/param_std, 3), "<br>")
-        } else {
-          ""
-        },
-        if (!!media == "sediment") {
-          paste0(
-            "Sieve size: ", ifelse(is.na(sieve_size), "N/A", sieve_size), "<br>",
-            "Distance from bank: ", ifelse(is.na(distance_from_bank), "N/A", distance_from_bank)
-          )
-        } else {
-          ""
-        }
-        
+  # Build hover text
+  if (has_standard) {
+    df <- df |>
+      mutate(
+        hover_text = paste0(
+          "Station: ", station, "<br>",
+          "Date: ", format(date, "%Y-%m-%d"), "<br>",
+          str_to_title(parameter), ": ", round(concentration, 3), " ", unit, "<br>",
+          ifelse(!is.na(HQ), paste0("HQ: ", round(HQ, 3), "<br>"), ""),
+          if (!!media == "sediment") {
+            paste0(
+              "Sieve size: ", ifelse(is.na(sieve_size), "N/A", sieve_size), "<br>",
+              "Distance from bank: ", ifelse(is.na(distance_from_bank), "N/A", distance_from_bank)
+            )
+          } else {
+            ""
+          }
+        )
       )
-    )
+  } else {
+    df <- df |>
+      mutate(
+        hover_text = paste0(
+          "Station: ", station, "<br>",
+          "Date: ", format(date, "%Y-%m-%d"), "<br>",
+          str_to_title(parameter), ": ", round(concentration, 3), " ", unit, "<br>",
+          if (!!media == "sediment") {
+            paste0(
+              "Sieve size: ", ifelse(is.na(sieve_size), "N/A", sieve_size), "<br>",
+              "Distance from bank: ", ifelse(is.na(distance_from_bank), "N/A", distance_from_bank)
+            )
+          } else {
+            ""
+          }
+        )
+      )
+  }
   
   
   # Create base plot
@@ -173,7 +180,7 @@ plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total", m
     theme_minimal()
   
   # Add standard line with hover text if standard exists
-  if (has_standard) {
+  if (has_standard && exists("param_std") && !is.na(param_std)) {
     # Create a data frame for the standard line that spans the x-axis range
     std_df <- data.frame(
       date = seq(min(df$date), max(df$date), length.out = 100),
