@@ -30,12 +30,31 @@ server <- function(input, output, session) {
     sed_loctime = NULL,
     water_loctime = NULL
   )
-  master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
-  master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
-  master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
-  master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
-  master_data$sed_loctime = if(file.exists("data/processed/sed_loctime.rds")) readRDS("data/processed/sed_loctime.rds") else { print("no sed_loctime.rds"); tibble() }
-  master_data$water_loctime = if(file.exists("data/processed/water_loctime.rds")) readRDS("data/processed/water_loctime.rds") else { print("no water_loctime.rds"); tibble() }
+  master_data$water_scored <- if (file.exists("data/processed/all_water_scored.rds")) readRDS("data/processed/all_water_scored.rds") else { print("no all_water_scored.rds"); tibble() }
+  master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.rds")) readRDS("data/processed/all_water_locyear.rds") else { print("no all_water_locyear.rds"); tibble() }
+  master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.rds")) readRDS("data/processed/all_sed_scored.rds") else { print("no all_sed_scored.rds"); tibble() }
+  master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.rds")) readRDS("data/processed/all_sed_locyear.rds") else { print("no all_sed_locyear.rds"); tibble() }
+  master_data$sed_loctime = if(file.exists("data/processed/all_sed_loctime.rds")) readRDS("data/processed/all_sed_loctime.rds") else { print("no all_sed_loctime.rds"); tibble() }
+  master_data$water_loctime = if(file.exists("data/processed/all_water_loctime.rds")) readRDS("data/processed/all_water_loctime.rds") else { print("no all_water_loctime.rds"); tibble() }
+  
+  # to print out the new master_data
+  observeEvent(reactiveValuesToList(master_data), {
+    cat("\n========================================\n")
+    cat("MASTER DATA LOADED\n")
+    cat("========================================\n")
+    
+    cat("water_scored:", nrow(master_data$water_scored), "rows\n")
+    cat("water_locyear:", nrow(master_data$water_locyear), "rows\n")
+    cat("water_loctime:", nrow(master_data$water_loctime), "rows\n")
+    cat("sed_scored:", nrow(master_data$sed_scored), "rows\n")
+    cat("sed_locyear:", nrow(master_data$sed_locyear), "rows\n")
+    cat("sed_loctime:", nrow(master_data$sed_loctime), "rows\n")
+    
+    cat("\nwater_scored columns:", ncol(master_data$water_scored), "\n")
+    cat("sed_scored columns:", ncol(master_data$sed_scored), "\n")
+    
+    cat("========================================\n\n")
+  }, once = TRUE, ignoreInit = FALSE)  # Only run once on startup
   
     # Upload button
   upload_result <- dataUploadServer(
@@ -2599,36 +2618,8 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
-  
-  
-  
-  
   ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  
-  
-  
-  
-  
-  
+
   # Dynamically populate year choices for map
   observe({
     sed_years <- sed_years_usgs()
@@ -2642,34 +2633,94 @@ server <- function(input, output, session) {
   
   # Load selected dataset for map
   sed_selected_data <- reactive({
-    req(input$sed_year)
-    active_sed_usgs() |>
-      filter(Year == input$sed_year)
+    req(master_data$sed_scored, input$sed_date_range)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    master_data$sed_scored |>
+      filter(date >= input$sed_date_range[1],
+             date <= input$sed_date_range[2])
   })
   
   water_selected_data <- reactive({
-    req(input$water_year)
-    read_xlsx(file.path(water_data_path_1333, paste0("water_", input$water_year, "_1333.xlsx"))) |>
-      select(-matches("Antimony"))
+    req(master_data$water_scored, input$water_date_range)
+    req(nrow(master_data$water_scored) > 0)  # Make sure it has data
+    
+    master_data$sed_scored |>
+      filter(date >= input$water_date_range[1],
+             date <= input$water_date_range[2])
   })
   
   # Populate campaign dropdown for map
   output$sed_campaign_ui <- renderUI({
-    req(master_data$sed_pivoted)
-    sed_campaigns <- unique(sed_selected_data()$Campaign)
-    selectInput("sed_campaign", "Select Campaign:", choices = sed_campaigns)
+    # checks that our data works as expected
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    # get date range
+    # Get min and max dates from data
+    dates <- master_data$sed_scored$date
+    
+    # Make sure dates exist and are valid
+    # needed bc fails at start otherwise
+    dates <- dates[!is.na(dates)]
+    
+    if (length(dates) == 0) {
+      return(p("No date data available"))
+    }
+    
+    min_date <- min(dates, na.rm = TRUE)
+    max_date <- max(dates, na.rm = TRUE)
+    
+    dateRangeInput(
+      "sed_date_range",
+      "Select Date Range:",
+      start = min_date,
+      end = max_date,
+      min = min_date,
+      max = max_date,
+      format = "yyyy-mm-dd",
+      separator = " to "
+    )
   })
   
   output$water_campaign_ui <- renderUI({
-    req(water_selected_data())
-    water_campaigns <- unique(water_selected_data()$Campaign)
-    selectInput("water_campaign", "Select Campaign:", choices = water_campaigns)
+    # checks that our data works as expected
+    req(master_data$water_scored)
+    req(nrow(master_data$water_scored) > 0)  # Make sure it has data
+    
+    # get date range
+    # Get min and max dates from data
+    dates <- master_data$water_scored$date
+    
+    # Make sure dates exist and are valid
+    # needed bc fails at start otherwise
+    dates <- dates[!is.na(dates)]
+    
+    if (length(dates) == 0) {
+      return(p("No date data available"))
+    }
+    
+    min_date <- min(dates, na.rm = TRUE)
+    max_date <- max(dates, na.rm = TRUE)
+    
+    dateRangeInput(
+      "water_date_range",
+      "Select Date Range:",
+      start = min_date,
+      end = max_date,
+      min = min_date,
+      max = max_date,
+      format = "yyyy-mm-dd",
+      separator = " to "
+    )
   })
   
   # Populate sieve size dropdown for map
   output$tamiz_ui <- renderUI({
-    req(sed_selected_data())
-    tamiz <- unique(sed_selected_data()$`Sieve Size`)
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    tamiz <- unique(master_data$sed_scored$sieve_size)
     tamiz <- tamiz[!is.na(tamiz)]
     selectInput("tamiz", "Select Sieve Size:", choices = tamiz)
   })
@@ -2705,7 +2756,7 @@ server <- function(input, output, session) {
   # Filtered data based on all inputs
   sed_filtered_data <- reactive({
     sed_df <- sed_selected_data()
-    req(input$sed_campaign, input$tamiz, input$sed_metal)
+    req(sed_df, input$sed_date_range, input$tamiz, input$sed_metal)
     sed_df %>%
       filter(Campaign == input$sed_campaign,
              `Sieve Size` == input$tamiz)
@@ -2713,7 +2764,7 @@ server <- function(input, output, session) {
   
   water_filtered_data <- reactive({
     water_df <- water_selected_data()
-    req(input$water_campaign, input$water_metal)
+    req(water_df, input$water_date_range, input$water_metal)
     water_df %>%
       filter(Campaign == input$water_campaign)
   })

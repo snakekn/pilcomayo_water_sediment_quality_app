@@ -28,7 +28,6 @@ ui <- fluidPage(
               tabPanel("Sediment Map",
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput("sed_year", "Select Year:", choices = NULL),
                            # start reviewing here
                            uiOutput("sed_campaign_ui"),
                            uiOutput("tamiz_ui"), # sieve size

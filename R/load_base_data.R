@@ -1,6 +1,6 @@
-load_base_data <- function(master_data_flag = FALSE, just_save = FALSE) {
+load_base_data <- function(load = TRUE, loctime = FALSE, save = FALSE) {
   # if the user is looking to complete all tasks (not just save the data)
-  if(!just_save) {
+  if(load) {
     print("Loading water data...")
     all_water_data <<- bind_rows(lapply(unlist(list.files("data/water/raw", full.names = TRUE)),
                                         load_water_data, translate_to = "en"))
@@ -35,13 +35,30 @@ load_base_data <- function(master_data_flag = FALSE, just_save = FALSE) {
     print("All base data loaded, pivoted and scored.")
   }
   
+  if (loctime) {
+    print("Creating loctime data")
+    all_sed_loctime <<- weigh_inverse_time(sed_locyear)
+    all_water_loctime <<- weigh_inverse_time(water_locyear)
+    print("Loctime data created.")
+  }
+  
   # if the user wants to save everything to master_data
-  if(master_data_flag) {
+  if(save) {
     print("Adding base data to the master_data file path")
     saveRDS(all_sed_scored, here::here("data/processed/all_sed_scored.rds"))
     saveRDS(all_water_scored, here::here("data/processed/all_water_scored.rds"))
     saveRDS(all_sed_locyear, here::here("data/processed/all_sed_locyear.rds"))
     saveRDS(all_water_locyear, here::here("data/processed/all_water_locyear.rds"))
+    
+    if (loctime) {
+      print("Including loctime data in master_data")
+      saveRDS(all_sed_loctime, here::here("data/processed/all_sed_loctime.rds"))
+      saveRDS(all_water_loctime, here::here("data/processed/all_water_loctime.rds"))
+    }
+    
     print("master_data files saved to data/processed/all_* paths")
   }
 }
+
+# for easy using. 3 params!
+# load_base_data(load = FALSE, loctime=TRUE, save=TRUE)
