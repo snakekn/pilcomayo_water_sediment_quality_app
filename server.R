@@ -2655,7 +2655,7 @@ server <- function(input, output, session) {
   
   # Populate campaign dropdown for map
   output$sed_campaign_ui <- renderUI({
-    req(sed_selected_data())
+    req(master_data$sed_pivoted)
     sed_campaigns <- unique(sed_selected_data()$Campaign)
     selectInput("sed_campaign", "Select Campaign:", choices = sed_campaigns)
   })

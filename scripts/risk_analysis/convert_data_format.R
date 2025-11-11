@@ -107,7 +107,7 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
                  values_drop_na = TRUE)
   
   date_lubridated = switch(media_type,
-                              "water" = lubridate::mdy(df_long$Date),
+                              "water" = df_long$Date,
                               "sediment" = lubridate::ymd(df_long$Date),
                               .default = NULL)
   
@@ -116,9 +116,9 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
     mutate(
       # Nadav's Notes: need to keep total, suspended, dissolved, then put into column "Fraction"
       fraction = case_when(
-        str_detect(raw_name, regex("\\bTotal\\b", ignore_case = TRUE)) ~ "Total",
         str_detect(raw_name, regex("\\bSuspended\\b", ignore_case = TRUE)) ~ "Suspended",
         str_detect(raw_name, regex("\\bDissolved\\b", ignore_case = TRUE)) ~ "Dissolved",
+        str_detect(raw_name, regex("\\bTotal\\b", ignore_case = TRUE)) ~ "Total",
         TRUE ~ NA_character_
       ),
       clean_name = str_remove_all(raw_name, regex("\\b(Total|Suspended|Dissolved)\\b", ignore_case = TRUE)),

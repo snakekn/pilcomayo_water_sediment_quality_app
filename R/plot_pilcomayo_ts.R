@@ -1,5 +1,11 @@
-plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total") {
-  
+plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total", master_data) {
+  # req(master_data)
+  # print("[plot_pilcomayo_ts]")
+  # print(names(master_data)) # for sanity
+  # 
+  # # filter data...
+  # if (media == "water") df = master_data$water_scored else df = master_data$sed_scored
+  # 
   # filter data for selected media, parameter and station
   df <- data |>
     filter(.data$media == .env$media,

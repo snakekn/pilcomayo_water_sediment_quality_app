@@ -29,8 +29,9 @@ ui <- fluidPage(
                        sidebarLayout(
                          sidebarPanel(
                            selectInput("sed_year", "Select Year:", choices = NULL),
+                           # start reviewing here
                            uiOutput("sed_campaign_ui"),
-                           uiOutput("tamiz_ui"),
+                           uiOutput("tamiz_ui"), # sieve size
                            # Nadav's Notes: new changes
                            radioButtons(
                              "map_data_type",
