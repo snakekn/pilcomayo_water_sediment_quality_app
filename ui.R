@@ -28,36 +28,47 @@ ui <- fluidPage(
               tabPanel("Sediment Map",
                        sidebarLayout(
                          sidebarPanel(
+                           conditionalPanel( # if the data isn't ready
+                             condition = "!output.sed_data_ready",
+                             div(
+                               style = "text-align: center; padding: 20px;",
+                               icon("spinner", class = "fa-spin fa-3x"),
+                               h4("Loading sediment data...", style = "margin-top: 20px;")
+                             )
+                           ),
                            # start reviewing here
-                           uiOutput("sed_campaign_ui"),
-                           uiOutput("tamiz_ui"), # sieve size
-                           # Nadav's Notes: new changes
-                           radioButtons(
-                             "map_data_type",
-                             "Data Type:",
-                             choices = c("Water" = "water", 
-                                         "Sediment" = "sediment",
-                                         "Both" = "both"),
-                             selected = "water"
-                           ),
-                           radioButtons(
-                             "map_data_scope",
-                             "Data Scope:",
-                             choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-                             selected = "bol"
-                           ),
-                           selectInput("sed_metal", "Select Metal:", choices = NULL),
-                           radioButtons("sed_value_type", "Symbolize by:",
-                                        choices = c("Measured Concentration (mg/kg)" = "sed_value", "Compare to USGS SQGs" = "usgs"),
-                                        selected = "sed_value"),
-                           uiOutput("sed_legend"),
-                           
-                           # Descriptive text for sediment map
-                           info_callout("Sediment Quality Map", "This map displays sediment quality parameters from monitoring campaigns. 
-                                  Circle size represents the measured concentration, while colors can show either 
-                                  raw values or comparison to USGS Sediment Quality Guidelines 
-                                  (TEL/PEL thresholds). Data can be filtered by year, campaign, and sieve size. 
-                                  Data is sourced from www2.pilcomayo.net.")
+                           conditionalPanel(
+                             condition = "output.sed_data_ready",
+                             uiOutput("sed_campaign_ui"),
+                             uiOutput("tamiz_ui"), # sieve size
+                             # Nadav's Notes: new changes
+                             radioButtons(
+                               "map_data_type",
+                               "Data Type:",
+                               choices = c("Water" = "water", 
+                                           "Sediment" = "sediment",
+                                           "Both" = "both"),
+                               selected = "water"
+                             ),
+                             radioButtons(
+                               "map_data_scope",
+                               "Data Scope:",
+                               choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+                               selected = "bol"
+                             ),
+                             selectInput("sed_metal", "Select Metal:", choices = NULL),
+                             radioButtons("sed_value_type", "Symbolize by:",
+                                          choices = c("Measured Concentration (mg/kg)" = "sed_value", "Compare to USGS SQGs" = "usgs"),
+                                          selected = "sed_value"),
+                             uiOutput("sed_legend"),
+                             
+                             # Descriptive text for sediment map
+                             info_callout("Sediment Quality Map", "This map displays sediment quality parameters from monitoring campaigns. 
+                                    Circle size represents the measured concentration, while colors can show either 
+                                    raw values or comparison to USGS Sediment Quality Guidelines 
+                                    (TEL/PEL thresholds). Data can be filtered by year, campaign, and sieve size. 
+                                    Data is sourced from www2.pilcomayo.net.")
+                          )
                          ),
                          mainPanel(
                            tabsetPanel(
