@@ -24,7 +24,7 @@ ui <- fluidPage(
                          tags$p("This application was developed using R Shiny and integrates spatial and tabular data for interactive analysis.")
                        )
               ),
-              
+              # Nadav's Note: Should include Water in this map?
               tabPanel("Sediment Map",
                        sidebarLayout(
                          sidebarPanel(
@@ -41,15 +41,6 @@ ui <- fluidPage(
                              condition = "output.sed_data_ready",
                              uiOutput("sed_campaign_ui"),
                              uiOutput("tamiz_ui"), # sieve size
-                             # Nadav's Notes: new changes
-                             radioButtons(
-                               "map_data_type",
-                               "Data Type:",
-                               choices = c("Water" = "water", 
-                                           "Sediment" = "sediment",
-                                           "Both" = "both"),
-                               selected = "water"
-                             ),
                              radioButtons(
                                "map_data_scope",
                                "Data Scope:",
@@ -74,35 +65,13 @@ ui <- fluidPage(
                            tabsetPanel(
                              tabPanel("Map", leafletOutput("sed_map", height = 600)),
                              tabPanel("Table", dataTableOutput("sed_table")),
-                             tabPanel("USGS SQGs", dataTableOutput("stds_usgs_table"))
+                             tabPanel("Sediment Quality Standards", dataTableOutput("stds_sed_table"))
                            )
                          )
                        )
               ),
               
-              # tabPanel("Water Map",
-              #          sidebarLayout(
-              #            sidebarPanel(
-              #              selectInput("water_year", "Select Year:", choices = NULL),
-              #              uiOutput("water_campaign_ui"),
-              #              selectInput("water_metal", "Select Metal:", choices = NULL),
-              #              radioButtons("water_value_type", "Symbolize by:",
-              #                           choices = c("Dissolved Concentration (mg/l)" = "water_dissolved",
-              #                                       "Suspended Concentration (mg/kg)" = "water_suspended",
-              #                                       "Total Concentration (mg/l)" = "water_total",
-              #                                       "Compare to Bolivian Standards" = "water_1333"),
-              #                           selected = "water_total"),
-              #              uiOutput("water_legend"),
-              #            ),
-              #            mainPanel(
-              #              tabsetPanel(
-              #                tabPanel("Map", leafletOutput("water_map", height = 600)),
-              #                tabPanel("Table", dataTableOutput("water_table")),
-              #                tabPanel("Bolivian Standards", dataTableOutput("stds_1333_table"))
-              #              )
-              #            )
-              #          )
-              # ),
+              # Nadav's Notes: old code below!
               tabPanel("Water Maps",
                        sidebarLayout(
                          sidebarPanel(

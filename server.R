@@ -3233,9 +3233,11 @@ server <- function(input, output, session) {
     water_filtered_data()
   })
   
-  output$stds_usgs_table <- renderDT({
-    usgs_sqg |>
-      select(-match_name)
+  # usgs_sqg loads data in format "Arsenic (mg/kg As)"
+  output$stds_sed_table <- renderDT({
+    stds |>
+      filter(media == "sediment") |>
+      select(-c("...1", "key"))
   })
   
   output$stds_1333_table <- renderDT({
