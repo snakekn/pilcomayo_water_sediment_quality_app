@@ -63,5 +63,10 @@ weigh_inverse_time <- function(locyear, details = FALSE) {
       .groups = "drop"
     )
   
+  # simplify the detail_rows list if there are no details
+  if (!details) {
+    df$detail_rows = NA # NULL removes the column *shrug*
+    df$by_parameter = NA
+  }
   return(df)
 }

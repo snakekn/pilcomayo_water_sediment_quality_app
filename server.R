@@ -2,9 +2,48 @@
 
 #Define Server
 server <- function(input, output, session) {
+  ## Prepare master_data
   
-  ################# LOAD DATA #########################
+  # initialize master_data
+  master_data = reactiveValues(
+    water_scored = NULL,
+    water_locyear = NULL,
+    sed_scored = NULL,
+    sed_locyear = NULL,
+    sed_loctime = NULL,
+    water_loctime = NULL
+  )
+  master_data$water_scored <- if (file.exists("data/processed/all_water_scored.rds")) readRDS("data/processed/all_water_scored.rds") else { print("no all_water_scored.rds"); tibble() }
+  master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.rds")) readRDS("data/processed/all_water_locyear.rds") else { print("no all_water_locyear.rds"); tibble() }
+  master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.rds")) readRDS("data/processed/all_sed_scored.rds") else { print("no all_sed_scored.rds"); tibble() }
+  master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.rds")) readRDS("data/processed/all_sed_locyear.rds") else { print("no all_sed_locyear.rds"); tibble() }
+  master_data$sed_loctime = if(file.exists("data/processed/all_sed_loctime.rds")) readRDS("data/processed/all_sed_loctime.rds") else { print("no all_sed_loctime.rds"); tibble() }
+  master_data$water_loctime = if(file.exists("data/processed/all_water_loctime.rds")) readRDS("data/processed/all_water_loctime.rds") else { print("no all_water_loctime.rds"); tibble() }
   
+  # to print out the new master_data
+  observeEvent(reactiveValuesToList(master_data), {
+    cat("\n========================================\n")
+    cat("MASTER DATA LOADED\n")
+    cat("========================================\n")
+    
+    cat("water_scored:", nrow(master_data$water_scored), "rows\n")
+    cat("water_locyear:", nrow(master_data$water_locyear), "rows\n")
+    cat("water_loctime:", nrow(master_data$water_loctime), "rows\n")
+    cat("sed_scored:", nrow(master_data$sed_scored), "rows\n")
+    cat("sed_locyear:", nrow(master_data$sed_locyear), "rows\n")
+    cat("sed_loctime:", nrow(master_data$sed_loctime), "rows\n")
+    
+    cat("\nwater_scored columns:", ncol(master_data$water_scored), "\n")
+    cat("sed_scored columns:", ncol(master_data$sed_scored), "\n")
+    
+    cat("========================================\n\n")
+  }, once = TRUE, ignoreInit = FALSE)  # Only run once on startup
+  
+  output$sed_data_ready <- reactive({
+    !is.null(master_data$sed_scored) && nrow(master_data$sed_scored) > 0
+  })
+  outputOptions(output, "sed_data_ready", suspendWhenHidden = FALSE)
+
   ## Nadav's area - risk analysis work
   
   # create the leaflet that will show the risk map
@@ -21,23 +60,7 @@ server <- function(input, output, session) {
 
   ## For importing data
   
-  # initialize master_data
-  master_data = reactiveValues(
-    water_scored = NULL,
-    water_locyear = NULL,
-    sed_scored = NULL,
-    sed_locyear = NULL,
-    sed_loctime = NULL,
-    water_loctime = NULL
-  )
-  master_data$water_scored <- if (file.exists("data/processed/water_scored.rds")) readRDS("data/processed/water_scored.rds") else { print("no water_scored.rds"); tibble() }
-  master_data$water_locyear <- if (file.exists("data/processed/water_locyear.rds")) readRDS("data/processed/water_locyear.rds") else { print("no water_locyear.rds"); tibble() }
-  master_data$sed_scored <- if (file.exists("data/processed/sed_scored.rds")) readRDS("data/processed/sed_scored.rds") else { print("no sed_scored.rds"); tibble() }
-  master_data$sed_locyear <- if (file.exists("data/processed/sed_locyear.rds")) readRDS("data/processed/sed_locyear.rds") else { print("no sed_locyear.rds"); tibble() }
-  master_data$sed_loctime = if(file.exists("data/processed/sed_loctime.rds")) readRDS("data/processed/sed_loctime.rds") else { print("no sed_loctime.rds"); tibble() }
-  master_data$water_loctime = if(file.exists("data/processed/water_loctime.rds")) readRDS("data/processed/water_loctime.rds") else { print("no water_loctime.rds"); tibble() }
-  
-    # Upload button
+  # Upload button
   upload_result <- dataUploadServer(
     id = "upload_data",
     base_data = initial_water,
@@ -2599,36 +2622,8 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
-  
-  
-  
-  
   ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  ##############  MAPS  #############################
-  
-  
-  
-  
-  
-  
-  
+
   # Dynamically populate year choices for map
   observe({
     sed_years <- sed_years_usgs()
@@ -2642,48 +2637,119 @@ server <- function(input, output, session) {
   
   # Load selected dataset for map
   sed_selected_data <- reactive({
-    req(input$sed_year)
-    active_sed_usgs() |>
-      filter(Year == input$sed_year)
+    req(master_data$sed_scored, input$sed_date_range)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    master_data$sed_scored |>
+      filter(date >= input$sed_date_range[1],
+             date <= input$sed_date_range[2])
   })
   
   water_selected_data <- reactive({
-    req(input$water_year)
-    read_xlsx(file.path(water_data_path_1333, paste0("water_", input$water_year, "_1333.xlsx"))) |>
-      select(-matches("Antimony"))
+    req(master_data$water_scored, input$water_date_range)
+    req(nrow(master_data$water_scored) > 0)  # Make sure it has data
+    
+    master_data$sed_scored |>
+      filter(date >= input$water_date_range[1],
+             date <= input$water_date_range[2])
   })
   
   # Populate campaign dropdown for map
   output$sed_campaign_ui <- renderUI({
-    req(sed_selected_data())
-    sed_campaigns <- unique(sed_selected_data()$Campaign)
-    selectInput("sed_campaign", "Select Campaign:", choices = sed_campaigns)
+    # checks that our data works as expected
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    # get date range
+    # Get min and max dates from data
+    dates <- master_data$sed_scored$date
+    
+    # Make sure dates exist and are valid
+    # needed bc fails at start otherwise
+    dates <- dates[!is.na(dates)]
+    
+    if (length(dates) == 0) {
+      return(p("No date data available"))
+    }
+    
+    min_date <- min(dates, na.rm = TRUE)
+    max_date <- max(dates, na.rm = TRUE)
+    
+    dateRangeInput(
+      "sed_date_range",
+      "Select Date Range:",
+      start = min_date,
+      end = max_date,
+      min = min_date,
+      max = max_date,
+      format = "yyyy-mm-dd",
+      separator = " to "
+    )
   })
   
   output$water_campaign_ui <- renderUI({
-    req(water_selected_data())
-    water_campaigns <- unique(water_selected_data()$Campaign)
-    selectInput("water_campaign", "Select Campaign:", choices = water_campaigns)
+    # checks that our data works as expected
+    req(master_data$water_scored)
+    req(nrow(master_data$water_scored) > 0)  # Make sure it has data
+    
+    # get date range
+    # Get min and max dates from data
+    dates <- master_data$water_scored$date
+    
+    # Make sure dates exist and are valid
+    # needed bc fails at start otherwise
+    dates <- dates[!is.na(dates)]
+    
+    if (length(dates) == 0) {
+      return(p("No date data available"))
+    }
+    
+    min_date <- min(dates, na.rm = TRUE)
+    max_date <- max(dates, na.rm = TRUE)
+    
+    dateRangeInput(
+      "water_date_range",
+      "Select Date Range:",
+      start = min_date,
+      end = max_date,
+      min = min_date,
+      max = max_date,
+      format = "yyyy-mm-dd",
+      separator = " to "
+    )
   })
   
   # Populate sieve size dropdown for map
   output$tamiz_ui <- renderUI({
-    req(sed_selected_data())
-    tamiz <- unique(sed_selected_data()$`Sieve Size`)
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+    
+    tamiz <- unique(master_data$sed_scored$sieve_size)
     tamiz <- tamiz[!is.na(tamiz)]
-    selectInput("tamiz", "Select Sieve Size:", choices = tamiz)
+    tamiz <- sort(tamiz)
+    
+    tamiz_choices = c("All" = "All", setNames(tamiz, tamiz))
+    selectInput("tamiz", "Select Sieve Size:", choices = tamiz_choices, selected = "All")
   })
   
   # Populate metal dropdown dynamically for map
   observe({
-    sed_df <- sed_selected_data()
-    sed_metal_cols <- c("Arsenic (mg/kg As)", "Cadmium (mg/kg Cd)", "Copper (mg/kg Cu)",
-                        "Chromium (mg/kg Cr)", "Mercury (mg/kg Hg)", "Nickel (mg/kg Ni)",
-                        "Lead (mg/kg Pb)", "Zinc (mg/kg Zn)")
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)
     
-    sed_metal_cols <- intersect(sed_metal_cols, colnames(sed_df))
+    # Get unique parameters from the long-format data
+    sed_params <- unique(master_data$sed_scored$parameter)
+    sed_params <- sed_params[!is.na(sed_params)]
     
-    updateSelectInput(session, "sed_metal", choices = sed_metal_cols)
+    # Filter out parameters that start with a digit (sieve sizes)
+    sed_params <- sed_params[!grepl("^\\d", sed_params)]
+    sed_params <- sort(sed_params)
+    
+    cat("Available sediment parameters:", paste(sed_params, collapse = ", "), "\n")
+    
+    updateSelectInput(session, "sed_metal", 
+                      choices = sed_params,
+                      selected = if(length(sed_params) > 0) sed_params[1] else NULL)
   })
   
   observe({
@@ -2704,58 +2770,155 @@ server <- function(input, output, session) {
   
   # Filtered data based on all inputs
   sed_filtered_data <- reactive({
-    sed_df <- sed_selected_data()
-    req(input$sed_campaign, input$tamiz, input$sed_metal)
-    sed_df %>%
-      filter(Campaign == input$sed_campaign,
-             `Sieve Size` == input$tamiz)
+    cat("\n=== DEBUG sed_filtered_data ===\n")
+    
+    req(master_data$sed_scored)
+    cat("  Initial rows:", nrow(master_data$sed_scored), "\n")
+    
+    df <- master_data$sed_scored
+    
+    # Filter by Bolivia/All Locations based on plot_data_scope
+    if (!is.null(input$plot_data_scope) && input$plot_data_scope == "bol") {
+      cat("  Filtering for Bolivia only\n")
+      
+      # Determine coordinate columns
+      lng_col <- if ("longitude_decimal" %in% names(df)) {
+        "longitude_decimal"
+      } else if ("Long_dd" %in% names(df)) {
+        "Long_dd"
+      } else {
+        "longitude"
+      }
+      
+      lat_col <- if ("latitude_decimal" %in% names(df)) {
+        "latitude_decimal"
+      } else if ("Lat_dd" %in% names(df)) {
+        "Lat_dd"
+      } else {
+        "latitude"
+      }
+      
+      cat("  Using coordinates:", lng_col, "and", lat_col, "\n")
+      
+      # Convert to sf object and filter by Bolivia border
+      df_sf <- df %>%
+        filter(!is.na(.data[[lng_col]]), !is.na(.data[[lat_col]])) %>%
+        st_as_sf(coords = c(lng_col, lat_col), crs = st_crs(bol_border))
+      
+      cat("  Rows before Bolivia filter:", nrow(df_sf), "\n")
+      
+      # Spatial filter
+      df_sf <- st_filter(df_sf, bol_border)
+      
+      cat("  Rows after Bolivia filter:", nrow(df_sf), "\n")
+      
+      # Extract coordinates back
+      coords <- st_coordinates(df_sf)
+      df <- df_sf %>%
+        mutate(
+          !!lng_col := coords[, 1],
+          !!lat_col := coords[, 2]
+        ) %>%
+        st_drop_geometry()
+    } else {
+      cat("  Using all locations\n")
+    }
+    
+    cat("  Rows after location filter:", nrow(df), "\n")
+    
+    
+    # Check what the date range input actually is
+    cat("  input$sed_date_range:", 
+        if(is.null(input$sed_date_range)) "NULL" else paste(input$sed_date_range, collapse = " to "), "\n")
+    cat("  Length of date range:", 
+        if(is.null(input$sed_date_range)) 0 else length(input$sed_date_range), "\n")
+    
+    # Determine which date column to use
+    date_col <- if ("date" %in% names(df)) {
+      "date"
+    } else if ("Date" %in% names(df)) {
+      "Date"
+    } else {
+      cat("  ERROR: No date column found\n")
+      return(df)
+    }
+    
+    cat("  Using date column:", date_col, "\n")
+    cat("  Date column class:", class(df[[date_col]]), "\n")
+    cat("  Sample dates:", paste(head(df[[date_col]], 3), collapse = ", "), "\n")
+    
+    # Filter by date range if available
+    if (!is.null(input$sed_date_range) && length(input$sed_date_range) == 2) {
+      cat("  Date range IS available\n")
+      
+      # Ensure the date column is in Date format
+      if (!inherits(df[[date_col]], "Date")) {
+        cat("  Converting date column to Date format\n")
+        df[[date_col]] <- as.Date(df[[date_col]])
+      }
+      
+      # Ensure input dates are Date objects
+      start_date <- as.Date(input$sed_date_range[1])
+      end_date <- as.Date(input$sed_date_range[2])
+      
+      cat("  Start date:", start_date, "(class:", class(start_date), ")\n")
+      cat("  End date:", end_date, "(class:", class(end_date), ")\n")
+      
+      # Check how many rows match BEFORE filtering
+      rows_before <- nrow(df)
+      rows_matching_start <- sum(df[[date_col]] >= start_date, na.rm = TRUE)
+      rows_matching_end <- sum(df[[date_col]] <= end_date, na.rm = TRUE)
+      
+      cat("  Rows before filter:", rows_before, "\n")
+      cat("  Rows >= start_date:", rows_matching_start, "\n")
+      cat("  Rows <= end_date:", rows_matching_end, "\n")
+      
+      # Now do the actual filter
+      df <- df %>%
+        filter(.data[[date_col]] >= start_date & .data[[date_col]] <= end_date)
+      
+      cat("  Rows after date filter:", nrow(df), "\n")
+    } else {
+      cat("  Date range NOT available - no filtering\n")
+      cat("  is.null:", is.null(input$sed_date_range), "\n")
+      if (!is.null(input$sed_date_range)) {
+        cat("  length:", length(input$sed_date_range), "\n")
+      }
+    }
+    
+    # Filter by parameter (metal) if selected
+    if (!is.null(input$sed_metal) && input$sed_metal != "") {
+      cat("  Filtering for parameter:", input$sed_metal, "\n")
+      df <- df %>%
+        filter(parameter == input$sed_metal)
+      cat("  Rows after parameter filter:", nrow(df), "\n")
+    }
+    
+    # Filter by sieve size if not "All"
+    if (!is.null(input$tamiz) && input$tamiz != "All") {
+      cat("  Filtering for sieve size:", input$tamiz, "\n")
+      df <- df %>%
+        filter(sieve_size == input$tamiz)
+      cat("  Rows after sieve filter:", nrow(df), "\n")
+    }
+    
+    cat("  Final rows:", nrow(df), "\n")
+    cat("================================\n\n")
+    
+    return(df)
   })
   
   water_filtered_data <- reactive({
     water_df <- water_selected_data()
-    req(input$water_campaign, input$water_metal)
+    req(water_df, input$water_date_range, input$water_metal)
     water_df %>%
       filter(Campaign == input$water_campaign)
   })
   
   # Render leaflet map
   output$sed_map <- renderLeaflet({
-    sed_df <- sed_filtered_data()
-    req(nrow(sed_df) > 0)
-    
-    col_to_plot <- if (input$sed_value_type == "sed_value") {
-      input$sed_metal
-    } else {
-      usgs_col <- get_usgs_column(input$sed_metal, sed_df)
-      req(!is.null(usgs_col))  # stops rendering if no USGS col found
-      usgs_col
-    }
-    
-    sed_values_for_label <- sed_df[[col_to_plot]]
-    
-    if (input$sed_value_type == "sed_value") {
-      pal <- colorNumeric(
-        palette = "Reds",  # or use the custom palette above
-        domain = sed_df[[col_to_plot]],
-        na.color = "gray"
-      )
-      colors <- pal(sed_df[[col_to_plot]])
-    } else {
-      sed_df[[col_to_plot]] <- trimws(as.character(sed_df[[col_to_plot]]))
-      valid_levels <- c("Below TEL", "Above TEL", "Above PEL")
-      sed_df[[col_to_plot]] <- ifelse(sed_df[[col_to_plot]] %in% valid_levels,
-                                      sed_df[[col_to_plot]],
-                                      NA_character_)
-      
-      pal <- colorFactor(
-        palette = c("lightblue", "darkorange", "firebrick"),
-        levels = valid_levels,
-        na.color = "gray"
-      )
-      colors <- pal(sed_df[[col_to_plot]])
-    }
-    
-    leaflet(sed_df) %>%
+    # Only render once on initialization with base map
+    leaflet() %>%
       addTiles() %>%
       addPolylines(data = pilco_line, 
                    color = "darkcyan", 
@@ -2765,27 +2928,140 @@ server <- function(input, output, session) {
                   color = "black",
                   weight = 3,
                   fill = FALSE) %>%
+      setView(lng = -63.5, lat = -21.3, zoom = 7)
+  })
+  
+  observe({
+    cat("\n=== DEBUG sed_map update ===\n")
+    
+    # Get filtered data
+    sed_df <- sed_filtered_data()
+    
+    # Require inputs but NOT row count
+    req(input$sed_metal)
+    req(input$sed_value_type)
+    
+    cat("  Data rows:", nrow(sed_df), "\n")
+    
+    # If no data, clear the map and show a message
+    if (nrow(sed_df) == 0) {
+      cat("  No data - clearing map\n")
+      leafletProxy("sed_map") %>%
+        clearMarkers() %>%
+        clearControls() %>%
+        addControl(
+          html = "<div style='background: white; padding: 10px; border-radius: 5px; border: 2px solid #e74c3c;'>
+                  <strong>No data found</strong><br>
+                  Try adjusting your filters
+                </div>",
+          position = "topright"
+        )
+      return()
+    }
+    
+    cat("  Updating map with", nrow(sed_df), "points\n")
+    
+    # ... rest of your existing code for when there IS data ...
+    
+    # Determine coordinate columns
+    lng_col <- if ("longitude_decimal" %in% names(sed_df)) {
+      "longitude_decimal"
+    } else if ("Long_dd" %in% names(sed_df)) {
+      "Long_dd"
+    } else {
+      "longitude"
+    }
+    
+    lat_col <- if ("latitude_decimal" %in% names(sed_df)) {
+      "latitude_decimal"
+    } else if ("Lat_dd" %in% names(sed_df)) {
+      "Lat_dd"
+    } else {
+      "latitude"
+    }
+    
+    # Create palette based on value type
+    if (input$sed_value_type == "sed_value") {
+      cat("  Using numeric palette for concentrations\n")
+      pal <- colorNumeric(
+        palette = "Reds",
+        domain = sed_df$concentration,
+        na.color = "gray"
+      )
+      colors <- pal(sed_df$concentration)
+      
+      # Create labels for concentration
+      label_text <- paste0(
+        "Station: ", sed_df$station, "<br>",
+        "Date: ", sed_df$date, "<br>",
+        "Parameter: ", sed_df$parameter, "<br>",
+        "Sieve Size: ", sed_df$sieve_size, "<br>",
+        "Concentration: ", round(sed_df$concentration, 3), " ", sed_df$unit
+      )
+    } else {
+      cat("  Using factor palette for USGS standards\n")
+      req("std_info" %in% names(sed_df))
+      
+      sed_df$std_info <- trimws(as.character(sed_df$std_info))
+      valid_levels <- c("Below TEL", "Above TEL", "Above PEL")
+      sed_df$std_info <- ifelse(sed_df$std_info %in% valid_levels,
+                                sed_df$std_info,
+                                NA_character_)
+      
+      pal <- colorFactor(
+        palette = c("lightblue", "darkorange", "firebrick"),
+        levels = valid_levels,
+        na.color = "gray"
+      )
+      colors <- pal(sed_df$std_info)
+      
+      # Create labels for USGS comparison
+      label_text <- paste0(
+        "Station: ", sed_df$station, "<br>",
+        "Date: ", sed_df$date, "<br>",
+        "Parameter: ", sed_df$parameter, "<br>",
+        "Sieve Size: ", sed_df$sieve_size, "<br>",
+        "Concentration: ", round(sed_df$concentration, 3), " ", sed_df$unit, "<br>",
+        "Standard: ", sed_df$std_info
+      )
+    }
+    
+    # Use leafletProxy to update only the markers, not the entire map
+    leafletProxy("sed_map", data = sed_df) %>%
+      clearMarkers() %>%
+      clearControls() %>%
       addCircleMarkers(
-        lng = ~Long_dd,
-        lat = ~Lat_dd,
+        lng = ~get(lng_col),
+        lat = ~get(lat_col),
         radius = 6,
         stroke = TRUE,
         color = "black",
         weight = 1.5,
         fillOpacity = 0.8,
         fillColor = colors,
-        label = lapply(seq_len(nrow(sed_df)), function(i) {
-          htmltools::HTML(paste0(
-            "Site: ", sed_df$Station[i], "<br>",
-            "Lat: ", sed_df$Lat_dd[i], "<br>",
-            "Long: ", sed_df$Long_dd[i], "<br>",
-            input$sed_metal, ": ", sed_values_for_label[i]
-          ))
-        })
+        label = lapply(label_text, htmltools::HTML)
       ) %>%
-      setView(lng = -63.5, lat = -21.3, zoom = 7)
+      # Add legend
+      addLegend(
+        position = "bottomright",
+        pal = pal,
+        values = if(input$sed_value_type == "sed_value") {
+          ~concentration
+        } else {
+          ~std_info
+        },
+        title = if(input$sed_value_type == "sed_value") {
+          paste0(input$sed_metal, "<br>(", sed_df$unit[1], ")")
+        } else {
+          "USGS Standard"
+        },
+        opacity = 1
+      )
+    
+    cat("  Map updated successfully!\n")
+    cat("=====================\n\n")
   })
-  
+
   output$water_map <- renderLeaflet({
     water_df <- water_filtered_data()
     req(nrow(water_df) > 0)
@@ -2854,6 +3130,9 @@ server <- function(input, output, session) {
   output$sed_legend <- renderUI({
     req(input$sed_value_type)
     
+    # Use isolate to prevent this from triggering on every change
+    sed_df <- isolate(sed_filtered_data())
+    
     if (input$sed_value_type == "usgs") {
       tags$div(
         tags$h5("Legend:"),
@@ -2863,21 +3142,22 @@ server <- function(input, output, session) {
           tags$li(tags$span(style = "color:firebrick;", "⬤"), " Above PEL")
         )
       )
-    } else if (input$sed_value_type == "sed_value") {
-      sed_df <- sed_filtered_data()
-      req(nrow(sed_df) > 0)
-      values <- sed_df[[input$sed_metal]]
-      rng <- range(values, na.rm = TRUE)
+    } else if (input$sed_value_type == "sed_value" && nrow(sed_df) > 0) {
+      values <- sed_df$concentration[!is.na(sed_df$concentration)]
       
-      tags$div(
-        tags$h5("Concentration (mg/kg)"),
-        tags$div(style = "height: 20px; background: linear-gradient(to right, #fff5f0, #fb6a4a, #67000d);"),
+      if (length(values) > 0) {
+        rng <- range(values, na.rm = TRUE)
+        
         tags$div(
-          style = "display: flex; justify-content: space-between;",
-          tags$span(format(round(rng[1], 2), nsmall = 2)),
-          tags$span(format(round(rng[2], 2), nsmall = 2))
+          tags$h5(paste0("Concentration (", sed_df$unit[1], ")")),
+          tags$div(style = "height: 20px; background: linear-gradient(to right, #fff5f0, #fb6a4a, #67000d);"),
+          tags$div(
+            style = "display: flex; justify-content: space-between;",
+            tags$span(format(round(rng[1], 2), nsmall = 2)),
+            tags$span(format(round(rng[2], 2), nsmall = 2))
+          )
         )
-      )
+      }
     } else {
       NULL
     }
@@ -2953,9 +3233,11 @@ server <- function(input, output, session) {
     water_filtered_data()
   })
   
-  output$stds_usgs_table <- renderDT({
-    usgs_sqg |>
-      select(-match_name)
+  # usgs_sqg loads data in format "Arsenic (mg/kg As)"
+  output$stds_sed_table <- renderDT({
+    stds |>
+      filter(media == "sediment") |>
+      select(-c("...1", "key"))
   })
   
   output$stds_1333_table <- renderDT({

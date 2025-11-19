@@ -1,6 +1,8 @@
 ### manually save all water files into a single file (per type), using jackson's _clean files
 # not to be run in shiny during production, just to prep the files
 
+#### NOTE: Deprecated by load_base_data.R ####
+
 # --- 1) Header normalizer -----------------------------------------------------
 standardize_headers <- function(nms) {
   # strip odd chars/whitespace first
@@ -95,8 +97,8 @@ merge_measurement_files <- function(files_or_dfs) {
     df <- .coerce_key_types(df)
     df$data_source <- basename(nm)   # now we can safely use the name
     df$Date = as.Date(df$Date, format = "%d/%m/%Y")
-    str(df$Date)
-    df
+    #str(df$Date)
+    # df
   }, lst, names(lst))
   
   # drop any NULLs
@@ -251,11 +253,11 @@ find_merge_candidates_from_files <- function(files_or_dfs) {
 
 
 #### merge clean data files ####
-
+# Also note: load_base_data works well for this
 # merge the files - water
-merged_df_water <- merge_measurement_folder(here::here("data/water/clean"))
+merged_df_water <- merge_measurement_folder(here::here("data/water/raw"))
 # save to a file we can look at later
-save_path_water = here::here("data/merged_water_clean.csv")
+save_path_water = here::here("data/merged_water_raw.csv")
 dir.create(dirname(save_path_water), recursive = TRUE, showWarnings = FALSE)
 
 write_csv(merged_df_water, file=save_path_water)
@@ -311,3 +313,10 @@ sed_locyear = score_to_loc_year(pivoted_sed, loc_col = "station", year_col = "ye
 ## save the locyear data
 saveRDS(water_locyear, "data/processed/water_locyear.rds")
 saveRDS(sed_locyear, "data/processed/sed_locyear.rds")
+
+## score into loctime :)
+water_loctime = weigh_inverse_time(water_locyear)
+sed_loctime = weigh_inverse_time(water_locyear)
+## save the loctime data
+saveRDS(water_loctime, "data/processed/water_loctime.rds")
+saveRDS(sed_loctime, "data/processed/sed_loctime.rds")
