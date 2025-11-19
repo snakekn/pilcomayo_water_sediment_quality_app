@@ -5,6 +5,7 @@
 library(shiny)
 library(tidyverse)
 library(leaflet)
+library(leaflet.extras)
 library(sf)
 library(rsconnect)
 library(readxl)

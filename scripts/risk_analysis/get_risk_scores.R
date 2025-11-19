@@ -132,10 +132,9 @@ convert_suspended_concentrations <- function(sample_data) {
     return(sample_data)
   }
   
-  # Identify grouping columns (station, date, sample_id, etc.)
-  # Adjust these based on your actual data structure
+  # Identify grouping columns 
   group_cols <- intersect(names(sample_data), 
-                          c("station", "date", "sample_id", "sample_number"))
+                          c("station", "date"))
   
   if (length(group_cols) == 0) {
     message("Warning: No grouping columns found for suspended solids conversion")
@@ -144,8 +143,7 @@ convert_suspended_concentrations <- function(sample_data) {
   
   # Extract TSS (Total Suspended Solids) data
   tss_data <- sample_data %>%
-    filter(parameter == "solids" | parameter == "Solids" | 
-             grepl("suspended.*solid", parameter, ignore.case = TRUE)) %>%
+    filter(parameter == "TSS") %>%
     filter(unit == "mg/l" | unit == "mg/L") %>%
     filter(fraction == "Suspended") |>
     select(all_of(group_cols), tss_mg_L = concentration)
@@ -266,83 +264,71 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     CR = list(std_reg = NA, std_val = NA, std_unit = NA),
     WL = list(std_reg = NA, std_val = NA, std_unit = NA)
   )
-  ### Manage special cases (pH)
-  # Edge Case: pH. Only calculate HQ
+  ### Manage special cases (pH, Oxygen Saturation)
+  
+  # Edge Case: Oxygen Saturation - inverse relationship (lower is worse)
+  if (grepl("oxygen.*saturation", param, ignore.case = TRUE)) {
+    std = get_std(parameter=param, std_type="hq", media=med)
+    
+    if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
+      return(list(HQ=hq, CR=cr, WL=wl, std_info = std_info))
+    }
+    
+    unit_check_hq = compare_units(unit, std$unit)
+    if(!unit_check_hq$convertible) {
+      # Can't convert units
+    } else {
+      val = val * unit_check_hq$conversion_factor
+      # INVERSE: HQ = standard / measured (lower values = higher hazard)
+      if (val == 0) {
+        hq <- Inf
+      } else {
+        hq = std$value / val
+      }
+      std_info[["HQ"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
+    }
+    
+    # Oxygen Saturation has no CR or WL; return early
+    return(list(HQ = hq, CR = NA_real_, WL = NA_real_, std_info = std_info))
+  } # end Oxygen Saturation special-case
+  
+  # Edge Case: pH - acceptable range with midpoint-based calculation
   if (grepl("^pH\\b", param, ignore.case = TRUE)) {
     if(is.na(unit)) { unit = "pH unit" } # edge case where pH in lab is empty
     if(str_detect(unit, "mV")) { # skip the pH (mV) measure
       return(list(HQ=hq, CR=cr, WL=wl, std_info = std_info))
     }
     
-    std = get_std(parameter=param, std_type="hq", media=med) # get the std
+    # Get both lower and upper standards
+    std_low = get_std(parameter="pH low", std_type="hq", media=med)
+    std_high = get_std(parameter="pH high", std_type="hq", media=med)
     
-    # stop computing if the standard isn't there
-    if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
+    # Stop if we don't have both standards
+    if (is.null(std_low) || is.null(std_high) || 
+        (is.data.frame(std_low) && nrow(std_low) == 0) ||
+        (is.data.frame(std_high) && nrow(std_high) == 0)) {
       return(list(HQ=hq, CR=cr, WL=wl, std_info = std_info))
     }
     
-    # helper to pick numeric named fields
-    try_numeric_field <- function(df, names_vec) {
-      for (nm in names_vec) {
-        if (!is.null(df[[nm]]) && is.numeric(df[[nm]]) && !all(is.na(df[[nm]]))) {
-          v <- as.numeric(df[[nm]])
-          v <- v[!is.na(v)]
-          if (length(v)) return(range(v, na.rm = TRUE))
-        }
-      }
-      NULL
-    }
+    lower <- std_low$value
+    upper <- std_high$value
+    midpoint <- (lower + upper) / 2
     
-    # 1) explicit lower/upper/min/max
-    rng <- try_numeric_field(std, c("lower", "upper", "min", "max"))
-    # if explicit fields returned a 2-value range, use directly
-    if (!is.null(rng) && length(rng) == 2) {
-      lower <- rng[1]; upper <- rng[2]
-    } else {
-      # 2) try "Class A/B/C/D" style numeric fields or any numeric columns
-      numeric_cols <- vapply(std, is.numeric, logical(1))
-      if (any(numeric_cols)) {
-        vals <- unlist(std[ , numeric_cols, drop = FALSE], use.names = FALSE)
-        vals <- as.numeric(vals[!is.na(vals)])
-        if (length(vals) >= 2) {
-          lower <- min(vals, na.rm = TRUE)
-          upper <- max(vals, na.rm = TRUE)
-        } else {
-          lower <- upper <- NA_real_
-        }
-      } else {
-        lower <- upper <- NA_real_
-      }
-    }
-    
-    # If still NA, give a friendly error
-    if (is.na(lower) || is.na(upper)) {
-      message(paste0("Could not determine pH acceptable range from std for '", param,
-                     "'. Std object needs numeric lower/upper or numeric class thresholds."))
-      return(list(HQ = hq, CR = cr, WL = wl, std_info = std_info))
-    }
-    
-    # ensure proper ordering
-    if (lower > upper) {
-      tmp <- lower; lower <- upper; upper <- tmp
-    }
-    
-    # compute HQ:
-    # - inside range -> HQ = 0
-    # - below lower  -> HQ = lower / val (simple ratio)
-    # - above upper  -> HQ = val / upper
+    # Calculate HQ based on which side of midpoint
     if (is.na(val)) {
       hq <- NA_real_
     } else if (val >= lower && val <= upper) {
+      # Within acceptable range
       hq <- 0
-    } else if (val < lower) {
-      # avoid divide-by-zero
+    } else if (val < midpoint) {
+      # Below midpoint: use standard/measured (low pH is bad)
       if (val == 0) {
         hq <- Inf
       } else {
         hq <- lower / val
       }
-    } else { # val > upper
+    } else {
+      # Above midpoint: use measured/standard (high pH is bad)
       if (upper == 0) {
         hq <- Inf
       } else {
@@ -350,8 +336,14 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
       }
     }
     
-    # pH has no CR; return early
-    std_info[["HQ"]] = list(std_reg = std$regulator, std_val = std$value, std_unit = std$unit)
+    # Store both standards in std_info
+    std_info[["HQ"]] = list(
+      std_reg = paste(std_low$regulator, std_high$regulator, sep="/"),
+      std_val = paste(lower, upper, sep="-"),
+      std_unit = std_low$unit
+    )
+    
+    # pH has no CR or WL; return early
     return(list(HQ = hq, CR = NA_real_, WL = NA_real_, std_info = std_info))
   } # end pH special-case
   

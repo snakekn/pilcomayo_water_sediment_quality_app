@@ -20,21 +20,21 @@ param_mapping <- list(
   "Resistividad (Ohm.cm)" = "Resistivity (Ohm.cm)",
   "Presión Parcial (mm Hg)" = "Partial Pressure (mm Hg)",
   "pH (u pH)" = "pH (u pH)",
-  "pH en laboratorio (u pH)" = "pH (u pH)",
+  "pH en laboratorio (u pH)" = "pH (u pH in lab)",
   "pH (mV) (mV)" = "pH (mV) (mV)",
   "Conductividad específica (T ref. 25°C) (uS/cm)" = "Specific conductivity (T ref. 25°C) (uS/cm)",
   "Salinidad (Sal)" = "Salinity (Sal)",
   "Temperatura (C)" = "Temperature (C)",
   
   # Oxygen Parameters
-  "Oxígeno disuelto (mg/l O2)" = "Oxygen dissolved (mg/l O2)",
+  "Oxígeno disuelto (mg/l O2)" = "Dissolved Oxygen (mg/l O2)",
   "Saturación de oxígeno (%)" = "Oxygen Saturation (%)",
   
   # Solids and Color
   "Turbiedad (UNT)" = "Turbidity (UNT)",
-  "Sólidos totales (mg/l)" = "Total solids (mg/l)",
-  "Sólidos disueltos totales (mg/l)" = "Total dissolved solids (mg/l)",
-  "Sólidos suspendidos totales (mg/l)" = "Total suspended solids (mg/l)",
+  "Sólidos totales (mg/l)" = "Total Solids (mg/l)",
+  "Sólidos disueltos totales (mg/l)" = "TDS Dissolved (mg/l)",
+  "Sólidos suspendidos totales (mg/l)" = "TSS Suspended (mg/l)",
   "Sólidos sedimentables (ml/l)" = "Settlable solids (ml/l)",
   "Color (u PtCo)" = "Color (u PtCo)",
   
@@ -45,7 +45,7 @@ param_mapping <- list(
   
   # Anions
   "Cloruros (mg/l Cl -)" = "Chlorides (mg/l Cl -)",
-  "Sulfatos (mg/l SO4=)" = "Sulphates (mg/l SO4=)",
+  "Sulfatos (mg/l SO4=)" = "Sulfate (mg/l SO4=)",
   
   # Major Cations - Dissolved
   "Calcio disuelto (mg/l Ca)" = "Calcium dissolved (mg/l Ca)",
@@ -60,16 +60,16 @@ param_mapping <- list(
   "Potasio total (mg/l K)" = "Potassium total (mg/l K)",
   
   # Nutrients
-  "Fósforo total (mg/l PO4)" = "Phosphorus total (mg/l PO4)",
-  "Fósforo disuelto (mg/l PO4)" = "Phosphorus dissolved (mg/l PO4)",
-  "Nitrógeno amoniacal (mg/l NH4)" = "Ammonia nitrogen (mg/l NH4)",
+  "Fósforo total (mg/l PO4)" = "Phosphates total (mg/l PO4)",
+  "Fósforo disuelto (mg/l PO4)" = "Phosphates dissolved (mg/l PO4)",
+  "Nitrógeno amoniacal (mg/l NH4)" = "Ammonia (mg/l NH4)",
   "Nitrito (mg/l NO2)" = "Nitrite (mg/l NO2)",
-  "Nitrato (mg/l NO3)" = "Nitrates (mg/l NO3)",
-  "Nitrógeno total Kjeldahl (mg/l N)" = "Total Kjeldahl nitrogen (mg/l N)",
+  "Nitrato (mg/l NO3)" = "Nitrate (mg/l NO3)",
+  "Nitrógeno total Kjeldahl (mg/l N)" = "Total Nitrogen (mg/l N)",
   
   # Oxygen Demand and Organic Carbon
-  "Demanda bioquímica de oxígeno (mg/l O2)" = "Biochemical oxygen demand (mg/l O2)",
-  "Demanda química de oxígeno (mg/l O2)" = "Chemical oxygen demand (mg/l O2)",
+  "Demanda bioquímica de oxígeno (mg/l O2)" = "BOD (mg/l O2)",
+  "Demanda química de oxígeno (mg/l O2)" = "COD (mg/l O2)",
   "Carbono organico disuelto (mg/l)" = "Organic carbon dissolved (mg/l)",
   "Carbono orgánico total (mg/l)" = "Organic carbon total (mg/l)",
   
@@ -79,7 +79,7 @@ param_mapping <- list(
   "Coliformes totales (en NMP) (NMP/100 ml)" = "Total coliforms (MPN) (MPN/100 ml)",
   "Coliformes fecales (en NMP) (NMP/100 ml)" = "Fecal coliforms (MPN) (MPN/100 ml)",
   "Aerobios mesófilos totales (en UFC) (UFC/100 ml)" = "Mesophilic aerobes total (CFU) (CFU/100 ml)",
-  "Aerobios mesófilos totales (en NMP) (NMP/100 ml)" = "Mesophilic aerobes total (CFU) (CFU/100 ml)",
+  "Aerobios mesófilos totales (en NMP) (NMP/100 ml)" = "Mesophilic aerobes total (MPN) (MPN/100 ml)",
   
   # Trace Metals - Dissolved
   "Bismuto disuelto (ug/l Bi)" = "Bismuth dissolved (ug/l Bi)",

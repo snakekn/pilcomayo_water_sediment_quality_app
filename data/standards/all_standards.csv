@@ -11,8 +11,8 @@ Bolivian Law 1333,pH low,,6,u pH,water,Class A limit,,hq
 Bolivian Law 1333,pH high,,8.5,u pH,water,Class A limit,,hq
 Bolivian Law 1333,Color,,10,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,TDS,,1000,mg/L,water,Class A limit,,hq
-Bolivian Law 1333,DO,,80,%,water,Class A limit,,hq
-Bolivian Law 1333,BOD5,,2,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Oxygen Saturation,,80,%,water,Class A limit,,hq
+Bolivian Law 1333,BOD,,2,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,COD,,5,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Aluminum,Al,0.2,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Ammonia,NH3,0.05,mg/L,water,Class A limit,,hq
@@ -36,7 +36,7 @@ Bolivian Law 1333,Manganese,Mn,0.5,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Mercury,Hg,0.001,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Nickel,Ni,0.05,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Nitrate,NO3,20,mg/L,water,Class A limit,,hq
-Bolivian Law 1333,Total Nitrogen,N,5,mg/L,water,Class A limit,,hq
+Bolivian Law 1333,Nitrogen,N,5,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Phosphates,PO4,0.4,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Selenium,Se,0.01,mg/L,water,Class A limit,,hq
 Bolivian Law 1333,Silver,Ag,0.05,mg/L,water,Class A limit,,hq
