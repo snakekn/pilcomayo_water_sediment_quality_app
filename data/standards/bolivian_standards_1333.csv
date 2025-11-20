@@ -1,9 +1,9 @@
 Parameter,Unit,Class A,Class B,Class C,Class D
 pH low,,6,6,6,6
 pH high,,8.5,9,9,9
-Color (mg Pt/l),mg/l,10,50,100,200
+Color (mg Pt/l),mg Pt/l,10,50,100,200
 TDS,mg/l,1000,1000,1500,1500
-DO (% sat),mg/l,80,70,60,50
+DO (% sat),% sat,80,70,60,50
 BOD5,mg/l,2,5,20,30
 COD,mg/l,5,10,40,60
 Aluminum (Al),mg/l,0.2,0.5,1,1

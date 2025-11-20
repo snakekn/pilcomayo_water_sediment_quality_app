@@ -25,8 +25,6 @@
   })
 }
 
-
-
 # filter to Bolivia
 filter_to_border <- function(df, lon_col, lat_col, border_sf) {
   
@@ -538,269 +536,6 @@ pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
 bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
 river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
 
-#### To quiet down plotly warnings ####
-quiet_plotly <- function(p, ...) {
-  withCallingHandlers(
-    {
-      suppressWarnings(
-        ggplotly(p, ...)
-      )
-    },
-    warning = function(w) {
-      msg <- conditionMessage(w)
-      
-      # Suppress ONLY plotly-noise warnings
-      if (grepl("plotly", msg, ignore.case = TRUE) ||
-          grepl("JSON", msg) ||
-          grepl("incompatible with", msg) ||
-          grepl("Couldn't transform", msg) ||
-          grepl("data for this geom", msg)) {
-        
-        invokeRestart("muffleWarning")
-      }
-    }
-  )
-}
-
-#### Get standards dynamically and based on regulator ####
-# ============================================================================
-# Time Series: Convert ts_get_standards() output into ggplot layers
-# ============================================================================
-# =============================================================================
-# Standard → ggplot layers (rectangles, hlines, labels)
-# =============================================================================
-ts_standard_layers <- function(df, standards) {
-  if (getOption("ts_debug")) {
-    cat("\n=== ts_standard_layers() START ===\n")
-    cat("Standard types received: ", paste(names(standards), collapse=", "), "\n")
-  }
-  
-  if (is.null(standards) || length(standards) == 0) return(list())
-  
-  layers <- list()
-  
-  xmin <- min(df$date, na.rm = TRUE)
-  xmax <- max(df$date, na.rm = TRUE)
-  ymin <- min(df$value, na.rm = TRUE)
-  ymax <- max(df$value, na.rm = TRUE)
-  
-  unit <- df$unit[1]
-  label_y_offset <- (ymax - ymin) * 0.02
-  
-  # ---------------------------------------------------------------------------
-  # Loop through each standard type: HQ, CR, WL, bolivian_1333, usgs, etc.
-  # ---------------------------------------------------------------------------
-  for (sname in names(standards)) {
-    
-    std <- standards[[sname]]
-    
-    # Each standard entry should declare "type"
-    # strict standards have no type → assign one
-    if (is.null(std$type)) std$type <- "strict"
-    
-    type <- std$type
-    cat("\n===type=", type)
-    # ================================================================
-    # STRICT STANDARDS (HQ / CR / WL from strict_standards.csv)
-    # ================================================================
-    if (type == "strict") {
-      
-      # expect tibble: parameter | media | hqcr | standard | value
-      if (!all(c("value","standard") %in% colnames(std))) next
-      
-      vals <- std$value
-      labs <- std$standard
-      
-      # auto-colors (consistent by HQ/CR/WL)
-      palette <- c(
-        HQ = "#3366cc",
-        CR = "#dc3912",
-        WL = "#ff9900"
-      )
-      color <- palette[sname] %||% "purple"
-      
-      # hlines
-      for (i in seq_along(vals)) {
-        layers <- append(layers, list(
-          geom_hline(
-            yintercept = vals[i],
-            color = color,
-            linetype = "solid",
-            linewidth = 0.7
-          )
-        ))
-        
-        layers <- append(layers, list(
-          annotate(
-            "text",
-            x = xmin + 0.01 * (xmax - xmin),
-            y = vals[i] + label_y_offset,
-            label = paste0(sname, ": ", labs[i], " (", vals[i], " ", unit, ")"),
-            color = color,
-            hjust = 0,
-            size = 3
-          )
-        ))
-      }
-    }
-    
-    # ================================================================
-    # BOLIVIAN 1333 CLASS STANDARD
-    # ================================================================
-    if (type == "bolivian_1333") {
-      
-      vals <- std$values  # numeric thresholds A,B,C,D
-      labs <- std$labels
-      cols <- std$colors
-      
-      A <- vals[1]; B <- vals[2]; C <- vals[3]; D <- vals[4]
-      
-      increasing <- D < C  # correct logic for your dataset
-      
-      if (increasing) {
-        rect_df <- tibble(
-          ymin  = c(ymin, D, C, B),
-          ymax  = c(D,    C, B, A),
-          label = paste0(labs, ": ", round(vals, 3), " ", unit),
-          fill  = cols
-        )
-      } else {
-        rect_df <- tibble(
-          ymin  = c(ymin, A, B, C),
-          ymax  = c(A,    B, C, D),
-          label = paste0(labs, ": ", round(vals, 3), " ", unit),
-          fill  = cols
-        )
-      }
-      
-      layers <- append(layers, list(
-        geom_rect(
-          data = rect_df,
-          aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = label),
-          alpha = 0.06,
-          inherit.aes = FALSE
-        )
-      ))
-      
-      # lines + labels
-      for (i in seq_along(vals)) {
-        layers <- append(layers, list(
-          geom_hline(
-            yintercept = vals[i],
-            color = cols[i],
-            linetype = "dashed",
-            linewidth = 0.6
-          )
-        ))
-        
-        layers <- append(layers, list(
-          annotate(
-            "text",
-            x = xmin + 0.01 * (xmax - xmin),
-            y = vals[i] + label_y_offset,
-            label = labs[i],
-            color = cols[i],
-            hjust = 0,
-            vjust = 0,
-            size = 3,
-            fontface = "bold"
-          )
-        ))
-      }
-    }
-    
-    # ================================================================
-    # USGS TEL / PEL
-    # ================================================================
-    if (type == "usgs") {
-      
-      vals <- std$values  # TEL, PEL
-      labs <- std$labels
-      cols <- std$colors %||% c("darkorange", "red")
-      
-      for (i in seq_along(vals)) {
-        layers <- append(layers, list(
-          geom_hline(
-            yintercept = vals[i],
-            color = cols[i],
-            linetype = "dotted",
-            linewidth = 0.8
-          )
-        ))
-        
-        layers <- append(layers, list(
-          annotate(
-            "text",
-            x = xmin + 0.01 * (xmax - xmin),
-            y = vals[i] + label_y_offset,
-            label = paste0(labs[i], " (", vals[i], " ", unit, ")"),
-            color = cols[i],
-            hjust = 0,
-            size = 3
-          )
-        ))
-      }
-    }
-  }
-  
-  if (getOption("ts_debug")) {
-    cat("Layers created: ", length(layers), "\n")
-    cat("Layer classes: ", paste(sapply(layers, class), collapse=", "), "\n")
-    cat("=== END layers ===\n")
-  }
-  
-  return(layers)
-}
-
-
-# =====================================================================
-# Unified TS Standards (returns ALL relevant standards by default)
-# =====================================================================
-ts_get_standards <- function(param_name, media, mode = "all") {
-  
-  stds_matching <- stds %>%
-    filter(
-      tolower(parameter) == tolower(param_name),
-      tolower(media) == tolower(media)
-    )
-  
-  if (getOption("ts_debug")) {
-    cat("\n=== ts_get_standards() ===\n")
-    cat("Param: ", param_name, "\n")
-    cat("Media: ", media, "\n")
-    cat("Mode:  ", mode, "\n")
-    cat("Rows matched in stds: ", nrow(stds_matching), "\n")
-  }
-  
-  if (nrow(stds_matching) == 0) {
-    return(list())
-  }
-  
-  # Return NONE
-  if (mode == "none") return(list())
-  
-  # Return ALL regulators for this param/media
-  if (mode == "all") {
-    regulators <- unique(stds_matching$regulator)
-    out <- split(stds_matching, stds_matching$regulator)
-    
-    if (getOption("ts_debug")) {
-      cat("Returned regulator types: ", paste(regulators, collapse=", "), "\n")
-    }
-    
-    return(out)
-  }
-  
-  # Otherwise return only rows matching the regulator
-  out <- stds_matching %>%
-    filter(tolower(regulator) == tolower(mode))
-  
-  if (nrow(out) == 0) return(list())
-  
-  return(split(out, out$regulator))
-}
-
-
 # Load standards with match names
 usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
   mutate(match_name = c("Arsenic (mg/kg As)",
@@ -958,7 +693,7 @@ create_ranking_plot <- function(data, metric, n = 15, color, title,
     labs(title = title, subtitle = subtitle, x = NULL, y = ylabel) +
     theme_minimal()
   
-  quiet_plotly(p, tooltip = "text")
+  ggplotly(p, tooltip = "text")
 }
 
 #' Plot class proportions with overlay (standardized vs raw)
@@ -1013,7 +748,7 @@ plot_class_proportions_overlay <- function(data, class_cols, class_label,
     theme_minimal() +
     theme(legend.position = "none")
   
-  quiet_plotly(p, tooltip = "text")
+  ggplotly(p, tooltip = "text")
 }
 
 # ============================================================================
@@ -1243,44 +978,6 @@ load_yearly_data_flexible <- function(path, pattern, date_format = "%d/%m/%Y",
   g  = 1,
   kg = 1e3
 )
-
-# ---- take unit out of parameter ----
-parse_parameter_and_fraction <- function(x) {
-  # Remove anything in parentheses from the parameter part only
-  core <- trimws(sub("\\(.*\\)", "", x))
-  
-  # Fractions we care about. Add more if you need them.
-  fraction_keywords <- c(
-    "Total", "Dissolved", "Reactive", "Particulate",
-    "Organic", "Inorganic", "Filtered", "Unfiltered"
-  )
-  
-  fraction <- NA_character_
-  
-  # 1) Check for fraction at the *beginning* ("Total Nitrogen")
-  for (f in fraction_keywords) {
-    pattern <- paste0("^", f, "\\b\\s*")
-    if (grepl(pattern, core, ignore.case = TRUE)) {
-      fraction <- f
-      core <- trimws(sub(pattern, "", core, ignore.case = TRUE))
-      return(list(parameter = core, fraction = fraction))
-    }
-  }
-  
-  # 2) Check for fraction at the *end* ("Arsenic total")
-  for (f in fraction_keywords) {
-    pattern <- paste0("\\b", f, "\\s*$")
-    if (grepl(pattern, core, ignore.case = TRUE)) {
-      fraction <- f
-      core <- trimws(sub(pattern, "", core, ignore.case = TRUE))
-      return(list(parameter = core, fraction = fraction))
-    }
-  }
-  
-  # 3) No fraction keyword found
-  list(parameter = core, fraction = NA_character_)
-}
-
 
 # ---- parse a unit string into structured components ----
 parse_unit <- function(u) {

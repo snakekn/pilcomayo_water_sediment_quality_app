@@ -20,6 +20,10 @@ library(shinyWidgets)
 library(bslib)
 library(terra)
 
+options(shiny.trace = TRUE)
+options(warn = 1)   # make warnings into errors
+options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
+
 #### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {
   if (!dir.exists(dir)) return(invisible())
