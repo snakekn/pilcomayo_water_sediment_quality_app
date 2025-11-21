@@ -11,17 +11,26 @@ server <- function(input, output, session) {
     sed_scored = NULL,
     sed_locyear = NULL,
     sed_loctime = NULL,
-    water_loctime = NULL
+    water_loctime = NULL,
+    all_media_scored = NULL,
+    all_media_locyear = NULL,
+    all_media_loctime = NULL
   )
-  master_data$water_scored <- if (file.exists("data/processed/all_water_scored.rds")) readRDS("data/processed/all_water_scored.rds") else { print("no all_water_scored.rds"); tibble() }
-  master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.rds")) readRDS("data/processed/all_water_locyear.rds") else { print("no all_water_locyear.rds"); tibble() }
-  master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.rds")) readRDS("data/processed/all_sed_scored.rds") else { print("no all_sed_scored.rds"); tibble() }
-  master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.rds")) readRDS("data/processed/all_sed_locyear.rds") else { print("no all_sed_locyear.rds"); tibble() }
-  master_data$sed_loctime = if(file.exists("data/processed/all_sed_loctime.rds")) readRDS("data/processed/all_sed_loctime.rds") else { print("no all_sed_loctime.rds"); tibble() }
-  master_data$water_loctime = if(file.exists("data/processed/all_water_loctime.rds")) readRDS("data/processed/all_water_loctime.rds") else { print("no all_water_loctime.rds"); tibble() }
-  
+
   # to print out the new master_data
   observeEvent(reactiveValuesToList(master_data), {
+    
+    master_data$water_scored <- if (file.exists("data/processed/all_water_scored.rds")) readRDS("data/processed/all_water_scored.rds") else { print("no all_water_scored.rds"); tibble() }
+    master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.rds")) readRDS("data/processed/all_water_locyear.rds") else { print("no all_water_locyear.rds"); tibble() }
+    master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.rds")) readRDS("data/processed/all_sed_scored.rds") else { print("no all_sed_scored.rds"); tibble() }
+    master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.rds")) readRDS("data/processed/all_sed_locyear.rds") else { print("no all_sed_locyear.rds"); tibble() }
+    master_data$sed_loctime <<- if(file.exists("data/processed/all_sed_loctime.rds")) readRDS("data/processed/all_sed_loctime.rds") else { print("no all_sed_loctime.rds"); tibble() }
+    master_data$water_loctime <<- if(file.exists("data/processed/all_water_loctime.rds")) readRDS("data/processed/all_water_loctime.rds") else { print("no all_water_loctime.rds"); tibble() }
+    
+    master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.rds")) readRDS("data/processed/all_media_scored.rds") else { print("no all_media_scored.rds"); tibble() }
+    master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.rds")) readRDS("data/processed/all_media_locyear.rds") else { print("no all_media_locyear.rds"); tibble() }
+    master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.rds")) readRDS("data/processed/all_media_loctime.rds") else { print("no all_media_loctime.rds"); tibble() }
+    
     cat("\n========================================\n")
     cat("MASTER DATA LOADED\n")
     cat("========================================\n")
@@ -32,6 +41,10 @@ server <- function(input, output, session) {
     cat("sed_scored:", nrow(master_data$sed_scored), "rows\n")
     cat("sed_locyear:", nrow(master_data$sed_locyear), "rows\n")
     cat("sed_loctime:", nrow(master_data$sed_loctime), "rows\n")
+    
+    cat("all_media_scored:", nrow(master_data$all_media_scored), "rows\n")
+    cat("all_media_locyear:", nrow(master_data$all_media_locyear), "rows\n")
+    cat("all_media_loctime:", nrow(master_data$all_media_loctime), "rows\n")
     
     cat("\nwater_scored columns:", ncol(master_data$water_scored), "\n")
     cat("sed_scored columns:", ncol(master_data$sed_scored), "\n")
@@ -2367,15 +2380,17 @@ server <- function(input, output, session) {
   
   # dynamically update choices for time series station & parameters
   observe({
-    req(input$ts_tabs)  
+    cat("\n\nin observe")
+    df = master_data$all_media_scored
+    req(df)
+    cat("\n\nall_media_scored observer triggered")
     
-    if (input$ts_tabs == "Water Samples") {
-      df <- active_water_clean()
-    } else if (input$ts_tabs == "Sediment Samples") {
-      df <- active_sed_clean()
-    } else {
-      return()
-    }
+    cat("\n\nall_media_scored class: ", class(master_data$all_media_scored)[1])
+    
+    cat("\n\nall_media_scored nrows: ", nrow(master_data$all_media_scored))
+    
+    df <- master_data$all_media_scored
+  
     cat("\n=== DEBUG observe ts_tabs ===\n")
     cat(names(df))
     updateSelectInput(session, "ts_station", choices = sort(unique(df$station)), selected = "Tarapaya")
@@ -2402,8 +2417,19 @@ server <- function(input, output, session) {
                      "2.00 mm - No. 010 (ASTM) (%)",
                      "Year", "0.016 mm (%)",
                      "4.75 mm - No. 004 (ASTM) (%)",
-                     "Flow"
+                     "Flow",
+                     "0.016 mm",
+                     "0.032 mm - No. 450",
+                     "0.063 mm - No. 230",
+                     "0.125 mm - No. 120",
+                     "0.250 mm - No. 060",
+                     "0.500 mm - No. 035",
+                     "1.00 mm - No. 018",
+                     "2.00 mm - No. 010",
+                     "4.75 mm - N° 004"
                      )
+    
+    cat("\n\nnames in df", names(df), "\n\n\n")
     
     param_cols <- df |>
       filter(!parameter %in% exclude_cols) |>        # remove metadata rows
@@ -2438,12 +2464,28 @@ server <- function(input, output, session) {
     
   })
   
+  observeEvent(input$ts_station, {
+    cat("\n\nts_station changed to: ", input$ts_station)
+  })
+  
+  observeEvent(input$ts_param, {
+    cat("\n\nts_param changed to: ", input$ts_param)
+  })
+  
   ts_filtered_data_water <- reactive({
-    req(master_data$water_scored)
-    req(input$ts_station, input$ts_param)
+    df = master_data$water_scored
+    cat("\n\nnrows master_data", nrow(df))
+    req(df)
+    cat(paste0("\nmaster_data$water_scored rows: ", nrow(master_data$water_scored)))
     
+    ts_station = input$ts_station
+    ts_param = input$ts_param
+    cat("\n\n\nts_station and ts_param\n\n\n")
+    cat(ts_station)
+    cat(ts_param)
+    req(ts_station, ts_param)
+    cat("after rec\n\n\n\n")
     # not using locyear since we don't want it in year format, we'd have to aggregate again by detail_rows and that sounds sucky
-    df <- master_data$water_scored
     # View(df)
     cat("\n=== DEBUG ts_filtered_data_water ===\n")
     cat(names(df)) # for debugging 
@@ -2473,6 +2515,7 @@ server <- function(input, output, session) {
     cat(nrow(df))
     return(df)
   })  
+  
   # Initial filtering of parameter and station
   ts_filtered_data_sed_init <- reactive({
     df <- active_sed_clean()
@@ -2489,16 +2532,17 @@ server <- function(input, output, session) {
   })
   
   # Update sieve (tamiz) choices based on station and parameter
-  observe({
-    req(input$ts_tabs == "Sediment Samples", input$ts_tamiz_checkbox)
-    df <- ts_filtered_data_sed_init()
-    
-    if (!sieve_size %in% names(df)) return()
-    
-    ts_tamiz_choices <- sort(unique(df$sieve_size))
-    
-    updateSelectInput(session, "ts_tamiz", choices = ts_tamiz_choices, selected = ts_tamiz_choices[1])
-  })
+  # observe({
+  #   
+  #   req(input$media == , input$ts_tamiz_checkbox)
+  #   df <- ts_filtered_data_sed_init()
+  #   
+  #   if (!sieve_size %in% names(df)) return()
+  #   
+  #   ts_tamiz_choices <- sort(unique(df$sieve_size))
+  #   
+  #   updateSelectInput(session, "ts_tamiz", choices = ts_tamiz_choices, selected = ts_tamiz_choices[1])
+  # })
   
   # filter for sieve (tamiz)
   ts_filtered_data_sed <- reactive({
@@ -2513,180 +2557,171 @@ server <- function(input, output, session) {
     
   })
   
-  ts_standard_values <- reactive({
-    req(input$ts_tabs, input$ts_param)
+  # ts_standard_values <- reactive({
+  #   req(input$ts_param)
+  #   
+  #   media <- if (input$ts_tabs == "Water Samples") "water" else "sediment"
+  #   
+  #   # default is all
+  #   mode  <- if (is.null(input$ts_standard_mode)) "all" else input$ts_standard_mode
+  #   
+  #   # retrieve all relevant standards
+  #   ts_get_standards(
+  #     param_name = input$ts_param,
+  #     media      = media,
+  #     mode       = mode
+  #   )
+  # })
+  
+  output$ts_plot_water <- renderUI({
+    cat("\n\n\n\nIN TS_PLOT_WATER\n\n\n\n")
+    # Unwrap the reactive data with ()
+    data_df <- master_data$water_scored
     
-    media <- if (input$ts_tabs == "Water Samples") "water" else "sediment"
+    # DIAGNOSTIC: What exactly is this?
+    message("\n[DIAGNOSTIC] ts_filtered_data_water() output:")
+    message("Class: ", paste(class(data_df), collapse = ", "))
+    message("Is data.frame? ", is.data.frame(data_df))
+    message("Is tibble? ", inherits(data_df, "tbl"))
+    message("Is NULL? ", is.null(data_df))
     
-    # default is all
-    mode  <- if (is.null(input$ts_standard_mode)) "all" else input$ts_standard_mode
+    if (!is.null(data_df)) {
+      message("Nrows: ", nrow(data_df))
+      message("Columns: ", paste(colnames(data_df), collapse = ", "))
+      message("First few rows:")
+      print(head(data_df))
+    }
     
-    # retrieve all relevant standards
-    ts_get_standards(
-      param_name = input$ts_param,
-      media      = media,
-      mode       = mode
+    # Check that data exists and has rows
+    if (is.null(data_df) || nrow(data_df) == 0) {
+      message("No data to plot")
+      return(NULL)
+    }
+    
+    p <- plot_pilcomayo_ts(
+      data = data_df,  # Pass as regular dataframe, not reactive
+      media = "water",
+      param = input$ts_param,
+      station = input$ts_station,
+      fraction = "any",
+      standard_mode = input$ts_standard_mode
     )
-  })
-  
-  
-  output$ts_plot_water <- renderPlotly({
-    df <- ts_filtered_data_water()
-    req(nrow(df) > 0)
     
-    # standardize names & formats
-    names(df) <- tolower(names(df))
-    df$date <- as.Date(df$date)
+    # The function returns a girafe object, not ggplot
+    # so we return it directly without quiet_plotly
+    return(p)
+  })  
+  output$ts_plot_sed <- renderUI({
+    cat("\n\n\n\nIN TS_PLOT_SED\n\n\n\n")
+    # Unwrap the reactive data with ()
+    data_df <- master_data$sed_scored
     
-    # determine media + mode
-    media <- "water"
-    std_mode <- input$ts_standard_mode
+    # DIAGNOSTIC: What exactly is this?
+    message("\n[DIAGNOSTIC] ts_filtered_data_sed() output:")
+    message("Class: ", paste(class(data_df), collapse = ", "))
+    message("Is data.frame? ", is.data.frame(data_df))
+    message("Is tibble? ", inherits(data_df, "tbl"))
+    message("Is NULL? ", is.null(data_df))
     
-    standards <- ts_get_standards(
-      param_name = input$ts_param,
-      media      = "water",
-      mode       = input$ts_standard_mode   # default = "all"
+    if (!is.null(data_df)) {
+      message("Nrows: ", nrow(data_df))
+      message("Columns: ", paste(colnames(data_df), collapse = ", "))
+      message("First few rows:")
+      print(head(data_df))
+    }
+    
+    # Check that data exists and has rows
+    if (is.null(data_df) || nrow(data_df) == 0) {
+      message("No data to plot")
+      return(NULL)
+    }
+    
+    p <- plot_pilcomayo_ts(
+      data = data_df,  # Pass as regular dataframe, not reactive
+      media = "sediment",
+      param = input$ts_param,
+      station = input$ts_station,
+      fraction = "any",
+      standard_mode = input$ts_standard_mode
     )
     
-    # generate ggplot layers for those standards
-    layers <- ts_standard_layers(df, standards)
-    
-    if (getOption("ts_debug")) {
-      cat("\n=== ts_plot_water() layers ===\n")
-      cat("Layers returned: ", length(layers), "\n")
-      cat("Layer types: ", paste(sapply(layers, class), collapse=", "), "\n")
-    }
-    
-    # base plot
-    p <- ggplot(df, aes(
-      x = date,
-      y = value,
-      text = paste0(
-        "Date: ", date, "<br>",
-        input$ts_param, ": ", value, " ", df$unit[1]
-      )
-    )) +
-      geom_line(color = "black") +
-      geom_point(color = "black", size = 1.8)
-    
-    # ---- Add all standard layers (rectangles, lines, labels) ----
-    if (getOption("ts_debug")) {
-      cat("\n=== ts_plot_water(): Adding Layers ===\n")
-      if (is.null(layers)) {
-        cat("layers: NULL\n")
-      } else {
-        cat("Number of layers: ", length(layers), "\n")
-      }
-    }
-    
-    if (!is.null(layers) && length(layers) > 0) {
-      
-      for (i in seq_along(layers)) {
-        ly <- layers[[i]]
-        
-        # Debug: print class of each incoming layer
-        if (getOption("ts_debug")) {
-          cat("  + Layer ", i, " class: ", paste(class(ly), collapse=", "), "\n")
-        }
-        
-        # Actually add it to the plot
-        p <- p + ly
-      }
-      
-    } else {
-      
-      if (getOption("ts_debug")) {
-        cat("No layers to add.\n")
-      }
-      
-    }
-    
-    
-    # finish
-    p <- p +
-      labs(
-        title = paste("Time Series of", input$ts_param, "at", input$ts_station),
-        x = "Date",
-        y = paste0(input$ts_param, " (", df$unit[1], ")")
-      ) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    quiet_plotly(p, tooltip = "text")
-  })
+    # The function returns a girafe object, not ggplot
+    # so we return it directly without quiet_plotly
+    return(p)
+  })  
   
-  output$ts_plot_sed <- renderPlotly({
-    df <- ts_filtered_data_sed()
-    req(nrow(df) > 0)
-    
-    df$date <- as.Date(df$date, format = "%d/%m/%Y")  
-    
-    # Create aggregated data for the line (average per date)
-    df_line <- df %>%
-      group_by(date) %>%
-      summarise(avg_value = mean(concentration, na.rm = TRUE), .groups = 'drop')
-    
-    # Start with the base plot using individual points
-    p <- ggplot(df, aes(x = date, y = concentration,
-                        text = paste0("Date: ", date, "<br>",
-                                      input$ts_param, ": ", concentration, "<br>",
-                                      "Sieve Size: ", sieve_size, "<br>",
-                                      "Distance from Bank: ", distance_from_bank)))
-    
-    standard_vals <- ts_standard_values()
-    if (!is.null(standard_vals)) {
-      
-      tel <- standard_vals[1]
-      pel <- standard_vals[2]
-      
-      y_range <- max(df$value, na.rm = TRUE) - min(df$value, na.rm = TRUE)
-      offset_amount <- y_range * 0.05
-      
-      p <- p +
-        geom_hline(yintercept = tel, color = "darkorange", linetype = "dashed", linewidth = 0.7) +
-        geom_hline(yintercept = pel, color = "firebrick", linetype = "dashed", linewidth = 0.7) +
-        annotate("text", x = min(df$date), y = tel - offset_amount, label = paste("TEL =", tel, "mg/kg"), 
-                 hjust = 1.1, vjust = 0.5, color = "darkorange", size = 3, fontface = "bold") +
-        annotate("text", x = min(df$date), y = pel + offset_amount, label = paste("PEL =", pel, "mg/kg"), 
-                 hjust = 1.1, vjust = 0.5, color = "firebrick", size = 3, fontface = "bold") +
-        scale_x_date(expand = expansion(mult = c(0.2, 0.05))) +
-        coord_cartesian(clip = "off")
-    }
-    
-    # Check if Distance from Bank has variation
-    has_variation <- length(unique(df$`Distance from Bank`)) > 1
-    
-    p <- p +
-      # Add the line using averaged data
-      geom_line(data = df_line, aes(x = date, y = avg_value, group = 1,
-                                    text = paste0("Date: ", Date, "<br>",
-                                                  "Average ", input$ts_param, ": ", round(avg_value, 3))),
-                color = "black") +
-      {if(has_variation) {
-        # Multiple values - use fill aesthetic with legend
-        geom_point(shape = 21, size = 1.5, fill = "black", stroke = 0.3, color = "black", aes(alpha = `Distance from Bank`))
-      } else {
-        # All same - black fill, no legend
-        geom_point(shape = 21, size = 1.5, alpha = 0.5, fill = "black")
-      }} +
-      labs(
-        title = paste("Time Series of", input$ts_param, "from Sediment Samples at", input$ts_station),
-        x = "Time",
-        y = input$ts_param,
-        fill = if(has_variation) "Distance from Bank" else NULL  # Only show fill label if there's variation
-      ) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    if(length(unique(df$`Distance from Bank`)) < 2) {
-      p <- p + 
-        scale_fill_continuous(guide = "none") +  # Remove legend
-        # Optionally override colors to black
-        scale_fill_manual(values = "black", guide = "none")
-    }
-    
-    quiet_plotly(p, tooltip = "text")  # Show only the text tooltip
-  })
+  # output$ts_plot_sed <- renderPlotly({
+  #   df <- ts_filtered_data_sed()
+  #   req(nrow(df) > 0)
+  #   
+  #   df$date <- as.Date(df$date, format = "%d/%m/%Y")  
+  #   
+  #   # Create aggregated data for the line (average per date)
+  #   df_line <- df %>%
+  #     group_by(date) %>%
+  #     summarise(avg_value = mean(concentration, na.rm = TRUE), .groups = 'drop')
+  #   
+  #   # Start with the base plot using individual points
+  #   p <- ggplot(df, aes(x = date, y = concentration,
+  #                       text = paste0("Date: ", date, "<br>",
+  #                                     input$ts_param, ": ", concentration, "<br>",
+  #                                     "Sieve Size: ", sieve_size, "<br>",
+  #                                     "Distance from Bank: ", distance_from_bank)))
+  #   
+  #   standard_vals <- ts_standard_values()
+  #   if (!is.null(standard_vals)) {
+  #     
+  #     tel <- standard_vals[1]
+  #     pel <- standard_vals[2]
+  #     
+  #     y_range <- max(df$value, na.rm = TRUE) - min(df$value, na.rm = TRUE)
+  #     offset_amount <- y_range * 0.05
+  #     
+  #     p <- p +
+  #       geom_hline(yintercept = tel, color = "darkorange", linetype = "dashed", linewidth = 0.7) +
+  #       geom_hline(yintercept = pel, color = "firebrick", linetype = "dashed", linewidth = 0.7) +
+  #       annotate("text", x = min(df$date), y = tel - offset_amount, label = paste("TEL =", tel, "mg/kg"), 
+  #                hjust = 1.1, vjust = 0.5, color = "darkorange", size = 3, fontface = "bold") +
+  #       annotate("text", x = min(df$date), y = pel + offset_amount, label = paste("PEL =", pel, "mg/kg"), 
+  #                hjust = 1.1, vjust = 0.5, color = "firebrick", size = 3, fontface = "bold") +
+  #       scale_x_date(expand = expansion(mult = c(0.2, 0.05))) +
+  #       coord_cartesian(clip = "off")
+  #   }
+  #   
+  #   # Check if Distance from Bank has variation
+  #   has_variation <- length(unique(df$`Distance from Bank`)) > 1
+  #   
+  #   p <- p +
+  #     # Add the line using averaged data
+  #     geom_line(data = df_line, aes(x = date, y = avg_value, group = 1,
+  #                                   text = paste0("Date: ", Date, "<br>",
+  #                                                 "Average ", input$ts_param, ": ", round(avg_value, 3))),
+  #               color = "black") +
+  #     {if(has_variation) {
+  #       # Multiple values - use fill aesthetic with legend
+  #       geom_point(shape = 21, size = 1.5, fill = "black", stroke = 0.3, color = "black", aes(alpha = `Distance from Bank`))
+  #     } else {
+  #       # All same - black fill, no legend
+  #       geom_point(shape = 21, size = 1.5, alpha = 0.5, fill = "black")
+  #     }} +
+  #     labs(
+  #       title = paste("Time Series of", input$ts_param, "from Sediment Samples at", input$ts_station),
+  #       x = "Time",
+  #       y = input$ts_param,
+  #       fill = if(has_variation) "Distance from Bank" else NULL  # Only show fill label if there's variation
+  #     ) +
+  #     theme_minimal() +
+  #     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #   
+  #   if(length(unique(df$`Distance from Bank`)) < 2) {
+  #     p <- p + 
+  #       scale_fill_continuous(guide = "none") +  # Remove legend
+  #       # Optionally override colors to black
+  #       scale_fill_manual(values = "black", guide = "none")
+  #   }
+  #   
+  #   quiet_plotly(p, tooltip = "text")  # Show only the text tooltip
+  # })
   
   
   ##############  MAPS  #############################
@@ -3511,8 +3546,7 @@ server <- function(input, output, session) {
       filter(regulator == "USGS")
   })
   
-  output$stds_1333_table_ts <- renderDT({
-    stds |>
-      filter(regulator == "Bolivian Law 1333")
+  output$stds_all <- renderDT({
+    stds
   })
 }

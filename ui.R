@@ -175,8 +175,9 @@ ui <- fluidPage(
           selectInput("ts_standard_mode", "Apply Standards:",
                       choices = c(
                           "All" = "all",
+                          "Strict" = "strict",
                           "None" = "none",
-                          "Bolivian 1333" = "bolivian law 1333",
+                          "Bolivian 1333" = "bol",
                           "EPA" = "epa",
                           "WHO" = "who",
                           "USGS" = "usgs",
@@ -213,10 +214,16 @@ ui <- fluidPage(
         mainPanel(
           tabsetPanel(
             id = "ts_tabs",
-            tabPanel("Water Samples", plotlyOutput("ts_plot_water")), # NADAV: NEED TO FIX
-            tabPanel("Sediment Samples", plotlyOutput("ts_plot_sed")), # NADAV: NEED TO FIX
-            tabPanel("Bolivian Standards", dataTableOutput("stds_1333_table_ts")), # this should stay :)
-            tabPanel("Strictest Standards", dataTableOutput("stds_usgs_table_ts")) # NADAV: NEED TO FIX. Use new strict standards table
+            tabPanel("Time Series", 
+                     fluidRow(
+                       column(
+                         width = 12,
+                         uiOutput("ts_plot_water"),
+                         uiOutput("ts_plot_sed")
+                       )
+                     )
+            ),
+            tabPanel("View Standards", dataTableOutput("stds_all")), # this should stay :)
           )
         )
       )
@@ -614,21 +621,6 @@ ui <- fluidPage(
           )
         )
       )
-    ),  # Close PCA tabPanel
-    
-    # Regional Risk Analysis tab
-    tabPanel(
-      "Regional Risk Analysis",
-      includeMarkdown("text/risk_analysis_about.md"),
-      leafletOutput("risk_map", height = "600px"),
-      accordion(
-        id = "risk_analysis_factors",
-        open = FALSE,
-        accordion_panel(
-          "Weights for risk analysis calculation",
-          includeMarkdown("text/risk_analysis_weights.md")
-        )
-      )
-    )  # Close Regional Risk Analysis tabPanel
+    )
   )  # Close tabsetPanel
 )  # Close fluidPage

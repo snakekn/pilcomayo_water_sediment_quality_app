@@ -539,6 +539,13 @@ bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
 river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
 
 #### To quiet down plotly warnings ####
+quiet_ggplotly <- function(p, tooltip = "text") {
+  plotly::ggplotly(p, tooltip = tooltip) %>%
+    plotly::config(displayModeBar = FALSE)
+}
+
+
+
 quiet_plotly <- function(p, ...) {
   withCallingHandlers(
     {
@@ -1243,6 +1250,73 @@ load_yearly_data_flexible <- function(path, pattern, date_format = "%d/%m/%Y",
   g  = 1,
   kg = 1e3
 )
+#### Safely merge file types ####
+merge_media_safely <- function(water_df, sediment_df) {
+  
+  message("\n========== merge_media_safely() ==========")
+  message("[1] Starting safe merge of water + sediment data.")
+  
+  # ---- 1. Capture names ----
+  w_names <- names(water_df)
+  s_names <- names(sediment_df)
+  
+  message("\n[2] Column sets before merging:")
+  message("  • Water columns (", length(w_names), "): ", paste(w_names, collapse = ", "))
+  message("  • Sediment columns (", length(s_names), "): ", paste(s_names, collapse = ", "))
+  
+  # ---- 2. Compute missing column sets ----
+  missing_in_water <- setdiff(s_names, w_names)
+  missing_in_sed   <- setdiff(w_names, s_names)
+  
+  message("\n[3] Columns *only* in sediment: ", 
+          ifelse(length(missing_in_water) == 0, "none", paste(missing_in_water, collapse=", ")))
+  
+  message("[4] Columns *only* in water: ", 
+          ifelse(length(missing_in_sed) == 0, "none", paste(missing_in_sed, collapse=", ")))
+  
+  # ---- 3. Add missing sediment columns to water ----
+  if (length(missing_in_water) > 0) {
+    message("\n[5] Adding ", length(missing_in_water), " missing columns to WATER:")
+    for (col in missing_in_water) {
+      message("    → Adding ", col, " (filled with NA)")
+      water_df[[col]] <- NA
+    }
+  } else {
+    message("\n[5] No missing columns to add to water.")
+  }
+  
+  # ---- 4. Add missing water columns to sediment ----
+  if (length(missing_in_sed) > 0) {
+    message("\n[6] Adding ", length(missing_in_sed), " missing columns to SEDIMENT:")
+    for (col in missing_in_sed) {
+      message("    → Adding ", col, " (filled with NA)")
+      sediment_df[[col]] <- NA
+    }
+  } else {
+    message("\n[6] No missing columns to add to sediment.")
+  }
+  
+  # ---- 5. Reorder columns consistently ----
+  # use the WATER column order as canonical
+  final_col_order <- names(water_df)
+  
+  message("\n[7] Applying consistent column order (", length(final_col_order), " columns).")
+  
+  water_aligned <- water_df[, final_col_order]
+  sediment_aligned <- sediment_df[, final_col_order]
+  
+  # ---- 6. Final merge ----
+  message("\n[8] Binding rows…")
+  merged <- dplyr::bind_rows(water_aligned, sediment_aligned)
+  
+  message("[9] Merge complete. Final dimensions: ", 
+          nrow(merged), " rows × ", ncol(merged), " columns.")
+  
+  message("============================================\n")
+  
+  return(merged)
+}
+
 
 # ---- take unit out of parameter ----
 parse_parameter_and_fraction <- function(x) {
@@ -1460,7 +1534,7 @@ compare_units <- function(sample_unit, standard_unit) {
     # denom_scale is numeric in base (L or kg), i.e. denom of sample = denom_scale_s (liters or kg).
     # The factor simplifies to:
     # factor = (gram_factor_s / denom_scale_s) / (gram_factor_t / denom_scale_t)
-    factor <- (s$gram_factor_g / s$denom_scale) / (t$gram_factor_g / t$denom_scale)
+    factor <- (t$gram_factor_g / t$denom_scale) / (s$gram_factor_g / s$denom_scale)
     return(list(convertible = TRUE, conversion_factor = as.numeric(factor), message = "Mass units convertible via prefix/denom scaling.", sample_parsed = s, standard_parsed = t))
   }
   

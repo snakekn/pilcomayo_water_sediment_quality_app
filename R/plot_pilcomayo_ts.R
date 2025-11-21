@@ -1,195 +1,293 @@
-# where is this called??
-plot_pilcomayo_ts <- function(data, media, param, station, fraction = "Total") {
-  # req(master_data)
-  # print("[plot_pilcomayo_ts]")
-  # print(names(master_data)) # for sanity
-  # 
-  # # filter data...
-  # if (media == "water") df = master_data$water_scored else df = master_data$sed_scored
-  # 
-  # filter data for selected media, parameter and station
-  df <- data |>
-    filter(.data$media == .env$media,
-           .data$parameter == .env$param,
-           .data$station == .env$station)
-  
-  # Only apply fraction filter for parameters that actually have fractions
-  # Skip for pH and other field parameters
-  # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "water") {
-    if (param != "pH" && any(data$fraction == fraction)) {
-      df <- df |>
-        filter(fraction == !!fraction)
-    }
-  }
-  
-  
-  # Special handling for pH - filter to pH units only
-  if (param == "pH") {
-    df <- df |>
-      filter(unit == "u")
-  }
-  
-  # retrieve standard for this parameter-media combination
-  ### FIGURE OUT HOW TO HANDLE CHROMIUM (HEX VS TRI) ###
-  param_stds <- strict_std |>
-    filter(.data$media == .env$media,
-           str_detect(.data$parameter, .env$param))
-  
-  # Check if standard exists
-  has_standard <- nrow(param_stds) > 0
-  
-  if (has_standard) {
-    param_std <- param_stds$value
-    std_unit <- param_stds$unit
-    data_unit <- first(df$unit)
-    std_source <- param_stds$regulator
-    
-    # Unit conversion function
-    convert_units <- function(value, from_unit, to_unit) {
-      # Normalize units (remove spaces, make lowercase)
-      from <- tolower(gsub("\\s+", "", from_unit))
-      to <- tolower(gsub("\\s+", "", to_unit))
-      
-      # If units are the same, no conversion needed
-      if (from == to) return(value)
-      
-      # Conversion factors (to base unit)
-      conversions <- list(
-        # Mass conversions (to grams)
-        "kg" = 1000, "g" = 1, "mg" = 0.001, "ug" = 0.000001, "µg" = 0.000001,
-        # Concentration conversions
-        "mg/kg" = 1, "ug/kg" = 0.001, "µg/kg" = 0.001,
-        "mg/l" = 1, "ug/l" = 0.001, "µg/l" = 0.001,
-        "ppm" = 1, "ppb" = 0.001
-      )
-      
-      # Get conversion factors
-      from_factor <- conversions[[from]]
-      to_factor <- conversions[[to]]
-      
-      # Check if both units are recognized
-      if (is.null(from_factor) || is.null(to_factor)) {
-        warning(paste("Cannot convert from", from_unit, "to", to_unit, "- using original values"))
-        return(value)
-      }
-      
-      # Convert: value * (from_factor / to_factor)
-      converted <- value * (from_factor / to_factor)
-      return(converted)
-    }
-    
-    # Convert standard to match data units if needed
-    if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-      param_std <- convert_units(param_std, std_unit, data_unit)
-      message(paste("Converted standard from", std_unit, "to", data_unit))
-      display_unit <- data_unit
-    } else {
-      display_unit <- std_unit
-    }
-  }
-  
-  # create Y-axis label for later use
-  y_lab <- paste(first(df$parameter), " (", first(df$unit), ")", sep = "")
-  
-  # Calculate daily averages for the line
-  df_avg <- df |>
-    group_by(date) |>
-    summarise(
-      avg_concentration = mean(concentration, na.rm = TRUE),
-      .groups = "drop"
+plot_pilcomayo_ts <- function(
+    data,
+    media,
+    param,
+    station,
+    fraction = "any",
+    standard_mode = "all"
+) {
+  message("\n[plot_pilcomayo_ts] START")
+  message("Param: ", param, " | Media: ", media, " | Station: ", station,
+          " | Mode: ", standard_mode)
+
+  # -------------------------------------------------------
+  # DEFINE MEDIA LABEL (FIX FOR YOUR ERROR)
+  # -------------------------------------------------------
+  media_label <- ifelse(media == "water", "Water", "Sediment")
+
+  # -------------------------------------------------------
+  # 1. FILTER INPUT DATA
+  # -------------------------------------------------------
+  df <- data %>%
+    filter(
+      .data$media == .env$media,
+      .data$parameter == .env$param,
+      .data$station == .env$station
     )
-  
-  # Calculate range of data for use in offsetting labels
-  y_range <- max(df$concentration, na.rm = TRUE) - min(df$concentration, na.rm = TRUE)
-  y_offset_amount <- y_range * 0.15
-  
-  x_range <- max(df$date, na.rm = TRUE) - min(df$date, na.rm = TRUE)
-  x_offset_amount <- x_range * 0.15
-  
-  
-  if (!!media == "sediment") {
-    # Normalize distance_from_bank to 0-1 scale for alpha
-    # Closer to bank (smaller distance) = higher alpha (more opaque)
-    # Further from bank (larger distance) = lower alpha (more transparent)
-    if (all(!is.na(df$distance_from_bank))) {
+
+  if (nrow(df) == 0) {
+    message("No data found for this selection.")
+    return(HTML(
+      sprintf("
+      <div style='
+          padding: 20px;
+          background-color: #f8f9fa;
+          border-left: 5px solid #dc3545;
+          border-radius: 4px;
+          font-size: 16px;
+          width: 80%%;
+          margin: 20px auto;
+      '>
+        <strong>No %s data found.</strong><br>
+        No measurements are available for the selected station, parameter, and filters.
+      </div>
+    ", media_label)
+    ))
+  }
+
+  # fraction filter
+  if (fraction != "any" && param != "pH" && any(df$fraction == fraction)) {
+    df <- df %>% filter(fraction == fraction)
+  }
+
+  if (param == "pH") df <- df %>% filter(unit == "u")
+
+  df$date <- as.Date(df$date)
+
+  # -------------------------------------------------------
+  # 2. LOAD + FILTER STANDARDS
+  # -------------------------------------------------------
+  regulator_map <- c(
+    "EPA" = "epa",
+    "WHO" = "who",
+    "USGS" = "usgs",
+    "FAO" = "fao"
+  )
+
+  if (standard_mode == "none") {
+    param_stds <- NULL
+    has_standard <- FALSE
+
+  } else {
+    if (standard_mode == "strict") {
+      param_stds <- stds %>% filter(
+        .data$media == .env$media,
+        str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
+      )
+
+    } else if (standard_mode == "bol") {
+      param_stds <- stds %>% filter(
+        regulator == "Bolivian Law 1333",
+        .data$media == .env$media,
+        str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
+      )
+      cat("\n\nbol selected", nrow(param_stds))
+
+    } else if (standard_mode == "all") {
+      param_stds <- stds %>%
+        filter(
+          .data$media == .env$media,
+          .data$parameter == .env$param
+        )
+
+    } else if (standard_mode %in% names(regulator_map)) {
+      regulator_code <- regulator_map[[standard_mode]]
+      param_stds <- stds %>% filter(
+        tolower(.data$regulator) == .env$regulator_code,
+        .data$media == .env$media,
+        str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
+      )
+
+    } else {
+      param_stds <- NULL
+    }
+
+    has_standard <- !is.null(param_stds) && nrow(param_stds) > 0
+  }
+
+  if (!has_standard) param_stds <- NULL
+
+  # -------------------------------------------------------
+  # NO-STANDARDS CALLOUT OVERLAY — FIX ADDED
+  # -------------------------------------------------------
+  no_standards_banner <- ""
+  if (!has_standard) {
+    no_standards_banner <- sprintf("
+      <div style='
+        position:absolute;
+        top:20px; 
+        left:50%%; 
+        transform:translateX(-50%%);
+        padding:12px 20px;
+        background:rgba(255,230,230,0.9);
+        border-left:4px solid #dc3545;
+        border-radius:4px;
+        font-size:14px;
+        z-index:9999;
+        text-align:center;
+      '>
+        <strong>No standards found</strong><br>
+        No regulatory thresholds exist for %s (%s).
+      </div>",
+      param, media_label
+    )
+  }
+
+  # -------------------------------------------------------
+  # 3. PROCESS STANDARDS
+  # -------------------------------------------------------
+  if (has_standard) {
+    sample_unit <- df$unit[1]
+
+    param_stds <- param_stds %>%
+      rowwise() %>%
+      mutate(
+        conv_obj = list(compare_units(sample_unit, unit)),
+        convertible = conv_obj$convertible,
+        conv_factor = ifelse(convertible, conv_obj$conversion_factor, NA_real_),
+        value_converted = ifelse(convertible, value * conv_factor, value),
+        display_unit  = ifelse(convertible, sample_unit, unit)
+      ) %>%
+      ungroup()
+  }
+
+  # -------------------------------------------------------
+  # 4. DAILY AVERAGES
+  # -------------------------------------------------------
+  df_avg <- df %>%
+    group_by(date) %>%
+    summarise(avg_concentration = mean(concentration, na.rm = TRUE), .groups = "drop")
+
+  # -------------------------------------------------------
+  # 5. DEFINE ALPHA VALUE SAFELY (ALWAYS CREATE alpha_value)
+  # -------------------------------------------------------
+  if (media == "sediment") {
+    
+    if (!all(is.na(df$distance_from_bank))) {
+      
       min_dist <- min(df$distance_from_bank, na.rm = TRUE)
       max_dist <- max(df$distance_from_bank, na.rm = TRUE)
       
-      # Invert so closer = more opaque
-      df <- df |>
-        mutate(alpha_value = 1 - ((distance_from_bank - min_dist) / (max_dist - min_dist)))
+      df$alpha_value <- scales::rescale(
+        1 - (df$distance_from_bank - min_dist) / (max_dist - min_dist),
+        to = c(0.3, 1)
+      )
       
-      # Ensure alpha stays in reasonable range (0.3 to 1.0)
-      df <- df |>
-        mutate(alpha_value = scales::rescale(alpha_value, to = c(0.3, 1.0)))
     } else {
-      # If distance_from_bank has NAs or doesn't exist, set all to 1
-      df <- df |>
-        mutate(alpha_value = 1.0)
+      df$alpha_value <- 1
     }
+    
   } else {
-    # If distance_from_bank has NAs or doesn't exist, set all to 1
-    df <- df |>
-      mutate(alpha_value = 1.0)
+    # Water ALWAYS gets alpha = 1
+    df$alpha_value <- 1
   }
   
   
-  df <- df |>
+  # -------------------------------------------------------
+  # 6. HOVER TEXT
+  # (unchanged except that HQ logic still works)
+  # -------------------------------------------------------
+  df <- df %>%
+    rowwise() %>%
     mutate(
+      hq_text = if_else(
+        has_HQ,
+        paste0("HQ: ", HQ, " (", std_info$HQ$std_reg, ": ", std_info$HQ$std_val, std_info$HQ$std_unit, ")"),
+        ""
+      ),
+      sed_text = if (media == "sediment") {
+        paste0(
+          "Sieve: ", sieve_size %||% "N/A", "<br>",
+          "Dist. from bank: ", distance_from_bank %||% "N/A", "<br>"
+        )
+      } else "",
       hover_text = paste0(
         "Station: ", station, "<br>",
         "Date: ", format(date, "%Y-%m-%d"), "<br>",
         str_to_title(parameter), ": ", round(concentration, 3), " ", unit, "<br>",
-        if (has_standard) {
-          paste0("HQ: ", round(concentration/param_std, 3), "<br>")
-        } else {
-          ""
-        },
-        if (!!media == "sediment") {
-          paste0(
-            "Sieve size: ", ifelse(is.na(sieve_size), "N/A", sieve_size), "<br>",
-            "Distance from bank: ", ifelse(is.na(distance_from_bank), "N/A", distance_from_bank)
-          )
-        } else {
-          ""
-        }
-        
+        ifelse(nchar(hq_text) > 0, paste0(hq_text, "<br>"), ""),
+        sed_text
       )
-    )
-  
-  
-  # Create base plot
+    ) %>% ungroup()
+
+  # -------------------------------------------------------
+  # 7. BASE PLOT
+  # -------------------------------------------------------
   p <- ggplot() +
-    # Line showing daily averages
-    geom_line(data = df_avg, aes(x = date, y = avg_concentration, group = 1), 
-              color = "black", linewidth = 0.8) +
-    # Points showing all individual observations with alpha based on distance from bank
-    geom_point(data = df, aes(x = date, y = concentration, alpha = alpha_value, text = hover_text), 
-               color = "black", size = 2) +
+    geom_line(
+      data = df_avg,
+      aes(x = date, y = avg_concentration),
+      color = "black",
+      linewidth = 0.8
+    ) +
+    geom_point_interactive(
+      data = df,
+      aes(x = date, y = concentration, alpha = alpha_value, tooltip = hover_text),
+      color = "black",
+      size = 2
+    ) +
     scale_alpha_identity() +
-    labs(x = "Date",
-         y = y_lab,
-         title = paste("Time Series of ", param, " at ", station, " (", str_to_title(media), ")", sep = "")) +
+    labs(
+      x = "Date",
+      y = paste0(param, " (", df$unit[1], ")"),
+      title = paste0("Time Series of ", param, " at ", station, " (", str_to_title(media), ")")
+    ) +
     theme_minimal()
-  
-  # Add standard line with hover text if standard exists
+
+  # -------------------------------------------------------
+  # 8. ADD STANDARD LINES (unchanged)
+  # -------------------------------------------------------
+
   if (has_standard) {
-    # Create a data frame for the standard line that spans the x-axis range
-    std_df <- data.frame(
-      date = seq(min(df$date), max(df$date), length.out = 100),
-      std_value = param_std,
-      hover_text = paste("Standard = ", round(param_std, 3), " ", display_unit, " (", std_source, ")", sep = "")
-    )
-    
-    p <- p +
-      geom_line(data = std_df, 
-                aes(x = date, y = std_value, text = hover_text),
-                color = "red", linetype = "dashed", linewidth = 0.8)
+    std_dates <- seq(min(df$date), max(df$date), length.out = 200)
+
+    for (i in seq_len(nrow(param_stds))) {
+      hover_text <- paste0(
+        param_stds$regulator[i], "<br>",
+        "Standard: ",
+        round(param_stds$value_converted[i], 3), " ",
+        param_stds$display_unit[i]
+      )
+
+      std_df <- data.frame(
+        date = std_dates,
+        std_value = param_stds$value_converted[i],
+        hover_label = hover_text,
+        stringsAsFactors = FALSE
+      )
+
+      p <- p + geom_line_interactive(
+        data = std_df,
+        aes(x = date, y = std_value, tooltip = hover_label, data_id = hover_label),
+        color = "red",
+        linetype = "dashed",
+        linewidth = 0.8
+      )
+    }
   }
-  
-  # Convert to plotly
-  ply <- ggplotly(p, tooltip = "text")
-  
-  return(ply)
+
+  # -------------------------------------------------------
+  # 9. RETURN: PLOT + NO-STANDARDS OVERLAY
+  # -------------------------------------------------------
+  girafe(
+    ggobj = p,
+    options = list(
+      opts_hover(css = "stroke:orange;stroke-width:2px;"),
+      opts_toolbar(saveaspng = FALSE)
+    )
+  )
+  # return(
+  #   htmltools::tagList(
+  #     HTML(no_standards_banner),
+  #     girafe(
+  #       ggobj = p,
+  #       options = list(
+  #         opts_hover(css = "stroke:orange;stroke-width:2px;"),
+  #         opts_toolbar(saveaspng = FALSE)
+  #       )
+  #     )
+  #   )
+  # )
 }
+
+
