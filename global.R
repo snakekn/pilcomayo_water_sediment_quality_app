@@ -19,6 +19,12 @@ library(factoextra)
 library(shinyWidgets)
 library(bslib)
 library(terra)
+library(ggiraph)
+
+
+options(shiny.trace = TRUE)
+options(warn = 1)   # make warnings into errors
+options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
 
 #### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {
@@ -58,6 +64,8 @@ initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) 
 initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
 
 #### load global values ####
+stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
+
 # these are kept centrally to help us easily redefine if needed
 
 # 1) Shared constants

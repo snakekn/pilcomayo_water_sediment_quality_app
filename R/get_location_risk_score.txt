@@ -1,3 +1,5 @@
+#### DEPRECATED ####
+
 # Purpose: iteratively calculate score for station given a set of concentrations data
 ### It's called by get_risk_scores.R to get per-station data. GRS.R will send in data split by year-location
 library(tidyverse)

@@ -1,0 +1,230 @@
+---
+title: "census_extract"
+format: html
+---
+
+```{r}
+library(sf)
+library(dplyr)
+library(leaflet)
+library(leaflet.extras)
+library(htmlwidgets)
+library(viridis)
+library(data.table)
+
+# --- 1. PROVINCE SHAPEFILE
+
+municipalities <- st_read(here("provincia_potosi.shp"))
+provinces <- municipalities |>
+  group_by(provincia) |>
+  summarize(geometry = st_union(geometry))
+
+# add province labels
+province_indexed <- provinces |>
+  mutate(
+    iprov = case_when (
+provincia == "Tomás Frías" ~ 1,
+provincia == "Rafael Bustillo" ~ 2,
+provincia == "Cornelio Saavedra" ~ 3,
+provincia == "Chayanta" ~ 4,
+provincia == "Chárcas" ~ 5,
+provincia == "Nor Chichas" ~ 6,
+provincia == "Alonso de Ibáñez" ~ 7,
+provincia == "Sur Chichas" ~ 8,
+provincia == "Nor Lipez" ~ 9,
+provincia == "Sur Lipez" ~ 10,
+provincia == "José María Linares" ~ 11,
+provincia == "Antonio Quijarro" ~ 12,
+provincia == "General Bilbao" ~ 13,
+provincia == "Daniel Campos" ~ 14,
+provincia == "Modesto Omiste" ~ 15,
+provincia == "Enrique Baldivieso" ~ 16
+  )
+)
+
+# --- 2. PERSONA (individual-level data)
+census_p <- fread('Persona_CPV-2024.csv', sep = ";")
+
+potosi_res <- census_p |>
+    filter (
+    idep == 5, # residents in Potosí department
+    p36_lugres == 1 # habitually live here
+  )
+
+province_census_p <- potosi_res[, .(
+  population = .N,
+  prop_uses_public_health = mean(p30a_public == 1, na.rm = TRUE),
+  prop_only_informal = mean(
+    (p30e_tradic == 1 | p30f_autome == 1 | p30g_casera == 1) & 
+    (p30c_privad != 1 & p30d_atedom != 1), 
+    na.rm = TRUE
+  )
+), by = iprov]
+
+
+# names(potosi_res)
+province_census_p <- potosi_res[, .(
+  population = .N,
+  # --- Ages
+  prop_children_under6     = mean(p26_edad < 6, na.rm = TRUE),
+  prop_elder_65plus        = mean(p26_edad >= 65, na.rm = TRUE),
+  prop_age_vulnerable      = mean(p26_edad < 6 | p26_edad >= 65, na.rm = TRUE),
+  # --- Health access
+  prop_no_health_insurance = mean(p31_afiliado == 4, na.rm = TRUE),
+  prop_uses_public_health = mean(p30a_public == 1, na.rm = TRUE),
+  prop_uses_traditional    = mean(p30e_tradic == 1, na.rm = TRUE),
+ prop_informal_health_only = mean(
+  (p30e_tradic == 1 | p30f_autome == 1 | p30g_casera == 1) &   # uses informal care
+  (p30c_privad != 1 & p30d_atedom != 1 & p30a_public != 1),     # does NOT use formal care
+  na.rm = TRUE
+),
+  # --- Livelihoods
+  prop_farm                = mean(p51_actec_2d == 1 & p51_actec_2d != 9, na.rm = TRUE),
+  prop_mine                = mean(p51_actec_2d == 2 & p51_actec_2d != 9, na.rm = TRUE),
+  prop_manufacture         = mean(p51_actec_2d == 3 & p51_actec_2d != 9, na.rm = TRUE),
+  prop_construct           = mean(p51_actec_2d == 6 & p51_actec_2d != 9, na.rm = TRUE),
+  prop_indigenous          = mean(p32_pueblo_per == 1 & p32_pueblo_per != 9, na.rm = TRUE),
+  # --- Agricultural indicators
+  prop_agro_participation  = mean(p45_agro == 1, na.rm = TRUE),
+  prop_agro_for_sale       = mean(p46_dest == 1 & p45_agro == 1, na.rm = TRUE),
+  prop_agro_for_consumption= mean(p46_dest == 2 & p45_agro == 1, na.rm = TRUE), # consumed by family
+  # --- Disability
+  prop_disabled           = mean((p42a_ver %in% 3:4 | p42b_oir %in% 3:4 | p42c_camina %in% 3:4 | p42d_comuni %in% 3:4) &       (p42a_ver != 9 & p42b_oir != 9 & p42c_camina != 9 & p42d_comuni != 9), na.rm = TRUE
+),
+  # --- Child loss
+  prop_child_loss          = mean((p54_hvtot - p55_hstot) > 0 & # total children born - total children alive
+                                    p54_hvtot < 98 & # these remove missing/unspecified responses
+                                    p55_hstot < 98, na.rm = TRUE)
+), by = iprov]
+
+province_sum_p <- province_census_p |>
+  left_join(province_indexed, by = "iprov")
+
+# --- 3. VIVIENDA (household-level data)
+census_h <- fread('Vivienda_CPV-2024.csv', sep = ";") |>
+  filter(idep == 5)
+# names(census_h)
+
+province_census_h <- census_h[, .(
+  households = .N,
+  prop_river_water         = mean(v07_aguapro == 7, na.rm = TRUE),
+  prop_unprotected_water   = mean(v07_aguapro %in% c(3,5,7,9), na.rm = TRUE), # rainwater, unprotected well, river/ditch, other
+  prop_no_pipes   = mean(v08_aguadist == 3, na.rm = TRUE),
+  prop_unsafe_solid_waste = mean(v11_basura %in% c(3,4,5,6),na.rm = TRUE),
+  prop_unsafe_liquid_waste = mean(v16_desague %in% c(3,4,5),na.rm = TRUE),
+  # --- Home structural vulnerability (maybe relevant for air pollution)
+  prop_home_structural_vuln = mean(
+  (v03_pared %in% c(2,3,4,5,6)) |   # vulnerable walls — adobe, tabique, stone, wood, cane/palm
+  (v05_techo %in% c(1,4))     |   # vulnerable roof — corrugated metal, straw/palm/cane/mud
+  (v06_piso %in% c(1,2,3)),       # vulnerable floor — dirt, wooden plank, parquet
+  na.rm = TRUE
+)
+
+), by = iprov]
+
+province_sum_h <- province_census_h |>
+  left_join(province_indexed, by = "iprov")
+
+# --- 4. MORTALIDAD (mortality data)
+census_m <- fread('Mortalidad_CPV-2024.csv', sep = ";") |>
+  filter(idep == 5 & m213_edad != 999)
+
+province_census_m <- census_m [, .(
+  deaths = .N,
+  avg_age_death = mean(m213_edad, na.rm = TRUE),
+  young_deaths = sum(m213_edad < 50, na.rm = TRUE),
+  prop_under50 = mean(m213_edad < 50, na.rm = TRUE),
+  child_deaths5 = sum(m213_edad < 5, na.rm = TRUE),
+  prop_child_deaths5 = mean(m213_edad < 5, na.rm = TRUE),
+  child_deaths15 = sum(m213_edad < 15, na.rm = TRUE),
+  prop_child_deaths15 = mean(m213_edad < 15, na.rm = TRUE)
+), by = iprov]
+
+province_sum_m <- province_census_m |>
+  left_join(province_indexed, by = "iprov")
+
+# --- 5. Combine everything
+prov_summary <- province_indexed |>
+  left_join(province_census_p,  by = "iprov") |>
+  left_join(province_census_h, by = "iprov") |>
+  left_join(province_census_m,  by = "iprov")
+
+# --- 6. Export
+st_write(prov_summary, "potosi_census_summary.gpkg", driver = "GPKG")
+```
+
+```{r}
+province_shp <- prov_summary
+
+province_shp <- province_shp |>
+  rename(
+    pop = population,
+    prop_ch_u6 = prop_children_under6,
+    prop_elder65 = prop_elder_65plus,
+    prop_age_vuln = prop_age_vulnerable,
+    prop_no_health = prop_no_health_insurance,
+    prop_pub_health = prop_uses_public_health,
+    prop_trad_care = prop_uses_traditional,
+    prop_inf_only = prop_informal_health_only,
+    prop_farm = prop_farm,
+    prop_mine = prop_mine,
+    prop_manu = prop_manufacture,
+    prop_cons = prop_construct,
+    prop_indig = prop_indigenous,
+    prop_agro_part = prop_agro_participation,
+    prop_agro_sale = prop_agro_for_sale,
+    prop_agro_cons = prop_agro_for_consumption,
+    prop_disab = prop_disabled,
+    prop_child_loss = prop_child_loss,
+    hh_count = households,
+    prop_river_w = prop_river_water,
+    prop_unprot_w = prop_unprotected_water,
+    prop_no_pipe = prop_no_pipes,
+    prop_solid_ws = prop_unsafe_solid_waste,
+    prop_liq_ws = prop_unsafe_liquid_waste,
+    prop_struct_vuln = prop_home_structural_vuln,
+    deaths_tot = deaths,
+    deaths_avg_age = avg_age_death,
+    deaths_under50 = young_deaths,
+    prop_under50 = prop_under50,
+    deaths_u5 = child_deaths5,
+    prop_u5 = prop_child_deaths5,
+    deaths_u15 = child_deaths15,
+    prop_u15 = prop_child_deaths15
+  )
+
+# write shapefile
+st_write(province_shp, "potosi_census_summary_shape.shp", driver = "ESRI Shapefile")
+```
+
+``` {r read_shp}
+census_shp = st_read(here::here("data/census/census_summ.shp"))
+# map out the shp file using prop_age_vuln
+leaflet(census_shp) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addPolygons(
+    fillColor = ~viridis::viridis(100)[as.numeric(cut(prop_age_vuln, breaks = 100))],
+    fillOpacity = 0.8,
+    color = "white",
+    weight = 1,
+    popup = ~paste0(
+      "<strong>Province: </strong>", provincia, "<br/>",
+      "<strong>Population: </strong>", pop, "<br/>",
+      "<strong>Prop. Age Vulnerable: </strong>", round(prop_age_vuln * 100, 2), "%<br/>",
+      "<strong>Prop. No Health Insurance: </strong>", round(prop_no_health * 100, 2), "%<br/>",
+      "<strong>Prop. Uses Public Health: </strong>", round(prop_pub_health * 100, 2), "%<br/>",
+      "<strong>Prop. Informal Health Only: </strong>", round(prop_inf_only * 100, 2), "%<br/>",
+      "<strong>Households: </strong>", hh_count, "<br/>",
+      "<strong>Prop. River Water: </strong>", round(prop_river_w * 100, 2), "%<br/>",
+      "<strong>Total Deaths: </strong>", deaths_tot, "<br/>",
+      "<strong>Avg. Age at Death: </strong>", round(deaths_avg_age, 2), "<br/>",
+      "<strong>Prop. Deaths Under 50: </strong>", round(prop_under50 * 100, 2), "%<br/>"
+    )
+  ) |>
+  addLegend(
+    pal = viridis::viridis,
+    values = census_shp$prop_age_vuln,
+    title = "Proportion of Age Vulnerable (<6 or 65+)",
+    position = "bottomright"
+  )
+```
