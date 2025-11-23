@@ -477,6 +477,9 @@ dataUploadServer <- function(id, base_data, master_data) {
 pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
 bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
 river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+census_potosi <- st_read("data/census/shp/potosi_census_summary_shape.shp", quiet = TRUE)
+names(census_potosi) <- c("province", "iprov", "pop", "prop_ch_u6", "prop_elder65", "prop_age_vuln", "prop_no_health", "prop_pub_health", "prop_trad_care", "prop_inf_only", "prop_farm", "prop_mine", "prop_manu", "prop_cons", "prop_indig", "prop_agro_part", "prop_agro_sale", "prop_agro_cons", "prop_disab", "prop_child_loss", "hh_count", "prop_river_w", "prop_unprot_w", "prop_no_pipe", "prop_solid_ws", "prop_liq_ws", "prop_struct_vuln", "deaths_tot", "deaths_avg_age", "deaths_under50", "prop_under50", "deaths_u5", "prop_u5", "deaths_u15", "prop_u15", "geometry")
+pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp")
 
 # Load standards with match names
 usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
