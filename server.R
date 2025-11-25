@@ -84,8 +84,8 @@ server <- function(input, output, session) {
     # Determine date column
     date_col <- if ("date" %in% names(df)) {
       "date"
-    } else if ("Date" %in% names(df)) {
-      "Date"
+    } else if ("date" %in% names(df)) {
+      "date"
     } else {
       cat("  ERROR: No date column found\n")
       return(p("No date column found in data"))
@@ -98,18 +98,18 @@ server <- function(input, output, session) {
       return(p("No date data available"))
     }
     
-    if (!inherits(dates, "Date")) {
-      dates <- as.Date(dates)
+    if (!inherits(dates, "date")) {
+      dates <- as.date(dates)
     }
     
     min_date <- min(dates, na.rm = TRUE)
     max_date <- max(dates, na.rm = TRUE)
     
-    cat("  Date range:", min_date, "to", max_date, "\n")
+    cat("  date range:", min_date, "to", max_date, "\n")
     
     dateRangeInput(
       "map_date_range",  # Changed from sed_date_range
-      "Select Date Range:",
+      "Select date Range:",
       start = min_date,
       end = max_date,
       min = min_date,
@@ -182,15 +182,15 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%d/%m/%Y")
+      df$date <- as.date(df$date, "%d/%m/%Y")
       df
     })
     
     all_data <- bind_rows(water_dfs) |> 
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Tacobamba arriba Pilcomayo")) |>
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Pilcomayo arriba Tacobamba")) |>
       filter(!is.na(`Latitude Decimal`))
@@ -218,57 +218,59 @@ server <- function(input, output, session) {
     
     req(master_data$water_scored)
     return(master_data$water_scored) # skip the rest, just get the data we want
-    
-    # can replace much of this with manual_compile_water. Goal is to replace with datahub later on
-    water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
-    
-    water_dfs <- lapply(water_files, function(f) {
-      year <- stringr::str_extract(basename(f), "\\d{4}")
-      df <- read_xlsx(f)
-      df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%Y-%m-%d")
-      df
-    })
-    
-    all_data <- bind_rows(water_dfs) |> 
-      mutate(Station = str_replace(Station,
-                                   "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
-                                   "Tacobamba arriba Pilcomayo")) |>
-      mutate(Station = str_replace(Station,
-                                   "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
-                                   "Pilcomayo arriba Tacobamba")) |>
-      filter(!is.na(`Latitude Decimal`))
-    
-    # Count "Unclassified" in columns ending with "Class"
-    all_data$num_unclass <- rowSums(
-      select(all_data, ends_with("Class")) == "Unclassified",
-      na.rm = TRUE
-    )
-    
-    # Count "Class D" in columns ending with "Class"
-    all_data$num_class_d <- rowSums(
-      select(all_data, ends_with("Class")) == "Class D",
-      na.rm = TRUE
-    )
-    
-    # Count "Class C" in columns ending with "Class"
-    all_data$num_class_c <- rowSums(
-      select(all_data, ends_with("Class")) == "Class C",
-      na.rm = TRUE
-    )
-    
-    # Count "Class B" in columns ending with "Class"
-    all_data$num_class_b <- rowSums(
-      select(all_data, ends_with("Class")) == "Class B",
-      na.rm = TRUE
-    )
-    
-    all_data = all_data |>
-      mutate(potato = rowSums(
-        select(all_data, ends_with("Class")) == "Class B", na.rm = TRUE
-      ))
-    
-    return(all_data)
+    {
+    # 
+    # # can replace much of this with manual_compile_water. Goal is to replace with datahub later on
+    # water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
+    # 
+    # water_dfs <- lapply(water_files, function(f) {
+    #   year <- stringr::str_extract(basename(f), "\\d{4}")
+    #   df <- read_xlsx(f)
+    #   df$Year <- as.integer(year)
+    #   df$date <- as.date(df$date, "%Y-%m-%d")
+    #   df
+    # })
+    # 
+    # all_data <- bind_rows(water_dfs) |> 
+    #   mutate(station = str_replace(station,
+    #                                "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
+    #                                "Tacobamba arriba Pilcomayo")) |>
+    #   mutate(station = str_replace(station,
+    #                                "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
+    #                                "Pilcomayo arriba Tacobamba")) |>
+    #   filter(!is.na(`Latitude Decimal`))
+    # 
+    # # Count "Unclassified" in columns ending with "Class"
+    # all_data$num_unclass <- rowSums(
+    #   select(all_data, ends_with("Class")) == "Unclassified",
+    #   na.rm = TRUE
+    # )
+    # 
+    # # Count "Class D" in columns ending with "Class"
+    # all_data$num_class_d <- rowSums(
+    #   select(all_data, ends_with("Class")) == "Class D",
+    #   na.rm = TRUE
+    # )
+    # 
+    # # Count "Class C" in columns ending with "Class"
+    # all_data$num_class_c <- rowSums(
+    #   select(all_data, ends_with("Class")) == "Class C",
+    #   na.rm = TRUE
+    # )
+    # 
+    # # Count "Class B" in columns ending with "Class"
+    # all_data$num_class_b <- rowSums(
+    #   select(all_data, ends_with("Class")) == "Class B",
+    #   na.rm = TRUE
+    # )
+    # 
+    # all_data = all_data |>
+    #   mutate(potato = rowSums(
+    #     select(all_data, ends_with("Class")) == "Class B", na.rm = TRUE
+    #   ))
+    # 
+    # return(all_data)
+    }
   })
   
   
@@ -293,15 +295,15 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%d/%m/%Y")
+      df$date <- as.date(df$date, "%d/%m/%Y")
       df
     })
     
     df <- bind_rows(sed_dfs_clean) |>
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Tacobamba arriba Pilcomayo")) |>
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Pilcomayo arriba Tacobamba"))
     
@@ -329,15 +331,15 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$Date <- as.Date(df$Date, "%d/%m/%Y")
+      df$date <- as.date(df$date, "%d/%m/%Y")
       df
     })
     
     df <- bind_rows(sed_dfs_usgs) |>
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Tacobamba arriba Pilcomayo")) |>
-      mutate(Station = str_replace(Station,
+      mutate(station = str_replace(station,
                                    "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
                                    "Pilcomayo arriba Tacobamba"))
     
@@ -361,7 +363,7 @@ server <- function(input, output, session) {
     # 4. Calculate standardized score
     df$sed_score <- (df$num_above_tel + df$num_above_pel * 2) / df$n_params
     
-    df$unique <- paste(df$station, df$Date, sep = " - ")
+    df$unique <- paste(df$station, df$date, sep = " - ")
     
     return(df)
   })
@@ -462,7 +464,7 @@ server <- function(input, output, session) {
   # Sediment Data (Clean)
   # output$download_sed_clean <- downloadHandler(
   #   filename = function() {
-  #     paste0("sed_", str_to_lower(input$download_year), "_clean_", Sys.Date(), ".csv")
+  #     paste0("sed_", str_to_lower(input$download_year), "_clean_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     data <- if (input$data_scope == "bol") {
@@ -482,7 +484,7 @@ server <- function(input, output, session) {
   # Sediment Data (USGS)
   # output$download_sed_usgs <- downloadHandler(
   #   filename = function() {
-  #     paste0("sed_", str_to_lower(input$download_year), "_usgs_", Sys.Date(), ".csv")
+  #     paste0("sed_", str_to_lower(input$download_year), "_usgs_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     data <- if (input$data_scope == "bol") {
@@ -502,7 +504,7 @@ server <- function(input, output, session) {
   # Water Data (Clean)
   # output$download_water_clean <- downloadHandler(
   #   filename = function() {
-  #     paste0("water_", str_to_lower(input$download_year), "_clean_", Sys.Date(), ".csv")
+  #     paste0("water_", str_to_lower(input$download_year), "_clean_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     data <- if (input$data_scope == "bol") {
@@ -522,7 +524,7 @@ server <- function(input, output, session) {
   # Water Data (1333)
   # output$download_water_1333 <- downloadHandler(
   #   filename = function() {
-  #     paste0("water_", str_to_lower(input$download_year), "_1333_", Sys.Date(), ".csv")
+  #     paste0("water_", str_to_lower(input$download_year), "_1333_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     data <- if (input$data_scope == "bol") {
@@ -542,7 +544,7 @@ server <- function(input, output, session) {
   # USGS Standards Table
   # output$download_usgs_standards <- downloadHandler(
   #   filename = function() {
-  #     paste0("usgs_sqgs_", Sys.Date(), ".csv")
+  #     paste0("usgs_sqgs_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     
@@ -556,7 +558,7 @@ server <- function(input, output, session) {
   # Bolivian 1333 Standards Table
   # output$download_1333_standards <- downloadHandler(
   #   filename = function() {
-  #     paste0("bolivian_1333_stds_", Sys.Date(), ".csv")
+  #     paste0("bolivian_1333_stds_", Sys.date(), ".csv")
   #   },
   #   content = function(file) {
   #     
@@ -665,39 +667,16 @@ server <- function(input, output, session) {
   })
   
   observe({
-    
-    excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
-                          "Latitude Decimal", "Longitude Decimal", 
-                          "Lat_dd", "Long_dd",
-                          "Distance from Bank", "Distance from Shore",
-                          "Average Velocity (m/s)", "Flow (m3/s)",
-                          "Clay (%)", "Silt (%)", "Sand (%)",
-                          "0.032 mm - No. 450 (ASTM) (%)",
-                          "0.063 mm - No. 230 (ASTM) (%)",
-                          "0.125 mm - No. 120 (ASTM) (%)",
-                          "0.250 mm - No. 060 (ASTM) (%)",
-                          "0.500 mm - No. 035 (ASTM) (%)",
-                          "1.00 mm - No. 018 (ASTM) (%)",
-                          "2.00 mm - No. 010 (ASTM) (%)",
-                          "Year", "0.016 mm (%)",
-                          "4.75 mm - No. 004 (ASTM) (%)",
-                          "num_unclass",
-                          "num_class_b",
-                          "num_class_c",
-                          "num_class_d")
-    
-    numeric_params <- active_water_1333() %>%  
-      select(where(is.numeric)) %>%
-      select(-any_of(excluded_columns)) %>%
-      names()
+    df = master_data$all_media_scored
+    param_list = get_param_list(df)
     
     updateSelectInput(inputId = "station_plot_param",
-                      choices = numeric_params,
-                      selected = "Total Arsenic (ug/l As)")
+                      choices = param_list,
+                      selected = "Arsenic")
     
     updateSelectInput(inputId = "observation_plot_param",
-                      choices = numeric_params,
-                      selected = "Total Arsenic (ug/l As)")
+                      choices = param_list,
+                      selected = "Arsenic")
   })
   
   usgs_map <- c(
@@ -710,314 +689,323 @@ server <- function(input, output, session) {
     grep(" USGS$", colnames(active_sed_usgs()), value = TRUE)
   })
   
-  observe({
-    
-    excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
-                          "Latitude Decimal", "Longitude Decimal", 
-                          "Lat_dd", "Long_dd",
-                          "Distance from Bank", "Distance from Shore",
-                          "Average Velocity (m/s)", "Flow (m3/s)",
-                          "Clay (%)", "Silt (%)", "Sand (%)",
-                          "0.032 mm - No. 450 (ASTM) (%)",
-                          "0.063 mm - No. 230 (ASTM) (%)",
-                          "0.125 mm - No. 120 (ASTM) (%)",
-                          "0.250 mm - No. 060 (ASTM) (%)",
-                          "0.500 mm - No. 035 (ASTM) (%)",
-                          "1.00 mm - No. 018 (ASTM) (%)",
-                          "2.00 mm - No. 010 (ASTM) (%)",
-                          "Year", "0.016 mm (%)",
-                          "4.75 mm - No. 004 (ASTM) (%)",
-                          "num_unclass",
-                          "num_class_b",
-                          "num_class_c",
-                          "num_class_d")
-    
-    numeric_params_sed <- active_sed_clean() |>
-      select(where(is.numeric)) |>
-      select(-any_of(excluded_columns)) |>
-      names()
-    
-    updateSelectInput(inputId = "station_plot_param_sed",
-                      choices = numeric_params_sed,
-                      selected = "Arsenic (mg/kg As)")
-    
-    updateSelectInput(inputId = "observation_plot_param_sed",
-                      choices = numeric_params_sed,
-                      selected = "Arsenic (mg/kg As)")
-    
-    updateSelectInput(inputId = "sieve_plot_param",
-                      choices = numeric_params_sed,
-                      selected = "Arsenic (mg/kg As)")
-  })
+  # observe({
+  #   
+  #   params_list = get_param_list()
+  #   
+  #   updateSelectInput(inputId = "station_plot_param_sed",
+  #                     choices = numeric_params_sed,
+  #                     selected = "Arsenic")
+  #   
+  #   updateSelectInput(inputId = "observation_plot_param_sed",
+  #                     choices = numeric_params_sed,
+  #                     selected = "Arsenic")
+  #   
+  #   updateSelectInput(inputId = "sieve_plot_param",
+  #                     choices = numeric_params_sed,
+  #                     selected = "Arsenic")
+  # })
   
   
   # Compute water quality score per observation (row)
   observation_scores <- reactive({
+    param = input$observation_plot_param
+    req(param)
+    
     cat("\n=== DEBUG observation_scores ===\n")
-    active_water_1333() %>%
-      rowwise() %>%
-      mutate(
-        water_score = mean(
-          unlist(across(any_of(class_cols()), ~ class_map[.x])),
-          na.rm = TRUE
-        )
+    cat("\nparam: ", param, "\n", "nrow(param): ", nrow(param))    
+    df <- active_water_1333() |>
+      filter(parameter == param)
+    
+    if (is.null(df) || nrow(df) == 0) {
+      cat("\n[observation_scores] No data found.\n")
+      return(NULL)
+    }
+    
+    # Ensure HQ exists
+    if (!"HQ" %in% names(df)) {
+      message("[observation_scores] HQ column not found in active_water_1333()")
+      cat("[observation_scores] HQ column not found in active_water_1333()")
+      return(NULL) # just a throwaway instead of STOP
+    }
+    # View(df)
+    # Compute HQ-based water score per observation
+    out <- df %>%
+      group_by(station, date) %>%
+      summarise(
+        water_score = mean(HQ, na.rm = TRUE),   # <- NEW HQ-based score
+        max_HQ      = max(HQ, na.rm = TRUE),    # optional
+        n_params    = sum(!is.na(HQ)),
+        .groups = "drop"
       ) %>%
-      ungroup() %>%
-      select(Station, Campaign, Date, Time, `Latitude Decimal`, `Longitude Decimal`, water_score, num_class_b, num_class_c, num_class_d, num_unclass) %>%
-      filter(!is.nan(water_score))
+      filter(is.finite(water_score))
+    # View(out)
+    return(out)
+  })
+  
+  output$observation_scores_ui <- renderUI({
+    df <- observation_scores()
+    
+    if (is.null(df) || nrow(df) == 0) {
+      return(no_data_callout("water"))
+    }
+    
+    # otherwise return the plot output placeholder
+    plotlyOutput("observation_scores_plot", height = "500px")
   })
   
   
   output$observation_scores_plot <- renderPlotly({
+    df = observation_scores()
     
-    if (input$observation_plot_type == "class") {
-      
-      if (input$observation_plot_class == "worst_score") {
-        p <- observation_scores() |>
-          slice_max(water_score, n = 15) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, water_score)) |>
-          ggplot(aes(x = label, y = water_score, 
-                     text = paste("Water Quality Score:", round(water_score, 2)))) +
-          geom_col(fill = "darkslateblue") +
-          coord_flip() +
-          theme_minimal() +
-          labs(
-            title = "Overall Water Score: Top 15 Worst Observations (Bolivia)", 
-            subtitle = "Lower scores indicate better water quality",
-            x = NULL, y = "Water Quality Score (0=best, 4=worst)"
-          )
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_class == "class_b") {
-        p <- observation_scores() |>
-          slice_max(num_class_b, n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, num_class_b)) |>
-          ggplot(aes(x = label, y = num_class_b,
-                     text = paste("# Class B Parameters:", num_class_b))) +
-          geom_col(fill = "lightgreen") +
-          coord_flip() +
-          theme_minimal() +
-          labs(
-            title = "# Class B: Top 15 Observations (Bolivia)",
-            x = NULL, y = "Number of Class B Parameters"
-          )
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_class == "class_c") {
-        p <- observation_scores() |>
-          slice_max(num_class_c, n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, num_class_c)) |>
-          ggplot(aes(x = label, y = num_class_c,
-                     text = paste("# Class C Parameters:", num_class_c))) +
-          geom_col(fill = "gold") +
-          coord_flip() +
-          theme_minimal() +
-          labs(
-            title = "# Class C: Top 15 Observations (Bolivia)",
-            x = NULL, y = "Number of Class C Parameters"
-          )
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_class == "class_d") {
-        p <- observation_scores() |>
-          slice_max(num_class_d, n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, num_class_d)) |>
-          ggplot(aes(x = label, y = num_class_d,
-                     text = paste("# Class D Parameters:", num_class_d))) +
-          geom_col(fill = "darkorange") +
-          coord_flip() +
-          theme_minimal() +
-          labs(
-            title = "# Class D: Top 15 Observations (Bolivia)",
-            x = NULL, y = "Number of Class D Parameters"
-          )
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_class == "unclassified") {
-        p <- observation_scores() |>
-          slice_max(num_unclass, n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, num_unclass)) |>
-          ggplot(aes(x = label, y = num_unclass,
-                     text = paste("# Unclassified Parameters:", num_unclass))) +
-          geom_col(fill = "firebrick") +
-          coord_flip() +
-          theme_minimal() +
-          labs(
-            title = "# Unclassified: Top 15 Observations (Bolivia)",
-            x = NULL, y = "Number of Unclassified Parameters"
-          )
-        quiet_plotly(p, tooltip = "text")
-      }
-      
-    } 
-    else if (input$observation_plot_type == "value") {
-      param <- input$observation_plot_param
-      
-      if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
-        req(param)
-        p <- active_water_1333() |>
-          slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, -.data[[param]])) |>
-          ggplot(aes(x = label, y = .data[[param]],
-                     text = paste0(param, ": ", round(.data[[param]], 3)))) +
-          geom_col(fill = "steelblue") +
-          labs(title = paste("15 Lowest Observations for", param),
-               x = NULL, y = param) +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else {
-        req(param)
-        p <- active_water_1333() |>
-          slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, .data[[param]])) |>
-          ggplot(aes(x = label, y = .data[[param]],
-                     text = paste0(param, ": ", round(.data[[param]], 3)))) +
-          geom_col(fill = "steelblue") +
-          labs(title = paste("15 Highest Observations for", param),
-               x = NULL, y = param) +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      }
-    } 
-    else if (input$observation_plot_type == "usgs") {
-      
-      df <- active_sed_usgs()
-      
-      if (input$observation_plot_usgs == "above_tel") {
-        p <- df |>
-          slice_max(num_above_tel, n = 15, with_ties = FALSE) |>
-          mutate(
-            label = paste0(Station, " (", Date, ")"),
-            label = make.unique(label),
-            label = fct_reorder(label, num_above_tel)) |>
-          ggplot(aes(x = label, y = num_above_tel,
-                     text = paste("# Above TEL:", num_above_tel, "<br>",
-                                  "Sieve Size:", `Sieve Size`, "<br>",
-                                  "Distance from Bank:", `Distance from Bank`))) +
-          geom_col(fill = "darkorange") +
-          labs(title = "# Above TEL: Top 15 Observations (Bolivia)",
-               x = NULL, y = "Number of Parameters Above TEL") +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_usgs == "above_pel") {
-        p <- df |>
-          slice_max(num_above_pel, n = 15, with_ties = FALSE) |>
-          mutate(
-            label = paste0(Station, " (", Date, ")"),
-            label = make.unique(label),
-            label = fct_reorder(label, num_above_pel)) |>
-          ggplot(aes(x = label, y = num_above_pel,
-                     text = paste("# Above PEL:", num_above_pel, "<br>",
-                                  "Sieve Size:", `Sieve Size`, "<br>",
-                                  "Distance from Bank:", `Distance from Bank`))) +
-          geom_col(fill = "firebrick") +
-          labs(title = "# Above PEL: Top 15 Observations (Bolivia)",
-               x = NULL, y = "Number of Parameters Above PEL") +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$observation_plot_usgs == "worst_score") {
-        p <- df |>
-          slice_max(sed_score, n = 15, with_ties = FALSE) |>
-          mutate(
-            label = paste0(Station, " (", Date, ")"),
-            label = make.unique(label),
-            label = fct_reorder(label, sed_score)) |>
-          ggplot(aes(x = label, y = sed_score,
-                     text = paste("Sediment Quality Score:", round(sed_score, 2), "<br>",
-                                  "Sieve Size:", `Sieve Size`, "<br>",
-                                  "Distance from Bank:", `Distance from Bank`))) +
-          geom_col(fill = "darkslateblue") +
-          labs(title = "Overall Sediment Score: Top 15 Observations (Bolivia)",
-               x = NULL, y = "Sediment Quality Score (0=best, 2=worst)") +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      }
-      
-      
-      
-    } 
-    else if (input$observation_plot_type == "sed_value") {
-      
-      param <- input$observation_plot_param_sed
-      
-      df <- active_sed_clean()
-      
-      req(param)
-      p <- df |>
-        slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
-        mutate(
-          label = paste0(Station, " (", Date, ")"),
-          label = make.unique(label),
-          label = fct_reorder(label, .data[[param]])) |>
-        ggplot(aes(x = label, y = .data[[param]],
-                   text = paste0(param, ": ", round(.data[[param]], 3), "<br>",
-                                 "Sieve Size:", `Sieve Size`, "<br>",
-                                 "Distance from Bank:", `Distance from Bank`))) +
-        geom_col(fill = "tan") +
-        labs(title = paste("15 Highest Observations for", param),
-             x = NULL, y = param) +
-        coord_flip() +
-        theme_minimal()
-      
+    if (is.null(df) || nrow(df) == 0) {
+      return(NULL)
+    }
+    
+    p <- df |>
+      slice_max(water_score, n = 15) |>
+      mutate(label = paste0(station, " (", date, ")"),
+             label = fct_reorder(label, water_score))
+    # View(p)
+    p = p |>
+      ggplot(aes(x = label, y = water_score, 
+                 text = paste("Water Quality Score:", round(water_score, 2)))) +
+      geom_col(fill = "darkslateblue") +
+      coord_flip() +
+      theme_minimal() +
+      labs(
+        title = "Overall Water Score: Top 15 Worst Observations (Bolivia)", 
+        subtitle = "Lower scores indicate better water quality",
+        x = NULL, y = "Water Quality Score (0=best, 4=worst)"
+      )
       quiet_plotly(p, tooltip = "text")
-      
-    }
-    else if (input$observation_plot_type == "hq") {
-      param <- input$observation_plot_param
-      
-      if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
-        req(param)
-        p <- active_water_1333() |>
-          slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, -.data[[param]])) |>
-          ggplot(aes(x = label, y = .data[[param]],
-                     text = paste0(param, ": ", round(.data[[param]], 3)))) +
-          geom_col(fill = "steelblue") +
-          labs(title = paste("15 Lowest Observations for", param),
-               x = NULL, y = param) +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else {
-        req(param)
-        p <- active_water_1333() |>
-          slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
-          mutate(label = paste0(Station, " (", Date, ")"),
-                 label = fct_reorder(label, .data[[param]])) |>
-          ggplot(aes(x = label, y = .data[[param]],
-                     text = paste0(param, ": ", round(.data[[param]], 3)))) +
-          geom_col(fill = "steelblue") +
-          labs(title = paste("15 Highest Observations for", param),
-               x = NULL, y = param) +
-          coord_flip() +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      }
-    }
-    
-  })
-  
-  
+    }) 
+    #   else if (input$observation_plot_class == "class_b") {
+    #     p <- observation_scores() |>
+    #       slice_max(num_class_b, n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, num_class_b)) |>
+    #       ggplot(aes(x = label, y = num_class_b,
+    #                  text = paste("# Class B Parameters:", num_class_b))) +
+    #       geom_col(fill = "lightgreen") +
+    #       coord_flip() +
+    #       theme_minimal() +
+    #       labs(
+    #         title = "# Class B: Top 15 Observations (Bolivia)",
+    #         x = NULL, y = "Number of Class B Parameters"
+    #       )
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$observation_plot_class == "class_c") {
+    #     p <- observation_scores() |>
+    #       slice_max(num_class_c, n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, num_class_c)) |>
+    #       ggplot(aes(x = label, y = num_class_c,
+    #                  text = paste("# Class C Parameters:", num_class_c))) +
+    #       geom_col(fill = "gold") +
+    #       coord_flip() +
+    #       theme_minimal() +
+    #       labs(
+    #         title = "# Class C: Top 15 Observations (Bolivia)",
+    #         x = NULL, y = "Number of Class C Parameters"
+    #       )
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$observation_plot_class == "class_d") {
+    #     p <- observation_scores() |>
+    #       slice_max(num_class_d, n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, num_class_d)) |>
+    #       ggplot(aes(x = label, y = num_class_d,
+    #                  text = paste("# Class D Parameters:", num_class_d))) +
+    #       geom_col(fill = "darkorange") +
+    #       coord_flip() +
+    #       theme_minimal() +
+    #       labs(
+    #         title = "# Class D: Top 15 Observations (Bolivia)",
+    #         x = NULL, y = "Number of Class D Parameters"
+    #       )
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$observation_plot_class == "unclassified") {
+    #     p <- observation_scores() |>
+    #       slice_max(num_unclass, n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, num_unclass)) |>
+    #       ggplot(aes(x = label, y = num_unclass,
+    #                  text = paste("# Unclassified Parameters:", num_unclass))) +
+    #       geom_col(fill = "firebrick") +
+    #       coord_flip() +
+    #       theme_minimal() +
+    #       labs(
+    #         title = "# Unclassified: Top 15 Observations (Bolivia)",
+    #         x = NULL, y = "Number of Unclassified Parameters"
+    #       )
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    #   
+    # 
+    # else if (input$observation_std == "value") {
+    #   param <- input$observation_plot_param
+    #   
+    #   if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
+    #     req(param)
+    #     p <- active_water_1333() |>
+    #       slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, -.data[[param]])) |>
+    #       ggplot(aes(x = label, y = .data[[param]],
+    #                  text = paste0(param, ": ", round(.data[[param]], 3)))) +
+    #       geom_col(fill = "steelblue") +
+    #       labs(title = paste("15 Lowest Observations for", param),
+    #            x = NULL, y = param) +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else {
+    #     req(param)
+    #     p <- active_water_1333() |>
+    #       slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, .data[[param]])) |>
+    #       ggplot(aes(x = label, y = .data[[param]],
+    #                  text = paste0(param, ": ", round(.data[[param]], 3)))) +
+    #       geom_col(fill = "steelblue") +
+    #       labs(title = paste("15 Highest Observations for", param),
+    #            x = NULL, y = param) +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    # } 
+    # else if (input$observation_std == "usgs") {
+    #   
+    #   df <- active_sed_usgs()
+    #   
+    #   if (input$observation_plot_usgs == "above_tel") {
+    #     p <- df |>
+    #       slice_max(num_above_tel, n = 15, with_ties = FALSE) |>
+    #       mutate(
+    #         label = paste0(station, " (", date, ")"),
+    #         label = make.unique(label),
+    #         label = fct_reorder(label, num_above_tel)) |>
+    #       ggplot(aes(x = label, y = num_above_tel,
+    #                  text = paste("# Above TEL:", num_above_tel, "<br>",
+    #                               "Sieve Size:", `Sieve Size`, "<br>",
+    #                               "Distance from Bank:", `Distance from Bank`))) +
+    #       geom_col(fill = "darkorange") +
+    #       labs(title = "# Above TEL: Top 15 Observations (Bolivia)",
+    #            x = NULL, y = "Number of Parameters Above TEL") +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$observation_plot_usgs == "above_pel") {
+    #     p <- df |>
+    #       slice_max(num_above_pel, n = 15, with_ties = FALSE) |>
+    #       mutate(
+    #         label = paste0(station, " (", date, ")"),
+    #         label = make.unique(label),
+    #         label = fct_reorder(label, num_above_pel)) |>
+    #       ggplot(aes(x = label, y = num_above_pel,
+    #                  text = paste("# Above PEL:", num_above_pel, "<br>",
+    #                               "Sieve Size:", `Sieve Size`, "<br>",
+    #                               "Distance from Bank:", `Distance from Bank`))) +
+    #       geom_col(fill = "firebrick") +
+    #       labs(title = "# Above PEL: Top 15 Observations (Bolivia)",
+    #            x = NULL, y = "Number of Parameters Above PEL") +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$observation_plot_usgs == "worst_score") {
+    #     p <- df |>
+    #       slice_max(sed_score, n = 15, with_ties = FALSE) |>
+    #       mutate(
+    #         label = paste0(station, " (", date, ")"),
+    #         label = make.unique(label),
+    #         label = fct_reorder(label, sed_score)) |>
+    #       ggplot(aes(x = label, y = sed_score,
+    #                  text = paste("Sediment Quality Score:", round(sed_score, 2), "<br>",
+    #                               "Sieve Size:", `Sieve Size`, "<br>",
+    #                               "Distance from Bank:", `Distance from Bank`))) +
+    #       geom_col(fill = "darkslateblue") +
+    #       labs(title = "Overall Sediment Score: Top 15 Observations (Bolivia)",
+    #            x = NULL, y = "Sediment Quality Score (0=best, 2=worst)") +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    #   
+    #   
+    #   
+    # } 
+    # else if (input$observation_std == "sed_value") {
+    #   
+    #   param <- input$observation_plot_param_sed
+    #   
+    #   df <- active_sed_clean()
+    #   
+    #   req(param)
+    #   p <- df |>
+    #     slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
+    #     mutate(
+    #       label = paste0(station, " (", date, ")"),
+    #       label = make.unique(label),
+    #       label = fct_reorder(label, .data[[param]])) |>
+    #     ggplot(aes(x = label, y = .data[[param]],
+    #                text = paste0(param, ": ", round(.data[[param]], 3), "<br>",
+    #                              "Sieve Size:", `Sieve Size`, "<br>",
+    #                              "Distance from Bank:", `Distance from Bank`))) +
+    #     geom_col(fill = "tan") +
+    #     labs(title = paste("15 Highest Observations for", param),
+    #          x = NULL, y = param) +
+    #     coord_flip() +
+    #     theme_minimal()
+    #   
+    #   quiet_plotly(p, tooltip = "text")
+    #   
+    # }
+    # else if (input$observation_std == "hq") {
+    #   param <- input$observation_plot_param
+    #   
+    #   if (param == "Oxygen Saturation (%)" | param == "Dissolved Oxygen (mg/l O2)" | param == "pH" | param == "Resistivity (Ohm.cm)") {
+    #     req(param)
+    #     p <- active_water_1333() |>
+    #       slice_min(.data[[param]], n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, -.data[[param]])) |>
+    #       ggplot(aes(x = label, y = .data[[param]],
+    #                  text = paste0(param, ": ", round(.data[[param]], 3)))) +
+    #       geom_col(fill = "steelblue") +
+    #       labs(title = paste("15 Lowest Observations for", param),
+    #            x = NULL, y = param) +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else {
+    #     req(param)
+    #     p <- active_water_1333() |>
+    #       slice_max(.data[[param]], n = 15, with_ties = FALSE) |>
+    #       mutate(label = paste0(station, " (", date, ")"),
+    #              label = fct_reorder(label, .data[[param]])) |>
+    #       ggplot(aes(x = label, y = .data[[param]],
+    #                  text = paste0(param, ": ", round(.data[[param]], 3)))) +
+    #       geom_col(fill = "steelblue") +
+    #       labs(title = paste("15 Highest Observations for", param),
+    #            x = NULL, y = param) +
+    #       coord_flip() +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    # }
   
   # Calculate max date for recency weighting
   max_date <- reactive({
-    max(active_water_1333()$Date, na.rm = TRUE)
+    max(active_water_1333()$date, na.rm = TRUE)
   })
   
-  # Calculate weighted normalized score per observation, then aggregate by Station
+  # Calculate weighted normalized score per observation, then aggregate by station
   station_scores <- reactive({
     observation_scores() %>%
-      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")) / 365.25)) %>%
-      group_by(Station) %>%
+      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), date, units = "days")) / 365.25)) %>%
+      group_by(station) %>%
       summarise(
         mean_water_score = if (input$station_plot_recency == TRUE) weighted.mean(water_score, weight, na.rm = TRUE) else mean(water_score, na.rm = TRUE),
         mean_class_b = mean(num_class_b),
@@ -1034,8 +1022,8 @@ server <- function(input, output, session) {
   
   station_scores_sed <- reactive({
     active_sed_usgs() |>
-      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), Date, units = "days")))) |>
-      group_by(Station) |>
+      mutate(weight = 1 / (1 + as.numeric(difftime(max_date(), date, units = "days")))) |>
+      group_by(station) |>
       summarize(
         mean_sed_score = if (input$station_plot_recency_sed == TRUE) weighted.mean(sed_score, weight, na.rm = TRUE) else mean(sed_score, na.rm = TRUE),
         mean_above_tel = mean(num_above_tel),
@@ -1053,13 +1041,13 @@ server <- function(input, output, session) {
       if (input$station_plot_class == "worst_score") {
         p <- station_scores() |>
           slice_max(mean_water_score, n = 15) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_water_score), y = mean_water_score,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_water_score), y = mean_water_score,
                      text = paste("Mean Water Quality Score:", round(mean_water_score, 2)))) +
           geom_col(fill = "darkslateblue") +
           coord_flip() +
           labs(
-            title = "Overall Water Score: Top 15 Worst Stations (Bolivia)",
+            title = "Overall Water Score: Top 15 Worst stations (Bolivia)",
             subtitle = "Lower scores indicate better water quality",
             x = NULL,
             y = "Mean Water Quality Score (0=best, 4=worst)"
@@ -1070,13 +1058,13 @@ server <- function(input, output, session) {
         p <- station_scores() |>
           arrange(mean_class_b) |>
           slice_max(mean_class_b, n = 15) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_class_b), y = mean_class_b,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_class_b), y = mean_class_b,
                      text = paste("Mean # Class B Parameters:", round(mean_class_b, 2)))) +
           geom_col(fill = "lightgreen") +
           coord_flip() +
           labs(
-            title = "Mean # Class B: Top 15 Stations (Bolivia)",
+            title = "Mean # Class B: Top 15 stations (Bolivia)",
             subtitle = "Ranked by mean number of Class B parameters",
             x = NULL,
             y = "Mean number of Class B parameters"
@@ -1087,13 +1075,13 @@ server <- function(input, output, session) {
         p <- station_scores() |>
           arrange(mean_class_c) |>
           slice_max(mean_class_c, n = 15) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_class_c), y = mean_class_c,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_class_c), y = mean_class_c,
                      text = paste("Mean # Class C Parameters:", round(mean_class_c, 2)))) +
           geom_col(fill = "gold") +
           coord_flip() +
           labs(
-            title = "Mean # Class C: Top 15 Stations (Bolivia)",
+            title = "Mean # Class C: Top 15 stations (Bolivia)",
             subtitle = "Ranked by mean number of Class C parameters",
             x = NULL,
             y = "Mean number of Class C parameters"
@@ -1104,13 +1092,13 @@ server <- function(input, output, session) {
         p <- station_scores() |>
           arrange(mean_class_d) |>
           slice_max(mean_class_d, n = 15) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_class_d), y = mean_class_d,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_class_d), y = mean_class_d,
                      text = paste("Mean # Class D Parameters:", round(mean_class_d, 2)))) +
           geom_col(fill = "darkorange") +
           coord_flip() +
           labs(
-            title = "Mean # Class D: Top 15 Stations (Bolivia)",
+            title = "Mean # Class D: Top 15 stations (Bolivia)",
             subtitle = "Ranked by mean number of Class D parameters",
             x = NULL,
             y = "Mean number of Class D parameters"
@@ -1121,13 +1109,13 @@ server <- function(input, output, session) {
         p <- station_scores() |>
           arrange(mean_unclass) |>
           slice_max(mean_unclass, n = 15) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_unclass), y = mean_unclass,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_unclass), y = mean_unclass,
                      text = paste("Mean # Unclassified Parameters:", round(mean_unclass, 2)))) +
           geom_col(fill = "firebrick") +
           coord_flip() +
           labs(
-            title = "Mean # Unclassified: Top 15 Stations (Bolivia)",
+            title = "Mean # Unclassified: Top 15 stations (Bolivia)",
             subtitle = "Ranked by mean number of Unclassified parameters",
             x = NULL,
             y = "Mean number of Unclassified parameters"
@@ -1148,7 +1136,7 @@ server <- function(input, output, session) {
         
         # Summarize max value per station
         summary_df <- active_water_1333() %>%
-          group_by(Station) %>%
+          group_by(station) %>%
           summarise(
             max_value = max(.data[[param]], na.rm = TRUE),
             min_value = min(.data[[param]], na.rm = TRUE),
@@ -1163,13 +1151,13 @@ server <- function(input, output, session) {
           req(param)
           
           p <- summary_df %>%
-            mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(Station_label, -min_value), y = min_value,
+            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+            ggplot(aes(x = reorder(station_label, -min_value), y = min_value,
                        text = paste0("Min ", param, ": ", round(min_value, 3)))) +
             geom_col(fill = "steelblue") +
             coord_flip() +
             labs(
-              title = paste("Bottom 15 Stations by Min", param),
+              title = paste("Bottom 15 stations by Min", param),
               subtitle = "Minimum recorded value between 2016–2024",
               x = NULL,
               y = param
@@ -1184,13 +1172,13 @@ server <- function(input, output, session) {
           req(param)
           
           p <- summary_df %>%
-            mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(Station_label, max_value), y = max_value,
+            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+            ggplot(aes(x = reorder(station_label, max_value), y = max_value,
                        text = paste0("Max ", param, ": ", round(max_value, 3)))) +
             geom_col(fill = "steelblue") +
             coord_flip() +
             labs(
-              title = paste("Top 15 Stations by Max", param),
+              title = paste("Top 15 stations by Max", param),
               subtitle = "Maximum recorded value between 2016–2024",
               x = NULL,
               y = param
@@ -1205,7 +1193,7 @@ server <- function(input, output, session) {
         
         # Summarize average value per station
         summary_df <- active_water_1333() %>%
-          group_by(Station) %>%
+          group_by(station) %>%
           summarise(
             avg_value = mean(.data[[param]], na.rm = TRUE),
             n_obs = sum(!is.na(.data[[param]])),
@@ -1219,13 +1207,13 @@ server <- function(input, output, session) {
           req(param)
           
           p <- summary_df %>%
-            mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(Station_label, -avg_value), y = avg_value,
+            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+            ggplot(aes(x = reorder(station_label, -avg_value), y = avg_value,
                        text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
             geom_col(fill = "steelblue") +
             coord_flip() +
             labs(
-              title = paste("Bottom 15 Stations by Average", param),
+              title = paste("Bottom 15 stations by Average", param),
               subtitle = "Average value between 2016–2024",
               x = NULL,
               y = param
@@ -1240,13 +1228,13 @@ server <- function(input, output, session) {
           req(param)
           
           p <- summary_df %>%
-            mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(Station_label, avg_value), y = avg_value,
+            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+            ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
                        text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
             geom_col(fill = "steelblue") +
             coord_flip() +
             labs(
-              title = paste("Top 15 Stations by Average", param),
+              title = paste("Top 15 stations by Average", param),
               subtitle = "Average value between 2016–2024",
               x = NULL,
               y = param
@@ -1265,12 +1253,12 @@ server <- function(input, output, session) {
         p <- station_scores_sed() |>
           arrange(mean_sed_score) |>
           slice_max(mean_sed_score, n = 15, with_ties = FALSE) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_sed_score), y = mean_sed_score,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_sed_score), y = mean_sed_score,
                      text = paste("Mean Sediment Quality Score:", round(mean_sed_score, 2)))) +
           geom_col(fill = "darkslateblue") +
           coord_flip() +
-          labs(title = "Overall Sediment Score: Top 15 Worst Stations (Bolivia)",
+          labs(title = "Overall Sediment Score: Top 15 Worst stations (Bolivia)",
                x = NULL, y = "Mean Sediment Quality Score (0=best, 2=worst)") +
           theme_minimal()
         
@@ -1283,12 +1271,12 @@ server <- function(input, output, session) {
         p <- station_scores_sed() |>
           arrange(mean_above_tel) |>
           slice_max(mean_above_tel, n = 15, with_ties = FALSE) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_above_tel), y = mean_above_tel,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_above_tel), y = mean_above_tel,
                      text = paste("Mean # Above TEL:", round(mean_above_tel, 2)))) +
           geom_col(fill = "darkorange") +
           coord_flip() +
-          labs(title = "Mean # Above TEL: Top 15 Worst Stations (Bolivia)",
+          labs(title = "Mean # Above TEL: Top 15 Worst stations (Bolivia)",
                x = NULL, y = "Mean Number of Parameters Above TEL") +
           theme_minimal()
         
@@ -1301,12 +1289,12 @@ server <- function(input, output, session) {
         p <- station_scores_sed() |>
           arrange(mean_above_pel) |>
           slice_max(mean_above_pel, n = 15, with_ties = FALSE) |>
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(Station_label, mean_above_pel), y = mean_above_pel,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+          ggplot(aes(x = reorder(station_label, mean_above_pel), y = mean_above_pel,
                      text = paste("Mean # Above PEL:", round(mean_above_pel, 2)))) +
           geom_col(fill = "firebrick") +
           coord_flip() +
-          labs(title = "Mean # Above PEL: Top 15 Worst Stations (Bolivia)",
+          labs(title = "Mean # Above PEL: Top 15 Worst stations (Bolivia)",
                x = NULL, y = "Mean Number of Parameters Above PEL") +
           theme_minimal()
         
@@ -1321,7 +1309,7 @@ server <- function(input, output, session) {
       param <- input$station_plot_param_sed
       
       summary_df <- active_sed_clean() %>%
-        group_by(Station) %>%
+        group_by(station) %>%
         summarise(
           max_value = max(.data[[param]], na.rm = TRUE),
           min_value = min(.data[[param]], na.rm = TRUE),
@@ -1339,13 +1327,13 @@ server <- function(input, output, session) {
         req(param)
         
         p <- summary_df %>%
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-          ggplot(aes(x = reorder(Station_label, max_value), y = max_value,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+          ggplot(aes(x = reorder(station_label, max_value), y = max_value,
                      text = paste0("Max ", param, ": ", round(max_value, 3)))) +
           geom_col(fill = "tan") +
           coord_flip() +
           labs(
-            title = paste("Top 15 Stations by Max", param),
+            title = paste("Top 15 stations by Max", param),
             subtitle = "Maximum recorded value between 2016–2024",
             x = NULL,
             y = param
@@ -1361,13 +1349,13 @@ server <- function(input, output, session) {
         req(param)
         
         p <- summary_df %>%
-          mutate(Station_label = paste0(Station, " (n = ", n_obs, ")")) %>%
-          ggplot(aes(x = reorder(Station_label, avg_value), y = avg_value,
+          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+          ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
                      text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
           geom_col(fill = "tan") +
           coord_flip() +
           labs(
-            title = paste("Top 15 Stations by Average", param),
+            title = paste("Top 15 stations by Average", param),
             subtitle = "Average value between 2016–2024",
             x = NULL,
             y = param
@@ -1891,7 +1879,7 @@ server <- function(input, output, session) {
     campaigns <- unique(df$Campaign)
     campaigns <- campaigns[!is.na(campaigns)]
     
-    campaign_dates <- my(campaigns)  # Convert to Date using lubridate
+    campaign_dates <- my(campaigns)  # Convert to date using lubridate
     sorted_campaigns <- campaigns[order(campaign_dates)]
     
     return(sorted_campaigns)
@@ -2148,7 +2136,7 @@ server <- function(input, output, session) {
     
     map_points <- lapply(stations, function(station) {
       station_data <- df %>%
-        filter(Station == station,
+        filter(station == station,
                !is.na(CampaignYM),
                CampaignYM <= selected_campaign_ym)
       
@@ -2156,13 +2144,13 @@ server <- function(input, output, session) {
       station_data <- station_data[!is.na(station_data[[input$selected_parameter]]), ]
       
       if (nrow(station_data) > 0) {
-        station_data <- station_data[order(station_data$Date, decreasing = TRUE), ]
+        station_data <- station_data[order(station_data$date, decreasing = TRUE), ]
         
         # Precompute popup text for leaflet
         popup_text <- paste0(
-          "Station: ", station_data$station[1], "<br>",
+          "station: ", station_data$station[1], "<br>",
           "Campaign: ", station_data$campaign[1], "<br>",
-          "Date: ", format(station_data$date[1], "%Y-%m-%d"), "<br>",
+          "date: ", format(station_data$date[1], "%Y-%m-%d"), "<br>",
           input$selected_parameter, ": ", station_data[[input$selected_parameter]][1]
         )
         
@@ -2194,7 +2182,7 @@ server <- function(input, output, session) {
     
     map_points <- lapply(stations, function(station) {
       station_data <- df %>%
-        filter(Station == station,
+        filter(station == station,
                !is.na(CampaignYM),
                CampaignYM <= selected_campaign_ym)
       
@@ -2205,12 +2193,12 @@ server <- function(input, output, session) {
       ]
       
       if (nrow(station_data) > 0) {
-        station_data <- station_data[order(station_data$Date, decreasing = TRUE), ]
+        station_data <- station_data[order(station_data$date, decreasing = TRUE), ]
         
         popup_text <- paste0(
-          "Station: ", station_data$station[1], "<br>",
+          "station: ", station_data$station[1], "<br>",
           "Campaign: ", station_data$campaign[1], "<br>",
-          "Date: ", format(station_data$date[1], "%Y-%m-%d"), "<br>",
+          "date: ", format(station_data$date[1], "%Y-%m-%d"), "<br>",
           class_col(), ": ", station_data[[class_col()]][1], "<br>",
           value_col(), ": ", station_data[[value_col()]][1]
         )
@@ -2357,7 +2345,7 @@ server <- function(input, output, session) {
   #     year <- stringr::str_extract(basename(f), "\\d{4}")
   #     df <- readxl::read_xlsx(f)
   #     df$Year <- as.integer(year)
-  #     df$Date <- as.Date(df$Date, "%d/%m/%Y")
+  #     df$date <- as.date(df$date, "%d/%m/%Y")
   #     df
   #   })
   #   
@@ -2371,7 +2359,7 @@ server <- function(input, output, session) {
   #     year <- stringr::str_extract(basename(f), "\\d{4}")
   #     df <- readxl::read_xlsx(f)
   #     df$Year <- as.integer(year)
-  #     df$Date <- as.Date(df$Date, "%d/%m/%Y")
+  #     df$date <- as.date(df$date, "%d/%m/%Y")
   #     df
   #   })
   #   
@@ -2499,7 +2487,7 @@ server <- function(input, output, session) {
     }
     
     # Filter by station and parameter
-    cat(paste0("Station selected: ", input$ts_station, ". Parameter selected: ", input$ts_param))
+    cat(paste0("station selected: ", input$ts_station, ". Parameter selected: ", input$ts_param))
     cat(paste0("Total rows: ", nrow(df), ". Rows matching: "))
     df <- df %>%
       filter(station == input$ts_station,
@@ -2511,7 +2499,7 @@ server <- function(input, output, session) {
     
     # Rename for consistency with existing code
     df <- df %>%
-      rename(Date = date, value = concentration)
+      rename(date = date, value = concentration)
     cat(nrow(df))
     return(df)
   })  
@@ -2654,7 +2642,7 @@ server <- function(input, output, session) {
   #   df <- ts_filtered_data_sed()
   #   req(nrow(df) > 0)
   #   
-  #   df$date <- as.Date(df$date, format = "%d/%m/%Y")  
+  #   df$date <- as.date(df$date, format = "%d/%m/%Y")  
   #   
   #   # Create aggregated data for the line (average per date)
   #   df_line <- df %>%
@@ -2663,7 +2651,7 @@ server <- function(input, output, session) {
   #   
   #   # Start with the base plot using individual points
   #   p <- ggplot(df, aes(x = date, y = concentration,
-  #                       text = paste0("Date: ", date, "<br>",
+  #                       text = paste0("date: ", date, "<br>",
   #                                     input$ts_param, ": ", concentration, "<br>",
   #                                     "Sieve Size: ", sieve_size, "<br>",
   #                                     "Distance from Bank: ", distance_from_bank)))
@@ -2694,7 +2682,7 @@ server <- function(input, output, session) {
   #   p <- p +
   #     # Add the line using averaged data
   #     geom_line(data = df_line, aes(x = date, y = avg_value, group = 1,
-  #                                   text = paste0("Date: ", Date, "<br>",
+  #                                   text = paste0("date: ", date, "<br>",
   #                                                 "Average ", input$ts_param, ": ", round(avg_value, 3))),
   #               color = "black") +
   #     {if(has_variation) {
@@ -2779,7 +2767,7 @@ server <- function(input, output, session) {
     
     dateRangeInput(
       "sed_date_range",
-      "Select Date Range:",
+      "Select date Range:",
       start = min_date,
       end = max_date,
       min = min_date,
@@ -2793,12 +2781,12 @@ server <- function(input, output, session) {
     req(master_data$water_scored)
     req(nrow(master_data$water_scored) > 0)
     
-    date_col <- if ("date" %in% names(master_data$water_scored)) "date" else "Date"
+    date_col <- if ("date" %in% names(master_data$water_scored)) "date" else "date"
     dates <- master_data$water_scored[[date_col]]
     dates <- dates[!is.na(dates)]
     
-    if (!inherits(dates, "Date")) {
-      dates <- as.Date(dates)
+    if (!inherits(dates, "date")) {
+      dates <- as.date(dates)
     }
     
     min_date <- min(dates, na.rm = TRUE)
@@ -2806,7 +2794,7 @@ server <- function(input, output, session) {
     
     dateRangeInput(
       "water_date_range",
-      "Select Date Range:",
+      "Select date Range:",
       start = min_date,
       end = max_date,
       min = min_date,
@@ -2898,7 +2886,7 @@ server <- function(input, output, session) {
     
     df <- master_data$sed_scored
     
-    date_col <- if ("date" %in% names(df)) "date" else "Date"
+    date_col <- if ("date" %in% names(df)) "date" else "date"
     
     # Filter by Bolivia/All Locations
     if (!is.null(input$plot_data_scope) && input$plot_data_scope == "bol") {
@@ -2928,14 +2916,14 @@ server <- function(input, output, session) {
     
     # Filter by date range - NOW USING map_date_range instead of sed_date_range
     if (!is.null(input$map_date_range) && length(input$map_date_range) == 2) {
-      cat("  Date range input:", paste(input$map_date_range, collapse = " to "), "\n")
+      cat("  date range input:", paste(input$map_date_range, collapse = " to "), "\n")
       
-      if (!inherits(df[[date_col]], "Date")) {
-        df[[date_col]] <- as.Date(df[[date_col]])
+      if (!inherits(df[[date_col]], "date")) {
+        df[[date_col]] <- as.date(df[[date_col]])
       }
       
-      start_date <- as.Date(input$map_date_range[1])
-      end_date <- as.Date(input$map_date_range[2])
+      start_date <- as.date(input$map_date_range[1])
+      end_date <- as.date(input$map_date_range[2])
       
       df <- df %>%
         filter(.data[[date_col]] >= start_date,
@@ -2971,7 +2959,7 @@ server <- function(input, output, session) {
     req(input$plot_media == "water")
     
     df <- master_data$water_scored
-    date_col <- if ("date" %in% names(df)) "date" else "Date"
+    date_col <- if ("date" %in% names(df)) "date" else "date"
     
     # Bolivia filter
     if (!is.null(input$plot_data_scope) && input$plot_data_scope == "bol") {
@@ -2993,14 +2981,14 @@ server <- function(input, output, session) {
         st_drop_geometry()
     }
     
-    # Date filter
+    # date filter
     if (!is.null(input$water_date_range) && length(input$water_date_range) == 2) {
-      if (!inherits(df[[date_col]], "Date")) {
-        df[[date_col]] <- as.Date(df[[date_col]])
+      if (!inherits(df[[date_col]], "date")) {
+        df[[date_col]] <- as.date(df[[date_col]])
       }
       
-      start_date <- as.Date(input$water_date_range[1])
-      end_date <- as.Date(input$water_date_range[2])
+      start_date <- as.date(input$water_date_range[1])
+      end_date <- as.date(input$water_date_range[2])
       
       df <- df %>%
         filter(.data[[date_col]] >= start_date, .data[[date_col]] <= end_date)
@@ -3084,8 +3072,8 @@ server <- function(input, output, session) {
       colors <- pal(sed_df$concentration)
       
       label_text <- paste0(
-        "Station: ", sed_df$station, "<br>",
-        "Date: ", sed_df$date, "<br>",
+        "station: ", sed_df$station, "<br>",
+        "date: ", sed_df$date, "<br>",
         "Parameter: ", sed_df$parameter, "<br>",
         "Sieve Size: ", sed_df$sieve_size, "<br>",
         "Concentration: ", round(sed_df$concentration, 3), " ", sed_df$unit
@@ -3110,8 +3098,8 @@ server <- function(input, output, session) {
       colors <- pal(sed_df$std_info)
       
       label_text <- paste0(
-        "Station: ", sed_df$station, "<br>",
-        "Date: ", sed_df$date, "<br>",
+        "station: ", sed_df$station, "<br>",
+        "date: ", sed_df$date, "<br>",
         "Parameter: ", sed_df$parameter, "<br>",
         "Sieve Size: ", sed_df$sieve_size, "<br>",
         "Concentration: ", round(sed_df$concentration, 3), " ", sed_df$unit, "<br>",
@@ -3158,8 +3146,8 @@ server <- function(input, output, session) {
       }
       
       label_text <- paste0(
-        "Station: ", sed_df$station, "<br>",
-        "Date: ", sed_df$date, "<br>",
+        "station: ", sed_df$station, "<br>",
+        "date: ", sed_df$date, "<br>",
         "Parameter: ", sed_df$parameter, "<br>",
         "Sieve Size: ", sed_df$sieve_size, "<br>",
         "HQ: ", round(sed_df$HQ, 3), "<br>",
@@ -3324,8 +3312,8 @@ server <- function(input, output, session) {
       colors <- pal(water_df$concentration)
       
       label_text <- paste0(
-        "Station: ", water_df$station, "<br>",
-        "Date: ", water_df$date, "<br>",
+        "station: ", water_df$station, "<br>",
+        "date: ", water_df$date, "<br>",
         "Parameter: ", water_df$parameter, "<br>",
         "Concentration: ", round(water_df$concentration, 3), " ", water_df$unit
       )
@@ -3359,8 +3347,8 @@ server <- function(input, output, session) {
       colors <- pal(water_df[[class_col]])
       
       label_text <- paste0(
-        "Station: ", water_df$station, "<br>",
-        "Date: ", water_df$date, "<br>",
+        "station: ", water_df$station, "<br>",
+        "date: ", water_df$date, "<br>",
         "Parameter: ", water_df$parameter, "<br>",
         "Concentration: ", round(water_df$concentration, 3), " ", water_df$unit, "<br>",
         "Class: ", water_df[[class_col]]
@@ -3379,8 +3367,8 @@ server <- function(input, output, session) {
       colors <- pal(water_df$HQ)
       
       label_text <- paste0(
-        "Station: ", water_df$station, "<br>",
-        "Date: ", water_df$date, "<br>",
+        "station: ", water_df$station, "<br>",
+        "date: ", water_df$date, "<br>",
         "Parameter: ", water_df$parameter, "<br>",
         "Hazard Quotient: ", round(water_df$HQ, 3), " ", water_df$unit
       )

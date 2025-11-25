@@ -534,9 +534,9 @@ dataUploadServer <- function(id, base_data, master_data) {
 
 
 # Load spatial data
-pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
-bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
-river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+# pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+# bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+# river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
 
 #### To quiet down plotly warnings ####
 quiet_ggplotly <- function(p, tooltip = "text") {
@@ -1104,6 +1104,25 @@ create_base_map <- function(zoom = 7, center_lng = -63.5, center_lat = -21.3) {
 # TIME SERIES HELPERS
 # ============================================================================
 
+# callout no data
+no_data_callout <- function(media_label = "sample") {
+  HTML(sprintf("
+    <div style='
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-left: 5px solid #dc3545;
+        border-radius: 4px;
+        font-size: 16px;
+        width: 80%%;
+        margin: 20px auto;
+    '>
+      <strong>No %s data found.</strong><br>
+      No measurements are available for the selected station, parameter, and filters.
+    </div>
+  ", media_label))
+}
+
+
 #' Get standard threshold values for a parameter
 get_standard_thresholds <- function(param, data_type = c("water", "sediment")) {
   data_type <- match.arg(data_type)
@@ -1541,6 +1560,65 @@ compare_units <- function(sample_unit, standard_unit) {
   # otherwise fallback: not convertible by metric multipliers only
   list(convertible = FALSE, conversion_factor = NA_real_, message = "Units not both mass or count-per-volume families; cannot auto-convert.", sample_parsed = s, standard_parsed = t)
 }
+
+# -------------------------------------------------------
+# get_param_list(): extract valid parameter names for a media type
+# -------------------------------------------------------
+get_param_list <- function(df, media_type = "all") {
+  
+  # Require the expected columns
+  required_cols <- c("media", "parameter")
+  if (!all(required_cols %in% names(df))) {
+    message("get_param_list(): dataset missing required columns: ",
+         paste(setdiff(required_cols, names(df)), collapse = ", "))
+  }
+  
+  # Columns we never want treated as parameters
+  exclude_cols = c("Average Velocity",
+                   "Decimal Latitude",
+                   "Decimal Longitude",
+                   "latitude_decimal",
+                   "longitude_decimal",
+                   "Latitude Decimal", 
+                   "Longitude Decimal", 
+                   "Lat_dd", 
+                   "Long_dd",
+                   "Distance from Bank",
+                   "distance_from_bank",
+                   "Distance from Shore",
+                   "Clay (%)", "Silt (%)", "Sand (%)",
+                   "0.032 mm - No. 450 (ASTM) (%)",
+                   "0.063 mm - No. 230 (ASTM) (%)",
+                   "0.125 mm - No. 120 (ASTM) (%)",
+                   "0.250 mm - No. 060 (ASTM) (%)",
+                   "0.500 mm - No. 035 (ASTM) (%)",
+                   "1.00 mm - No. 018 (ASTM) (%)",
+                   "2.00 mm - No. 010 (ASTM) (%)",
+                   "Year", "0.016 mm (%)",
+                   "4.75 mm - No. 004 (ASTM) (%)",
+                   "Flow",
+                   "0.016 mm",
+                   "0.032 mm - No. 450",
+                   "0.063 mm - No. 230",
+                   "0.125 mm - No. 120",
+                   "0.250 mm - No. 060",
+                   "0.500 mm - No. 035",
+                   "1.00 mm - No. 018",
+                   "2.00 mm - No. 010",
+                   "4.75 mm - N° 004"
+  )
+  
+  if(media_type != "all") df = df |> filter(media == media_type)
+  
+  df %>%
+    filter(!parameter %in% exclude_cols) %>%
+    mutate(concentration = suppressWarnings(as.numeric(concentration))) %>%
+    filter(!is.na(concentration)) %>%
+    pull(parameter) %>%
+    unique() %>%
+    sort()
+}
+
 
 # ---- convenience wrapper that returns a human-readable summary ----
 compare_units_summary <- function(sample_unit, standard_unit) {

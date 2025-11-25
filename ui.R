@@ -251,102 +251,99 @@ ui <- fluidPage(
         tabPanel("Worst Observations", fluidRow(
           column(
             4,
-            radioButtons(
-              "observation_plot_type",
-              "Rank Observations Using:",
-              choices = c(
-                "Raw Water Samples" = "value",
-                "Bolivian Water Standards" = "class",
-                "Raw Sediment Samples" = "sed_value",
-                "USGS SQGs" = "usgs",
-                "Hazard Quotients" = "hq" # NADAV: NEED TO FIX
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'class'",
-              radioButtons(
-                "observation_plot_class",
-                "Rank by:",
-                choices = c(
-                  "Worst Overall Score" = "worst_score",
-                  "# Unclassified Parameters" = "unclassified",
-                  "# Class D Parameters" = "class_d",
-                  "# Class C Parameters" = "class_c",
-                  "# Class B Parameters" = "class_b"
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'value'",
-              selectInput("observation_plot_param", "Select Parameter:", choices = NULL)
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'usgs'",
-              radioButtons(
-                "observation_plot_usgs",
-                "Rank by:",
-                choices = c(
-                  "Worst Overall Score" = "worst_score",
-                  "# Parameters Above PEL" = "above_pel",
-                  "# Parameters Above TEL" = "above_tel"
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'sed_value'",
-              selectInput("observation_plot_param_sed", "Select Parameter:", choices = NULL)
-            ),
-            conditionalPanel( # NADAV: NEED TO FIX
-              condition = "input.observation_plot_type == 'hq'",
-              radioButtons(
-                "observation_plot_hq",
-                "Rank by:",
-                choices = c(
-                  "Greatest total Hazard Quotient" = "highest_hq",
-                  "# Parameters above standard" = "quantity_hq"
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'class'",
+            # radioButtons(
+            #   "observation_std",
+            #   "Rank Observations Using:",
+            #   choices = c(
+            #     "Raw Water Samples" = "value",
+            #     "Bolivian Water Standards" = "class",
+            #     "Raw Sediment Samples" = "sed_value",
+            #     "USGS SQGs" = "usgs",
+            #     "Hazard Quotients" = "hq" # NADAV: NEED TO FIX
+            #   )
+            # ),
+            # conditionalPanel(
+            #   condition = "input.observation_std == 'class'",
+            #   radioButtons(
+            #     "observation_plot_class",
+            #     "Rank by:",
+            #     choices = c(
+            #       "Worst Overall Score" = "worst_score",
+            #       "# Unclassified Parameters" = "unclassified",
+            #       "# Class D Parameters" = "class_d",
+            #       "# Class C Parameters" = "class_c",
+            #       "# Class B Parameters" = "class_b"
+            #     )
+            #   )
+            # ),
+            # conditionalPanel(
+            #   condition = "input.observation_std == 'value'",
+            #   selectInput("observation_plot_param", "Select Parameter:", choices = NULL)
+            # ),
+            # conditionalPanel(
+            #   condition = "input.observation_std == 'usgs'",
+            #   radioButtons(
+            #     "observation_plot_usgs",
+            #     "Rank by:",
+            #     choices = c(
+            #       "Worst Overall Score" = "worst_score",
+            #       "# Parameters Above PEL" = "above_pel",
+            #       "# Parameters Above TEL" = "above_tel"
+            #     )
+            #   )
+            # ),
+              selectInput("observation_plot_param", "Select Parameter:", choices = NULL),
+            # conditionalPanel(
+            #   condition = "input.observation_std == 'sed_value'",
+            #   selectInput("observation_plot_param_sed", "Select Parameter:", choices = NULL)
+            # ),
+            # conditionalPanel( # NADAV: NEED TO FIX
+            #   condition = "input.observation_std == 'hq'",
+            #   radioButtons(
+            #     "observation_plot_hq",
+            #     "Rank by:",
+            #     choices = c(
+            #       "Greatest total Hazard Quotient" = "highest_hq",
+            #       "# Parameters above standard" = "quantity_hq"
+            #     )
+            #   )
+            # ),
+            # conditionalPanel(
+            #   condition = "input.observation_std == 'class'",
+            #   info_callout(
+            #     "Observation Ranking",
+            #     "This plot ranks individual water samples based on water quality standards from Bolivian law.
+            #                                         Observations can be ranked by the number of parameters that fall into each classification, or by overall score.
+            #                                           Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each observation.
+            #                                           Data is sourced from www2.pilcomayo.net."
+            #   )
+            # ),
               info_callout(
                 "Observation Ranking",
-                "This plot ranks individual water samples based on water quality standards from Bolivian law.
-                                                    Observations can be ranked by the number of parameters that fall into each classification, or by overall score.
-                                                      Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each observation.
-                                                      Data is sourced from www2.pilcomayo.net."
+                "This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard).
+                                                    Data is sourced from www2.pilcomayo.net."
               )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'value'",
-              info_callout(
-                "Observation Ranking",
-                "This plot ranks individual water samples based on measured values of the selected water quality parameter.
-                                                    For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
-                                                      Data is sourced from www2.pilcomayo.net."
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'usgs'",
-              info_callout(
-                "Observation Ranking",
-                "This plot ranks individual sediment samples based on USGS Sediment Quality Guidelines (SQGs).
-                                                    Observations can be ranked by the number of parameters that fall into each category, or by overall score.
-                                                      Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above Pel=2), and finding the mean value for each observation.
-                                                      Data is sourced from www2.pilcomayo.net."
-              )
-            ),
-            conditionalPanel(
-              condition = "input.observation_plot_type == 'sed_value'",
-              info_callout(
-                "Observation Ranking",
-                "This plot ranks individual sediment samples based on measured values of the selected sediment quality parameter.
-                                                 Higher values are ranked worse.
-                                                 Data is sourced from www2.pilcomayo.net."
-              )
-            )
+          #   conditionalPanel(
+          #     condition = "input.observation_std == 'usgs'",
+          #     info_callout(
+          #       "Observation Ranking",
+          #       "This plot ranks individual sediment samples based on USGS Sediment Quality Guidelines (SQGs).
+          #                                           Observations can be ranked by the number of parameters that fall into each category, or by overall score.
+          #                                             Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above Pel=2), and finding the mean value for each observation.
+          #                                             Data is sourced from www2.pilcomayo.net."
+          #     )
+          #   ),
+          #   conditionalPanel(
+          #     condition = "input.observation_std == 'sed_value'",
+          #     info_callout(
+          #       "Observation Ranking",
+          #       "This plot ranks individual sediment samples based on measured values of the selected sediment quality parameter.
+          #                                        Higher values are ranked worse.
+          #                                        Data is sourced from www2.pilcomayo.net."
+          #     )
+          #   )
           ),
-          column(8, plotlyOutput("observation_scores_plot", height = "500px"))
+          column(8, uiOutput("observation_scores_ui"))
         )),  # Close Worst Observations tabPanel
         
         tabPanel("Worst Stations", fluidRow(
