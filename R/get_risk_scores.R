@@ -278,7 +278,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_hq$convertible) {
       # Can't convert units
     } else {
-      val = val * unit_check_hq$conversion_factor
+      val = val / unit_check_hq$conversion_factor
       # INVERSE: HQ = standard / measured (lower values = higher hazard)
       if (val == 0) {
         hq <- Inf
