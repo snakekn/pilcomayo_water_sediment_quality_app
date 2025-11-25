@@ -357,7 +357,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_hq$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val * unit_check_hq$conversion_factor
+      val = val / unit_check_hq$conversion_factor
       hq = val/std$value
       
       std_info[["HQ"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
@@ -374,7 +374,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_wl$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_wl$message, " Received sample units ", unit_check_wl$sample_parsed$raw, " and standard ", unit_check_wl$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val * unit_check_wl$conversion_factor
+      val = val / unit_check_wl$conversion_factor
       wl = val/std$value
       
       std_info[["WL"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
@@ -393,7 +393,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_cr$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val * unit_check_cr$conversion_factor
+      val = val / unit_check_cr$conversion_factor
       
       ep <- EXPOSURE_FACTORS
       sf <- std$value
