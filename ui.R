@@ -343,122 +343,145 @@ ui <- fluidPage(
           #     )
           #   )
           ),
-          column(8, uiOutput("observation_scores_ui"))
+          column(8, plotlyOutput("observation_scores_plot", height = "500px"))
         )),  # Close Worst Observations tabPanel
         
         tabPanel("Worst Stations", fluidRow(
           column(
             4,
+            selectInput("station_plot_param", "Select Parameter:", choices = NULL),
+            selectInput("station_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sed")),
+            conditionalPanel(
+              condition = "input.station_plot_media != 'sed'",
+              selectInput("station_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "any", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended")),
+            ),
             radioButtons(
-              "station_plot_type",
-              "Rank Stations Using:",
-              choices = c(
-                "Raw Water Samples" = "value",
-                "Bolivian Water Standards" = "class",
-                "Raw Sediment Samples" = "sed_value",
-                "USGS SQGs" = "usgs"
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'class'",
-              radioButtons(
-                "station_plot_class",
-                "Rank by:",
-                choices = c(
-                  "Worst Overall Score" = "worst_score",
-                  "Mean # Unclassified Parameters" = "unclassified",
-                  "Mean # Class D Parameters" = "class_d",
-                  "Mean # Class C Parameters" = "class_c",
-                  "Mean # Class B Parameters" = "class_b"
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'class' && input.station_plot_class == 'worst_score'",
-              checkboxInput(
-                "station_plot_recency",
-                "Weigh recent observations higher",
-                value = FALSE
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'value'",
-              selectInput("station_plot_param", "Select Parameter:", choices = NULL)
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'usgs'",
-              radioButtons(
-                "station_plot_usgs",
-                "Rank by:",
-                choices = c(
-                  "Worst Overall Score" = "worst_score",
-                  "Mean # Parameters Above PEL" = "above_pel",
-                  "Mean # Parameters Above TEL" = "above_tel"
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'usgs' && input.station_plot_usgs == 'worst_score'",
-              checkboxInput(
-                "station_plot_recency_sed",
-                "Weigh recent observations higher",
-                value = FALSE
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'sed_value'",
-              selectInput("station_plot_param_sed", "Select Parameter:", choices = NULL)
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'value' | input.station_plot_type == 'sed_value'",
-              radioButtons(
-                "station_param_type",
-                "Rank by:",
-                choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'class'",
-              info_callout(
-                "Station Ranking",
-                "This plot ranks water sampling stations based on water quality standards from Bolivian law.
+                  "station_plot_method",
+                  "Rank by:",
+                  choices = c("Average Value" = "average", "Most Extreme Value" = "max")
+                ),
+              
+            info_callout(
+              "Station Ranking",
+              "This plot ranks water sampling stations based on water quality standards from Bolivian law.
                                                     Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
                                                       Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
                                                       For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
                                                       Data is sourced from www2.pilcomayo.net."
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'value'",
-              info_callout(
-                "Station Ranking",
-                "This plot ranks water sampling stations based on measured values of the selected parameter.
-                                                    For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
-                                                      Stations can be ranked based on the most extreme/worst recorded value, or the mean value across observations at that station.
-                                                      Data is sourced from www2.pilcomayo.net."
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'usgs'",
-              info_callout(
-                "Station Ranking",
-                "This plot ranks sediment sampling stations based on USGS Sediment Quality Guidelines (SQGs).
-                                                    Stations can be ranked by the mean number of parameters that fall into each category, or by overall score.
-                                                      Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each station.
-                                                      For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
-                                                      Data is sourced from www2.pilcomayo.net."
-              )
-            ),
-            conditionalPanel(
-              condition = "input.station_plot_type == 'sed_value'",
-              info_callout(
-                "Station Ranking",
-                "This plot ranks sediment sampling stations based on measured values of the selected parameter.
-                                                    Higher values are ranked worse.
-                                                      Stations can be ranked based on the most highest recorded value, or the mean value across observations at that station.
-                                                      Data is sourced from www2.pilcomayo.net."
-              )
-            )
+            ), # comma is for the brackets, remove if it's the last thing here
+            
+            { # old code
+              # radioButtons(
+              #   "station_plot_type",
+              #   "Rank Stations Using:",
+              #   choices = c(
+              #     "Raw Water Samples" = "value",
+              #     "Bolivian Water Standards" = "class",
+              #     "Raw Sediment Samples" = "sed_value",
+              #     "USGS SQGs" = "usgs"
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'class'",
+              #   radioButtons(
+              #     "station_plot_class",
+              #     "Rank by:",
+              #     choices = c(
+              #       "Worst Overall Score" = "worst_score",
+              #       "Mean # Unclassified Parameters" = "unclassified",
+              #       "Mean # Class D Parameters" = "class_d",
+              #       "Mean # Class C Parameters" = "class_c",
+              #       "Mean # Class B Parameters" = "class_b"
+              #     )
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'class' && input.station_plot_class == 'worst_score'",
+              #   checkboxInput(
+              #     "station_plot_recency",
+              #     "Weigh recent observations higher",
+              #     value = FALSE
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'value'",
+              #   selectInput("station_plot_param", "Select Parameter:", choices = NULL),
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'usgs'",
+              #   radioButtons(
+              #     "station_plot_usgs",
+              #     "Rank by:",
+              #     choices = c(
+              #       "Worst Overall Score" = "worst_score",
+              #       "Mean # Parameters Above PEL" = "above_pel",
+              #       "Mean # Parameters Above TEL" = "above_tel"
+              #     )
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'usgs' && input.station_plot_usgs == 'worst_score'",
+              #   checkboxInput(
+              #     "station_plot_recency_sed",
+              #     "Weigh recent observations higher",
+              #     value = FALSE
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'sed_value'",
+              #   selectInput("station_plot_param_sed", "Select Parameter:", choices = NULL)
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'value' | input.station_plot_type == 'sed_value'",
+              #   radioButtons(
+              #     "station_param_type",
+              #     "Rank by:",
+              #     choices = c("Average Value" = "average", "Most Extreme Value" = "max")
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'class'",
+              #   info_callout(
+              #     "Station Ranking",
+              #     "This plot ranks water sampling stations based on water quality standards from Bolivian law.
+              #                                         Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
+              #                                           Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
+              #                                           For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
+              #                                           Data is sourced from www2.pilcomayo.net."
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'value'",
+              #   info_callout(
+              #     "Station Ranking",
+              #     "This plot ranks water sampling stations based on measured values of the selected parameter.
+              #                                         For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
+              #                                           Stations can be ranked based on the most extreme/worst recorded value, or the mean value across observations at that station.
+              #                                           Data is sourced from www2.pilcomayo.net."
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'usgs'",
+              #   info_callout(
+              #     "Station Ranking",
+              #     "This plot ranks sediment sampling stations based on USGS Sediment Quality Guidelines (SQGs).
+              #                                         Stations can be ranked by the mean number of parameters that fall into each category, or by overall score.
+              #                                           Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each station.
+              #                                           For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
+              #                                           Data is sourced from www2.pilcomayo.net."
+              #   )
+              # ),
+              # conditionalPanel(
+              #   condition = "input.station_plot_type == 'sed_value'",
+              #   info_callout(
+              #     "Station Ranking",
+              #     "This plot ranks sediment sampling stations based on measured values of the selected parameter.
+              #                                         Higher values are ranked worse.
+              #                                           Stations can be ranked based on the most highest recorded value, or the mean value across observations at that station.
+              #                                           Data is sourced from www2.pilcomayo.net."
+              #   )
+              # )
+            } # old code.
           ),
           column(8, plotlyOutput("station_scores_plot", height = "500px"))
         )),  # Close Worst Stations tabPanel

@@ -668,7 +668,9 @@ server <- function(input, output, session) {
   
   observe({
     df = master_data$all_media_scored
-    param_list = get_param_list(df)
+    #View(stds)
+    param_list = get_param_list(df, need_std = TRUE) # only show those with HQ
+    #View(param_list)
     
     updateSelectInput(inputId = "station_plot_param",
                       choices = param_list,
@@ -689,22 +691,23 @@ server <- function(input, output, session) {
     grep(" USGS$", colnames(active_sed_usgs()), value = TRUE)
   })
   
-  # observe({
-  #   
-  #   params_list = get_param_list()
-  #   
-  #   updateSelectInput(inputId = "station_plot_param_sed",
-  #                     choices = numeric_params_sed,
-  #                     selected = "Arsenic")
-  #   
-  #   updateSelectInput(inputId = "observation_plot_param_sed",
-  #                     choices = numeric_params_sed,
-  #                     selected = "Arsenic")
-  #   
-  #   updateSelectInput(inputId = "sieve_plot_param",
-  #                     choices = numeric_params_sed,
-  #                     selected = "Arsenic")
-  # })
+  observe({
+    df = master_data$all_media_scored
+    params_list = get_param_list(df)
+    cat("\n\n", params_list,"\n")
+    
+    updateSelectInput(inputId = "station_plot_param_sed",
+                      choices = params_list,
+                      selected = "Arsenic")
+
+    updateSelectInput(inputId = "observation_plot_param_sed",
+                      choices = params_list,
+                      selected = "Arsenic")
+
+    updateSelectInput(inputId = "sieve_plot_param",
+                      choices = params_list,
+                      selected = "Arsenic")
+  })
   
   
   # Compute water quality score per observation (row)
@@ -1036,337 +1039,349 @@ server <- function(input, output, session) {
   })
   
   output$station_scores_plot <- renderPlotly({
-    if (input$station_plot_type == "class") {
-      
-      if (input$station_plot_class == "worst_score") {
-        p <- station_scores() |>
-          slice_max(mean_water_score, n = 15) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_water_score), y = mean_water_score,
-                     text = paste("Mean Water Quality Score:", round(mean_water_score, 2)))) +
-          geom_col(fill = "darkslateblue") +
-          coord_flip() +
-          labs(
-            title = "Overall Water Score: Top 15 Worst stations (Bolivia)",
-            subtitle = "Lower scores indicate better water quality",
-            x = NULL,
-            y = "Mean Water Quality Score (0=best, 4=worst)"
-          ) +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$station_plot_class == "class_b") {
-        p <- station_scores() |>
-          arrange(mean_class_b) |>
-          slice_max(mean_class_b, n = 15) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_class_b), y = mean_class_b,
-                     text = paste("Mean # Class B Parameters:", round(mean_class_b, 2)))) +
-          geom_col(fill = "lightgreen") +
-          coord_flip() +
-          labs(
-            title = "Mean # Class B: Top 15 stations (Bolivia)",
-            subtitle = "Ranked by mean number of Class B parameters",
-            x = NULL,
-            y = "Mean number of Class B parameters"
-          ) +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$station_plot_class == "class_c") {
-        p <- station_scores() |>
-          arrange(mean_class_c) |>
-          slice_max(mean_class_c, n = 15) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_class_c), y = mean_class_c,
-                     text = paste("Mean # Class C Parameters:", round(mean_class_c, 2)))) +
-          geom_col(fill = "gold") +
-          coord_flip() +
-          labs(
-            title = "Mean # Class C: Top 15 stations (Bolivia)",
-            subtitle = "Ranked by mean number of Class C parameters",
-            x = NULL,
-            y = "Mean number of Class C parameters"
-          ) +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$station_plot_class == "class_d") {
-        p <- station_scores() |>
-          arrange(mean_class_d) |>
-          slice_max(mean_class_d, n = 15) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_class_d), y = mean_class_d,
-                     text = paste("Mean # Class D Parameters:", round(mean_class_d, 2)))) +
-          geom_col(fill = "darkorange") +
-          coord_flip() +
-          labs(
-            title = "Mean # Class D: Top 15 stations (Bolivia)",
-            subtitle = "Ranked by mean number of Class D parameters",
-            x = NULL,
-            y = "Mean number of Class D parameters"
-          ) +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      } else if (input$station_plot_class == "unclassified") {
-        p <- station_scores() |>
-          arrange(mean_unclass) |>
-          slice_max(mean_unclass, n = 15) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_unclass), y = mean_unclass,
-                     text = paste("Mean # Unclassified Parameters:", round(mean_unclass, 2)))) +
-          geom_col(fill = "firebrick") +
-          coord_flip() +
-          labs(
-            title = "Mean # Unclassified: Top 15 stations (Bolivia)",
-            subtitle = "Ranked by mean number of Unclassified parameters",
-            x = NULL,
-            y = "Mean number of Unclassified parameters"
-          ) +
-          theme_minimal()
-        quiet_plotly(p, tooltip = "text")
-      }
-      
-    } else if (input$station_plot_type == "value" && !is.null(input$station_plot_param)) {
-      
-      # Get selected parameter
-      param <- input$station_plot_param
-      
-      # Parameters that should use lowest values
-      reverse_params <- c("Oxygen Saturation (%)", "Dissolved Oxygen (mg/l O2)", "pH", "Resistivity (Ohm.cm)")
-      
-      if (input$station_param_type == "max") {
-        
-        # Summarize max value per station
-        summary_df <- active_water_1333() %>%
-          group_by(station) %>%
-          summarise(
-            max_value = max(.data[[param]], na.rm = TRUE),
-            min_value = min(.data[[param]], na.rm = TRUE),
-            n_obs = sum(!is.na(.data[[param]])),
-            .groups = "drop"
-          ) %>%
-          filter(is.finite(max_value))
-        
-        if (param %in% reverse_params) {
-          summary_df <- slice_min(summary_df, min_value, n = 15)
-          
-          req(param)
-          
-          p <- summary_df %>%
-            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(station_label, -min_value), y = min_value,
-                       text = paste0("Min ", param, ": ", round(min_value, 3)))) +
-            geom_col(fill = "steelblue") +
-            coord_flip() +
-            labs(
-              title = paste("Bottom 15 stations by Min", param),
-              subtitle = "Minimum recorded value between 2016–2024",
-              x = NULL,
-              y = param
-            ) +
-            theme_minimal()
-          
-          quiet_plotly(p, tooltip = "text")
-          
-        } else {
-          summary_df <- slice_max(summary_df, max_value, n = 15)
-          
-          req(param)
-          
-          p <- summary_df %>%
-            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(station_label, max_value), y = max_value,
-                       text = paste0("Max ", param, ": ", round(max_value, 3)))) +
-            geom_col(fill = "steelblue") +
-            coord_flip() +
-            labs(
-              title = paste("Top 15 stations by Max", param),
-              subtitle = "Maximum recorded value between 2016–2024",
-              x = NULL,
-              y = param
-            ) +
-            theme_minimal()
-          
-          quiet_plotly(p, tooltip = "text")
-          
-        }
-        
-      } else if (input$station_param_type == "avg") {
-        
-        # Summarize average value per station
-        summary_df <- active_water_1333() %>%
-          group_by(station) %>%
-          summarise(
-            avg_value = mean(.data[[param]], na.rm = TRUE),
-            n_obs = sum(!is.na(.data[[param]])),
-            .groups = "drop"
-          ) %>%
-          filter(is.finite(avg_value))
-        
-        if (param %in% reverse_params) {
-          summary_df <- slice_min(summary_df, avg_value, n = 15)
-          
-          req(param)
-          
-          p <- summary_df %>%
-            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(station_label, -avg_value), y = avg_value,
-                       text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
-            geom_col(fill = "steelblue") +
-            coord_flip() +
-            labs(
-              title = paste("Bottom 15 stations by Average", param),
-              subtitle = "Average value between 2016–2024",
-              x = NULL,
-              y = param
-            ) +
-            theme_minimal()
-          
-          quiet_plotly(p, tooltip = "text")
-          
-        } else {
-          summary_df <- slice_max(summary_df, avg_value, n = 15)
-          
-          req(param)
-          
-          p <- summary_df %>%
-            mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-            ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
-                       text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
-            geom_col(fill = "steelblue") +
-            coord_flip() +
-            labs(
-              title = paste("Top 15 stations by Average", param),
-              subtitle = "Average value between 2016–2024",
-              x = NULL,
-              y = param
-            ) +
-            theme_minimal()
-          
-          quiet_plotly(p, tooltip = "text")
-          
-        }
-        
-      }
-    } else if (input$station_plot_type == "usgs") {
-      
-      if (input$station_plot_usgs == "worst_score") {
-        
-        p <- station_scores_sed() |>
-          arrange(mean_sed_score) |>
-          slice_max(mean_sed_score, n = 15, with_ties = FALSE) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_sed_score), y = mean_sed_score,
-                     text = paste("Mean Sediment Quality Score:", round(mean_sed_score, 2)))) +
-          geom_col(fill = "darkslateblue") +
-          coord_flip() +
-          labs(title = "Overall Sediment Score: Top 15 Worst stations (Bolivia)",
-               x = NULL, y = "Mean Sediment Quality Score (0=best, 2=worst)") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-        
-        
-      } else if (input$station_plot_usgs == "above_tel") {
-        
-        p <- station_scores_sed() |>
-          arrange(mean_above_tel) |>
-          slice_max(mean_above_tel, n = 15, with_ties = FALSE) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_above_tel), y = mean_above_tel,
-                     text = paste("Mean # Above TEL:", round(mean_above_tel, 2)))) +
-          geom_col(fill = "darkorange") +
-          coord_flip() +
-          labs(title = "Mean # Above TEL: Top 15 Worst stations (Bolivia)",
-               x = NULL, y = "Mean Number of Parameters Above TEL") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-        
-        
-      } else if (input$station_plot_usgs == "above_pel") {
-        
-        p <- station_scores_sed() |>
-          arrange(mean_above_pel) |>
-          slice_max(mean_above_pel, n = 15, with_ties = FALSE) |>
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
-          ggplot(aes(x = reorder(station_label, mean_above_pel), y = mean_above_pel,
-                     text = paste("Mean # Above PEL:", round(mean_above_pel, 2)))) +
-          geom_col(fill = "firebrick") +
-          coord_flip() +
-          labs(title = "Mean # Above PEL: Top 15 Worst stations (Bolivia)",
-               x = NULL, y = "Mean Number of Parameters Above PEL") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-        
-        
-      }
-    } else if (input$station_plot_type == "sed_value") {
-      
-      # Get selected parameter
-      param <- input$station_plot_param_sed
-      
-      summary_df <- active_sed_clean() %>%
-        group_by(station) %>%
-        summarise(
-          max_value = max(.data[[param]], na.rm = TRUE),
-          min_value = min(.data[[param]], na.rm = TRUE),
-          avg_value = mean(.data[[param]], na.rm = TRUE),
-          n_obs = sum(!is.na(.data[[param]])),
-          .groups = "drop"
-        ) %>%
-        filter(is.finite(max_value))
-      
-      
-      if (input$station_param_type == "max") {
-        
-        summary_df <- slice_max(summary_df, max_value, n = 15)
-        
-        req(param)
-        
-        p <- summary_df %>%
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-          ggplot(aes(x = reorder(station_label, max_value), y = max_value,
-                     text = paste0("Max ", param, ": ", round(max_value, 3)))) +
-          geom_col(fill = "tan") +
-          coord_flip() +
-          labs(
-            title = paste("Top 15 stations by Max", param),
-            subtitle = "Maximum recorded value between 2016–2024",
-            x = NULL,
-            y = param
-          ) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (input$station_param_type == "avg") {
-        
-        summary_df <- slice_max(summary_df, avg_value, n = 15)
-        
-        req(param)
-        
-        p <- summary_df %>%
-          mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
-          ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
-                     text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
-          geom_col(fill = "tan") +
-          coord_flip() +
-          labs(
-            title = paste("Top 15 stations by Average", param),
-            subtitle = "Average value between 2016–2024",
-            x = NULL,
-            y = param
-          ) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-      }
-      
-      
-    }
+    df <- master_data$all_media_scored
+
+    p = plot_top_hq_stations(df, 
+                             media = input$station_plot_media, 
+                             param = input$station_plot_param, 
+                             fraction = input$station_plot_fraction, 
+                             method = input$station_plot_method)
+    quiet_plotly(p, tooltip = "text")
+    
+    # if (input$station_plot_type == "class") {
+    #   
+    #   if (input$station_plot_class == "worst_score") {
+    #     p <- station_scores() |>
+    #       slice_max(mean_water_score, n = 15) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_water_score), y = mean_water_score,
+    #                  text = paste("Mean Water Quality Score:", round(mean_water_score, 2)))) +
+    #       geom_col(fill = "darkslateblue") +
+    #       coord_flip() +
+    #       labs(
+    #         title = "Overall Water Score: Top 15 Worst stations (Bolivia)",
+    #         subtitle = "Lower scores indicate better water quality",
+    #         x = NULL,
+    #         y = "Mean Water Quality Score (0=best, 4=worst)"
+    #       ) +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$station_plot_class == "class_b") {
+    #     p <- station_scores() |>
+    #       arrange(mean_class_b) |>
+    #       slice_max(mean_class_b, n = 15) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_class_b), y = mean_class_b,
+    #                  text = paste("Mean # Class B Parameters:", round(mean_class_b, 2)))) +
+    #       geom_col(fill = "lightgreen") +
+    #       coord_flip() +
+    #       labs(
+    #         title = "Mean # Class B: Top 15 stations (Bolivia)",
+    #         subtitle = "Ranked by mean number of Class B parameters",
+    #         x = NULL,
+    #         y = "Mean number of Class B parameters"
+    #       ) +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$station_plot_class == "class_c") {
+    #     p <- station_scores() |>
+    #       arrange(mean_class_c) |>
+    #       slice_max(mean_class_c, n = 15) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_class_c), y = mean_class_c,
+    #                  text = paste("Mean # Class C Parameters:", round(mean_class_c, 2)))) +
+    #       geom_col(fill = "gold") +
+    #       coord_flip() +
+    #       labs(
+    #         title = "Mean # Class C: Top 15 stations (Bolivia)",
+    #         subtitle = "Ranked by mean number of Class C parameters",
+    #         x = NULL,
+    #         y = "Mean number of Class C parameters"
+    #       ) +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$station_plot_class == "class_d") {
+    #     p <- station_scores() |>
+    #       arrange(mean_class_d) |>
+    #       slice_max(mean_class_d, n = 15) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_class_d), y = mean_class_d,
+    #                  text = paste("Mean # Class D Parameters:", round(mean_class_d, 2)))) +
+    #       geom_col(fill = "darkorange") +
+    #       coord_flip() +
+    #       labs(
+    #         title = "Mean # Class D: Top 15 stations (Bolivia)",
+    #         subtitle = "Ranked by mean number of Class D parameters",
+    #         x = NULL,
+    #         y = "Mean number of Class D parameters"
+    #       ) +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   } else if (input$station_plot_class == "unclassified") {
+    #     p <- station_scores() |>
+    #       arrange(mean_unclass) |>
+    #       slice_max(mean_unclass, n = 15) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_unclass), y = mean_unclass,
+    #                  text = paste("Mean # Unclassified Parameters:", round(mean_unclass, 2)))) +
+    #       geom_col(fill = "firebrick") +
+    #       coord_flip() +
+    #       labs(
+    #         title = "Mean # Unclassified: Top 15 stations (Bolivia)",
+    #         subtitle = "Ranked by mean number of Unclassified parameters",
+    #         x = NULL,
+    #         y = "Mean number of Unclassified parameters"
+    #       ) +
+    #       theme_minimal()
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    #   
+    # } else if (input$station_plot_type == "value" && !is.null(input$station_plot_param)) 
+    #   {
+    #   
+    #   # Get selected parameter
+    #   param <- input$station_plot_param
+    #   
+    #   # Parameters that should use lowest values
+    #   reverse_params <- c("Oxygen Saturation (%)", "Dissolved Oxygen (mg/l O2)", "pH", "Resistivity (Ohm.cm)")
+    #   
+    #   if (input$station_param_type == "max") {
+    #     
+    #     # Summarize max value per station
+    #     summary_df <- active_water_1333() %>%
+    #       group_by(station) %>%
+    #       summarise(
+    #         max_value = max(.data[[param]], na.rm = TRUE),
+    #         min_value = min(.data[[param]], na.rm = TRUE),
+    #         n_obs = sum(!is.na(.data[[param]])),
+    #         .groups = "drop"
+    #       ) %>%
+    #       filter(is.finite(max_value))
+    #     
+    #     if (param %in% reverse_params) {
+    #       summary_df <- slice_min(summary_df, min_value, n = 15)
+    #       
+    #       req(param)
+    #       
+    #       p <- summary_df %>%
+    #         mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #         ggplot(aes(x = reorder(station_label, -min_value), y = min_value,
+    #                    text = paste0("Min ", param, ": ", round(min_value, 3)))) +
+    #         geom_col(fill = "steelblue") +
+    #         coord_flip() +
+    #         labs(
+    #           title = paste("Bottom 15 stations by Min", param),
+    #           subtitle = "Minimum recorded value between 2016–2024",
+    #           x = NULL,
+    #           y = param
+    #         ) +
+    #         theme_minimal()
+    #       
+    #       quiet_plotly(p, tooltip = "text")
+    #       
+    #     } else {
+    #       summary_df <- slice_max(summary_df, max_value, n = 15)
+    #       
+    #       req(param)
+    #       
+    #       p <- summary_df %>%
+    #         mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #         ggplot(aes(x = reorder(station_label, max_value), y = max_value,
+    #                    text = paste0("Max ", param, ": ", round(max_value, 3)))) +
+    #         geom_col(fill = "steelblue") +
+    #         coord_flip() +
+    #         labs(
+    #           title = paste("Top 15 stations by Max", param),
+    #           subtitle = "Maximum recorded value between 2016–2024",
+    #           x = NULL,
+    #           y = param
+    #         ) +
+    #         theme_minimal()
+    #       
+    #       quiet_plotly(p, tooltip = "text")
+    #       
+    #     }
+    #     
+    #   } else if (input$station_param_type == "avg") {
+    #     
+    #     # Summarize average value per station
+    #     summary_df <- active_water_1333() %>%
+    #       group_by(station) %>%
+    #       summarise(
+    #         avg_value = mean(.data[[param]], na.rm = TRUE),
+    #         n_obs = sum(!is.na(.data[[param]])),
+    #         .groups = "drop"
+    #       ) %>%
+    #       filter(is.finite(avg_value))
+    #     
+    #     if (param %in% reverse_params) {
+    #       summary_df <- slice_min(summary_df, avg_value, n = 15)
+    #       
+    #       req(param)
+    #       
+    #       p <- summary_df %>%
+    #         mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #         ggplot(aes(x = reorder(station_label, -avg_value), y = avg_value,
+    #                    text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
+    #         geom_col(fill = "steelblue") +
+    #         coord_flip() +
+    #         labs(
+    #           title = paste("Bottom 15 stations by Average", param),
+    #           subtitle = "Average value between 2016–2024",
+    #           x = NULL,
+    #           y = param
+    #         ) +
+    #         theme_minimal()
+    #       
+    #       quiet_plotly(p, tooltip = "text")
+    #       
+    #     } else {
+    #       summary_df <- slice_max(summary_df, avg_value, n = 15)
+    #       
+    #       req(param)
+    #       
+    #       p <- summary_df %>%
+    #         mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #         ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
+    #                    text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
+    #         geom_col(fill = "steelblue") +
+    #         coord_flip() +
+    #         labs(
+    #           title = paste("Top 15 stations by Average", param),
+    #           subtitle = "Average value between 2016–2024",
+    #           x = NULL,
+    #           y = param
+    #         ) +
+    #         theme_minimal()
+    #       
+    #       quiet_plotly(p, tooltip = "text")
+    #       
+    #     }
+    #     
+    #   }
+    # } else if (input$station_plot_type == "usgs") 
+    #   {
+    #   
+    #   if (input$station_plot_usgs == "worst_score") {
+    #     
+    #     p <- station_scores_sed() |>
+    #       arrange(mean_sed_score) |>
+    #       slice_max(mean_sed_score, n = 15, with_ties = FALSE) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_sed_score), y = mean_sed_score,
+    #                  text = paste("Mean Sediment Quality Score:", round(mean_sed_score, 2)))) +
+    #       geom_col(fill = "darkslateblue") +
+    #       coord_flip() +
+    #       labs(title = "Overall Sediment Score: Top 15 Worst stations (Bolivia)",
+    #            x = NULL, y = "Mean Sediment Quality Score (0=best, 2=worst)") +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #     
+    #     
+    #   } else if (input$station_plot_usgs == "above_tel") {
+    #     
+    #     p <- station_scores_sed() |>
+    #       arrange(mean_above_tel) |>
+    #       slice_max(mean_above_tel, n = 15, with_ties = FALSE) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_above_tel), y = mean_above_tel,
+    #                  text = paste("Mean # Above TEL:", round(mean_above_tel, 2)))) +
+    #       geom_col(fill = "darkorange") +
+    #       coord_flip() +
+    #       labs(title = "Mean # Above TEL: Top 15 Worst stations (Bolivia)",
+    #            x = NULL, y = "Mean Number of Parameters Above TEL") +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #     
+    #     
+    #   } else if (input$station_plot_usgs == "above_pel") {
+    #     
+    #     p <- station_scores_sed() |>
+    #       arrange(mean_above_pel) |>
+    #       slice_max(mean_above_pel, n = 15, with_ties = FALSE) |>
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) |>
+    #       ggplot(aes(x = reorder(station_label, mean_above_pel), y = mean_above_pel,
+    #                  text = paste("Mean # Above PEL:", round(mean_above_pel, 2)))) +
+    #       geom_col(fill = "firebrick") +
+    #       coord_flip() +
+    #       labs(title = "Mean # Above PEL: Top 15 Worst stations (Bolivia)",
+    #            x = NULL, y = "Mean Number of Parameters Above PEL") +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #     
+    #     
+    #   }
+    # } else if (input$station_plot_type == "sed_value") 
+    #   {
+    #   
+    #   # Get selected parameter
+    #   param <- input$station_plot_param_sed
+    #   
+    #   summary_df <- active_sed_clean() %>%
+    #     group_by(station) %>%
+    #     summarise(
+    #       max_value = max(.data[[param]], na.rm = TRUE),
+    #       min_value = min(.data[[param]], na.rm = TRUE),
+    #       avg_value = mean(.data[[param]], na.rm = TRUE),
+    #       n_obs = sum(!is.na(.data[[param]])),
+    #       .groups = "drop"
+    #     ) %>%
+    #     filter(is.finite(max_value))
+    #   
+    #   
+    #   if (input$station_param_type == "max") {
+    #     
+    #     summary_df <- slice_max(summary_df, max_value, n = 15)
+    #     
+    #     req(param)
+    #     
+    #     p <- summary_df %>%
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #       ggplot(aes(x = reorder(station_label, max_value), y = max_value,
+    #                  text = paste0("Max ", param, ": ", round(max_value, 3)))) +
+    #       geom_col(fill = "tan") +
+    #       coord_flip() +
+    #       labs(
+    #         title = paste("Top 15 stations by Max", param),
+    #         subtitle = "Maximum recorded value between 2016–2024",
+    #         x = NULL,
+    #         y = param
+    #       ) +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if (input$station_param_type == "avg") {
+    #     
+    #     summary_df <- slice_max(summary_df, avg_value, n = 15)
+    #     
+    #     req(param)
+    #     
+    #     p <- summary_df %>%
+    #       mutate(station_label = paste0(station, " (n = ", n_obs, ")")) %>%
+    #       ggplot(aes(x = reorder(station_label, avg_value), y = avg_value,
+    #                  text = paste0("Mean ", param, ": ", round(avg_value, 3)))) +
+    #       geom_col(fill = "tan") +
+    #       coord_flip() +
+    #       labs(
+    #         title = paste("Top 15 stations by Average", param),
+    #         subtitle = "Average value between 2016–2024",
+    #         x = NULL,
+    #         y = param
+    #       ) +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    #   
+    #   
+    # }
   })
   
   observe({

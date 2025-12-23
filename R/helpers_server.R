@@ -29,6 +29,9 @@
 
 # filter to Bolivia
 filter_to_border <- function(df, lon_col, lat_col, border_sf) {
+  message("\nSKIPPING IN DEV TO REDUCE LONG DELAYS, REMOVE THIS BREAK WHEN POSTING TO PRODUCTION")
+  return(df)
+  # Nadav's Note: Sloppy but may help with quicker loading time
   
   # 1. Check column existence
   if (!lon_col %in% names(df)) stop(paste("Longitude column not found:", lon_col))
@@ -1569,7 +1572,7 @@ compare_units <- function(sample_unit, standard_unit) {
 # -------------------------------------------------------
 # get_param_list(): extract valid parameter names for a media type
 # -------------------------------------------------------
-get_param_list <- function(df, media_type = "all") {
+get_param_list <- function(df, media_type = "all", need_std = FALSE) {
   
   # Require the expected columns
   required_cols <- c("media", "parameter")
@@ -1613,7 +1616,10 @@ get_param_list <- function(df, media_type = "all") {
                    "4.75 mm - N° 004"
   )
   
+  # only filter by media if we don't want to see them all
   if(media_type != "all") df = df |> filter(media == media_type)
+  # filter the entire list by those in the stds list, so we can only choose those that can calculate a HQ
+  if(need_std == TRUE) df = df |> filter(parameter %in% stds$parameter)
   
   df %>%
     filter(!parameter %in% exclude_cols) %>%

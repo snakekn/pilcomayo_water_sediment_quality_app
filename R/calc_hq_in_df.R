@@ -4,7 +4,7 @@ calc_hq_in_df <- function(data, media, param, plot_type) {
   df <- data
   
   # Retrieve standard for this parameter-media combination
-  param_stds <- strict_std |>
+  param_stds <- stds |>
     filter(.data$media == media,
            str_detect(.data$parameter, fixed(param)))
   

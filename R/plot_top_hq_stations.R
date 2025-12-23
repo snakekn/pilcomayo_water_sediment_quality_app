@@ -1,12 +1,23 @@
-plot_top_hq_stations <- function(data, media, param, fraction = "Total", method = "max") {
+# Shiny: will be used as station_scores_plot
+
+plot_top_hq_stations <- function(data, media, param, fraction = "any", method = "max") {
+  ## Validate selected inputs
+  req(param) # to prevent param coming in as "" before the selector is initialized
+  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", method, "\n")
   
   # Validate method parameter
   if (!method %in% c("max", "mean", "average")) {
-    stop("method must be either 'max', 'mean', or 'average'")
+    message("method must be either 'max', 'mean', or 'average'. Relying on max.")
+    method = "max"
   }
-  
   # Standardize method name
   if (method == "average") method <- "mean"
+  
+  # Validate fraction parameter
+  if (!fraction %in% c("Total", "Dissolved", "Suspended", "any")) {
+    message("method must be one of: 'Total', 'Dissolved', 'Suspended', or 'any'. Relying on any")
+    fraction = "any"
+  }
   
   # Unit conversion helper function (defined once at top level)
   convert_units <- function(value, from_unit, to_unit) {
@@ -34,22 +45,27 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   }
   
   # Filter for media and parameter
-  df <- data |>
-    filter(media == !!media) |>
+  if (media != "all") { # only filter on media if we're not using them all
+    data = data |> filter(media == !!media) # update data
+    cat("\n\nafter filtering for media, nrow(df) = ", nrow(df), "\n")
+  }
+  df <- data |> # then filter by param no matter what. Move data into df
     filter(parameter == param)
+  cat("\n\nafter filtering for parameter, nrow(df) = ", nrow(df), "\n")
   
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "water") {
-    if (param != "pH" && any(data$fraction == fraction)) {
-      df <- df |>
-        filter(fraction == !!fraction)
-    }
+  
+  if (media == "water" && param != "pH" && fraction != "any") {
+    df <- df |>
+      filter(fraction == !!fraction)
+    cat("\n\nafter filtering for fraction, nrow(df) = ", nrow(df), "\n")
   }
+  if(nrow(df) == 0) stop(paste("No data found using the current filters. Please update your filters."))
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "water" && param != "pH" && any(data$fraction == fraction))
+  fraction_applied <- (media == "water" && param != "pH" && any(df$fraction == fraction))
   
   # Special handling for pH - filter to pH units only
   if (param == "pH") {
@@ -58,21 +74,26 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   }
   
   # Retrieve standard for this parameter-media combination
-  param_stds <- strict_std |>
-    filter(.data$media == !!media,
-           str_detect(.data$parameter, !!param))
+  param_stds <- stds |>
+    filter(str_detect(.data$parameter, !!param))
+  
+  if (media != "all") { # filter by media if needed
+    param_stds = param_stds |>
+      filter(.data$media == !!media)
+  }
   
   # Check if standard exists
   has_standard <- nrow(param_stds) > 0
   
   if (!has_standard) {
-    stop(paste("No standard found for", param, "in", media, "- cannot calculate hazard quotients"))
+    message(paste("No standard found for", param, "in", media, "- cannot calculate hazard quotients"))
   }
   
   # Check if this is a range-based parameter (like pH)
   has_low <- any(str_detect(param_stds$parameter, "low"))
   has_high <- any(str_detect(param_stds$parameter, "high"))
   is_range_param <- has_low && has_high
+  cat("\n[plot_top_hq_stations]: is_range_param = ", is_range_param, "\n")
   
   if (is_range_param) {
     # Handle range-based standards (pH)
@@ -114,7 +135,8 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
     
     std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
     
-  } else {
+  } 
+  else {
     # Handle single-threshold standards
     param_std <- param_stds$value[1]
     std_unit <- param_stds$unit[1]
@@ -140,8 +162,9 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   }
   
   # Filter to only exceedances
+  cat("\n\before filtering for hq, nrow(df) = ", nrow(df), "\n")
   df_exceedances <- df |>
-    filter(!is.na(hq))
+    filter(!is.na(hq), hq > 1) # remove where HQ is acceptable
   
   # Check if there are any exceedances
   if (nrow(df_exceedances) == 0) {
