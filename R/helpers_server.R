@@ -555,6 +555,20 @@ quiet_ggplotly <- function(p, tooltip = "text") {
 
 
 quiet_plotly <- function(p, ...) {
+  # save current options
+  old_opts <- options(
+    shiny.trace = getOption("shiny.trace"),
+    warn        = getOption("warn"),
+    ts_debug    = getOption("ts_debug")
+  )
+  
+  # turn noisy options off just for this call
+  options(shiny.trace = FALSE,
+          warn        = 0,      # or whatever you normally use
+          ts_debug    = FALSE)
+  
+  on.exit(options(old_opts), add = TRUE)  # restore on exit
+  
   withCallingHandlers(
     {
       suppressWarnings(
@@ -564,18 +578,17 @@ quiet_plotly <- function(p, ...) {
     warning = function(w) {
       msg <- conditionMessage(w)
       
-      # Suppress ONLY plotly-noise warnings
       if (grepl("plotly", msg, ignore.case = TRUE) ||
           grepl("JSON", msg) ||
           grepl("incompatible with", msg) ||
           grepl("Couldn't transform", msg) ||
           grepl("data for this geom", msg)) {
-        
         invokeRestart("muffleWarning")
       }
     }
   )
 }
+
 
 #### Get standards dynamically and based on regulator ####
 # ============================================================================

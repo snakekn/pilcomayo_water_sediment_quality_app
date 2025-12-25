@@ -1386,9 +1386,9 @@ server <- function(input, output, session) {
   
   observe({
     df <- active_water_1333()
-    stations <- unique(df$station)
+    stations <- sort(unique(df$station))
     updateSelectInput(inputId = "param_plot_station",
-                      choices = sort(stations))
+                      choices = c("All Stations", stations))
   })
   
   observe({
@@ -1549,218 +1549,231 @@ server <- function(input, output, session) {
   
   output$param_scores_plot <- renderPlotly({
     
-    if (input$param_plot_type == "class") {
-      plot_type <- input$param_plot_class
-      
-      if (plot_type == "unclassified") {
-        p <- plot_class_proportions_overlay(
-          data = active_water_1333_param_plot(),
-          class_cols = class_cols(),
-          class_label = "Unclassified",
-          bar_color = "firebrick",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Unclassified: Top 15 Parameters at", input$param_plot_station),
-            "% Unclassified: Top 15 Parameters"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% Unclassified (all observations): ", round(data$Proportion, 2)),
-              paste0("% Unclassified (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (plot_type == "class_d") {
-        p <- plot_class_proportions_overlay(
-          data = active_water_1333_param_plot(),
-          class_cols = class_cols(),
-          class_label = "Class D",
-          bar_color = "darkorange",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Class D: Top 15 Worst Parameters at", input$param_plot_station),
-            "% Class D: Top 15 Worst Parameters"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% Class D (all observations): ", round(data$Proportion, 2)),
-              paste0("% Class D (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (plot_type == "class_c") {
-        p <- plot_class_proportions_overlay(
-          data = active_water_1333_param_plot(),
-          class_cols = class_cols(),
-          class_label = "Class C",
-          bar_color = "gold",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Class C: Top 15 Parameters at", input$param_plot_station),
-            "% Class C: Top 15 Parameters"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% Class C (all observations): ", round(data$Proportion, 2)),
-              paste0("% Class C (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (plot_type == "class_b") {
-        p <- plot_class_proportions_overlay(
-          data = active_water_1333_param_plot(),
-          class_cols = class_cols(),
-          class_label = "Class B",
-          bar_color = "lightgreen",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Class B: Top 15 Parameters at", input$param_plot_station),
-            "% Class B: Top 15 Parameters"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% Class B (all observations): ", round(data$Proportion, 2)),
-              paste0("% Class B (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (plot_type == "worst_score") {
-        
-        p <- ggplot(plot_data(), aes(x = Parameter, y = Score)) +
-          geom_col(position = "identity",
-                   aes(alpha = Type, 
-                       text = ifelse(
-                         Type == "Raw",
-                         paste0("Overall Score (all observations): ", round(Score, 2)),
-                         paste0("Overall Score (non-NA observations): ", round(Score, 2))
-                       )), show.legend = FALSE,
-                   fill = "darkslateblue") +
-          scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
-          coord_flip() +
-          labs(
-            title = plot_title <- ifelse(
-              isTRUE(input$param_plot_checkbox),
-              paste("Overall: Top 15 Worst Parameters at", input$param_plot_station),
-              "Overall: Top 15 Worst Parameters"
-            ),
-            subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
-            x = NULL,
-            y = "Water Quality Score (0=best, 4=worst)"
-          ) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-      }
-    } else if (input$param_plot_type == "usgs") {
-      
-      plot_type <- input$param_plot_usgs
-      
-      if (plot_type == "worst_score") {
-        
-        p <- ggplot(plot_data_sed(), aes(x = Parameter, y = Score)) +
-          geom_col(position = "identity",
-                   aes(alpha = Type,
-                       text = ifelse(
-                         Type == "Raw",
-                         paste0("Overall Score (all observations): ", round(Score, 2)),
-                         paste0("Overall Score (non-NA observations): ", round(Score, 2))
-                       )), show.legend = FALSE,
-                   fill = "darkslateblue") +
-          scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
-          coord_flip() +
-          labs(
-            title = plot_title <- ifelse(
-              isTRUE(input$param_plot_checkbox),
-              paste("Overall Score: Sediment Parameters Ranked at", input$param_plot_station),
-              "Overall Score: Sediment Parameters Ranked"
-            ),
-            subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
-            x = NULL,
-            y = "Water Quality Score (0=best, 4=worst)"
-          ) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if(plot_type == "above_tel") {
-        
-        p <- plot_class_proportions_overlay(
-          data = active_sed_usgs_param_plot(),
-          class_cols = usgs_cols(),
-          class_label = "Above TEL",
-          bar_color = "darkorange",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Above TEL: Sediment Parameters Ranked at", input$param_plot_station),
-            "% Above TEL: Sediment Parameters Ranked"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% ", data$Parameter, " Above TEL (all observations): ", round(data$Proportion, 2)),
-              paste0("% ", data$Parameter, " Above TEL (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-        
-      } else if (plot_type == "above_pel") {
-        
-        p <- plot_class_proportions_overlay(
-          data = active_sed_usgs_param_plot(),
-          class_cols = usgs_cols(),
-          class_label = "Above PEL",
-          bar_color = "firebrick",
-          plot_title <- ifelse(
-            isTRUE(input$param_plot_checkbox),
-            paste("% Above PEL: Sediment Parameters Ranked at", input$param_plot_station),
-            "% Above PEL: Sediment Parameters Ranked"
-          ),
-          plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-          hover_text = function(data) {
-            data$hover_text <- ifelse(
-              data$Type == "Raw",
-              paste0("% ", data$Parameter, " Above PEL (all observations): ", round(data$Proportion, 2)),
-              paste0("% ", data$Parameter, " Above PEL (non-NA observations): ", round(data$Proportion, 2))
-            )
-            return(data)
-          }
-        )
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      }
-      
-    }
+    p = plot_top_hq_params(data = master_data$all_media_scored, 
+                           media = input$param_plot_media,
+                           fraction = input$param_plot_fraction,
+                           method = input$param_plot_method,
+                           station = input$param_plot_station)
+    quiet_plotly(p)
     
+    {
+    # 
+    # 
+    # # everything here is unused
+    # 
+    # if (input$param_plot_type == "class") {
+    #   plot_type <- input$param_plot_class
+    #   
+    #   if (plot_type == "unclassified") {
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_water_1333_param_plot(),
+    #       class_cols = class_cols(),
+    #       class_label = "Unclassified",
+    #       bar_color = "firebrick",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Unclassified: Top 15 Parameters at", input$param_plot_station),
+    #         "% Unclassified: Top 15 Parameters"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% Unclassified (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% Unclassified (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if (plot_type == "class_d") {
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_water_1333_param_plot(),
+    #       class_cols = class_cols(),
+    #       class_label = "Class D",
+    #       bar_color = "darkorange",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Class D: Top 15 Worst Parameters at", input$param_plot_station),
+    #         "% Class D: Top 15 Worst Parameters"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% Class D (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% Class D (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if (plot_type == "class_c") {
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_water_1333_param_plot(),
+    #       class_cols = class_cols(),
+    #       class_label = "Class C",
+    #       bar_color = "gold",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Class C: Top 15 Parameters at", input$param_plot_station),
+    #         "% Class C: Top 15 Parameters"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% Class C (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% Class C (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if (plot_type == "class_b") {
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_water_1333_param_plot(),
+    #       class_cols = class_cols(),
+    #       class_label = "Class B",
+    #       bar_color = "lightgreen",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Class B: Top 15 Parameters at", input$param_plot_station),
+    #         "% Class B: Top 15 Parameters"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% Class B (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% Class B (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if (plot_type == "worst_score") {
+    #     
+    #     p <- ggplot(plot_data(), aes(x = Parameter, y = Score)) +
+    #       geom_col(position = "identity",
+    #                aes(alpha = Type, 
+    #                    text = ifelse(
+    #                      Type == "Raw",
+    #                      paste0("Overall Score (all observations): ", round(Score, 2)),
+    #                      paste0("Overall Score (non-NA observations): ", round(Score, 2))
+    #                    )), show.legend = FALSE,
+    #                fill = "darkslateblue") +
+    #       scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
+    #       coord_flip() +
+    #       labs(
+    #         title = plot_title <- ifelse(
+    #           isTRUE(input$param_plot_checkbox),
+    #           paste("Overall: Top 15 Worst Parameters at", input$param_plot_station),
+    #           "Overall: Top 15 Worst Parameters"
+    #         ),
+    #         subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+    #         x = NULL,
+    #         y = "Water Quality Score (0=best, 4=worst)"
+    #       ) +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #   }
+    # } else if (input$param_plot_type == "usgs") {
+    #   
+    #   plot_type <- input$param_plot_usgs
+    #   
+    #   if (plot_type == "worst_score") {
+    #     
+    #     p <- ggplot(plot_data_sed(), aes(x = Parameter, y = Score)) +
+    #       geom_col(position = "identity",
+    #                aes(alpha = Type,
+    #                    text = ifelse(
+    #                      Type == "Raw",
+    #                      paste0("Overall Score (all observations): ", round(Score, 2)),
+    #                      paste0("Overall Score (non-NA observations): ", round(Score, 2))
+    #                    )), show.legend = FALSE,
+    #                fill = "darkslateblue") +
+    #       scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
+    #       coord_flip() +
+    #       labs(
+    #         title = plot_title <- ifelse(
+    #           isTRUE(input$param_plot_checkbox),
+    #           paste("Overall Score: Sediment Parameters Ranked at", input$param_plot_station),
+    #           "Overall Score: Sediment Parameters Ranked"
+    #         ),
+    #         subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
+    #         x = NULL,
+    #         y = "Water Quality Score (0=best, 4=worst)"
+    #       ) +
+    #       theme_minimal()
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   } else if(plot_type == "above_tel") {
+    #     
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_sed_usgs_param_plot(),
+    #       class_cols = usgs_cols(),
+    #       class_label = "Above TEL",
+    #       bar_color = "darkorange",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Above TEL: Sediment Parameters Ranked at", input$param_plot_station),
+    #         "% Above TEL: Sediment Parameters Ranked"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% ", data$Parameter, " Above TEL (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% ", data$Parameter, " Above TEL (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #     
+    #   } else if (plot_type == "above_pel") {
+    #     
+    #     p <- plot_class_proportions_overlay(
+    #       data = active_sed_usgs_param_plot(),
+    #       class_cols = usgs_cols(),
+    #       class_label = "Above PEL",
+    #       bar_color = "firebrick",
+    #       plot_title <- ifelse(
+    #         isTRUE(input$param_plot_checkbox),
+    #         paste("% Above PEL: Sediment Parameters Ranked at", input$param_plot_station),
+    #         "% Above PEL: Sediment Parameters Ranked"
+    #       ),
+    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
+    #       hover_text = function(data) {
+    #         data$hover_text <- ifelse(
+    #           data$Type == "Raw",
+    #           paste0("% ", data$Parameter, " Above PEL (all observations): ", round(data$Proportion, 2)),
+    #           paste0("% ", data$Parameter, " Above PEL (non-NA observations): ", round(data$Proportion, 2))
+    #         )
+    #         return(data)
+    #       }
+    #     )
+    #     
+    #     quiet_plotly(p, tooltip = "text")
+    #     
+    #   }
+    #   
+    # }
+    
+  } # old code
   })
   
   

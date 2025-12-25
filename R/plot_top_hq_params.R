@@ -1,4 +1,12 @@
-plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") {
+plot_top_hq_params <- function(data, media, fraction = "all", method = "max", station = "All") {
+  cat("[plot_top_hq_params] Params: ")
+  params_callout <- list(
+    media = media,
+    fraction = fraction,
+    method = method,
+    station = station
+  )
+  print(params_callout)
   
   # Validate method parameter
   if (!method %in% c("max", "mean", "average", "median")) {
@@ -33,12 +41,35 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     return(converted)
   }
   
+  # for easy usage
+  df = data
+  
+  # Filter for station
+  if(!station %in% c("All", "all", "All Stations")) {
+    cat("\n[plot_top_hq_params] Station filtering\n")
+    cat("Pre-filter for station: ", nrow(df))
+    df = df |> filter(station == !!station)
+    cat("Post-filter for station: ", nrow(df))
+  } else {    
+    cat("\n[plot_top_hq_params] Not filtering for station. Measurements: ", nrow(df), "\n") 
+  }
+  
+  
+  
   # Filter for media
-  df <- data |>
-    filter(media == !!media)
+  
+  ## fix to avoid all media
+  if(media != "all") {
+    cat("\n[plot_top_hq_params] Filtering for media. Pre-filter measurements: ", nrow(df))
+    df <- df |>
+      filter(media == !!media)
+    cat("\n[plot_top_hq_params] Post-filter measurements: ", nrow(df))
+  } else {
+    cat("\nNot filtering for media.")
+  }
   
   # Only apply fraction filter for drinking water and non-pH parameters
-  if (media == "water") {
+  if (media != "sed" && fraction != "all") {
     # Get unique parameters that have the specified fraction
     params_with_fraction <- df |>
       filter(fraction == !!fraction) |>
@@ -51,152 +82,173 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
         (parameter %in% params_with_fraction & fraction == !!fraction) |
           (!parameter %in% params_with_fraction)
       )
+    cat("\n[plot_top_hq_params] Filtering for fraction. Post-filter measurements: ", nrow(df))
+  } else {
+    cat("\nNot considering fraction")
+  }
+  
+  # check if we filtered everything out
+  if(nrow(df) == 0) {
+    stop("No more measurements maintained after filtering. Please check your filters")
+  } else {
+    cat("\nFiltering left some measurements: ", nrow(df))
   }
   
   # Get unique parameters in the filtered data
   params <- unique(df$parameter)
   
-  # Calculate HQ for each parameter
-  param_hq_list <- list()
+  View(df)
   
-  for (param in params) {
-    param_df <- df |> filter(parameter == param)
-    
-    # Special handling for pH - filter to pH units only
-    if (param == "pH") {
-      param_df <- param_df |> filter(unit == "u")
-    }
-    
-    # Retrieve standard for this parameter-media combination
-    param_stds <- strict_std |>
-      filter(.data$media == !!media,
-             str_detect(.data$parameter, !!param))
-    
-    # Skip if no standard exists
-    if (nrow(param_stds) == 0) next
-    
-    # Check if this is a range-based parameter (like pH)
-    has_low <- any(str_detect(param_stds$parameter, "low"))
-    has_high <- any(str_detect(param_stds$parameter, "high"))
-    is_range_param <- has_low && has_high
-    
-    if (is_range_param) {
-      # Handle range-based standards (pH)
-      low_std <- param_stds |> filter(str_detect(parameter, "low"))
-      high_std <- param_stds |> filter(str_detect(parameter, "high"))
-      
-      param_std_low <- low_std$value[1]
-      param_std_high <- high_std$value[1]
-      std_unit <- low_std$unit[1]
-      data_unit <- param_df$unit[1]
-      std_source <- low_std$regulator[1]
-      
-      # Handle unit conversion
-      if (param == "pH") {
-        display_unit <- "pH units"
-      } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-        param_std_low <- convert_units(param_std_low, std_unit, data_unit)
-        param_std_high <- convert_units(param_std_high, std_unit, data_unit)
-        display_unit <- data_unit
-      } else {
-        display_unit <- std_unit
-      }
-      
-      # Calculate HQ based on distance from acceptable range
-      std_low_val <- param_std_low
-      std_high_val <- param_std_high
-      
-      param_df <- param_df |>
-        mutate(
-          hq = case_when(
-            concentration < std_low_val ~ std_low_val / concentration,
-            concentration > std_high_val ~ concentration / std_high_val,
-            TRUE ~ NA_real_
-          )
-        )
-      
-      std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
-      
-    } else {
-      # Handle single-threshold standards
-      param_std <- param_stds$value[1]
-      std_unit <- param_stds$unit[1]
-      data_unit <- param_df$unit[1]
-      std_source <- param_stds$regulator[1]
-      
-      # Handle unit conversion
-      if (param == "pH") {
-        display_unit <- "pH units"
-      } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-        param_std <- convert_units(param_std, std_unit, data_unit)
-        display_unit <- data_unit
-      } else {
-        display_unit <- std_unit
-      }
-      
-      # Calculate HQ for single threshold
-      std_val <- param_std
-      param_df <- param_df |>
-        mutate(hq = concentration / std_val)
-      
-      std_text <- paste0(round(param_std, 3), " ", display_unit)
-    }
-    
-    # Filter to only exceedances
-    param_df_exceedances <- param_df |>
-      filter(!is.na(hq))
-    
-    # Skip if no exceedances
-    if (nrow(param_df_exceedances) == 0) next
-    
-    # Aggregate HQ by parameter using specified method
-    if (method == "max") {
-      param_summary <- param_df_exceedances |>
-        summarise(
-          hq = max(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
-          .groups = "drop"
-        ) |>
-        mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
-        )
-    } else if (method == "median") {
-      param_summary <- param_df_exceedances |>
-        summarise(
-          hq = median(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
-          .groups = "drop"
-        ) |>
-        mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
-        )
-    } else {
-      param_summary <- param_df_exceedances |>
-        summarise(
-          hq = mean(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
-          .groups = "drop"
-        ) |>
-        mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
-        )
-    }
-    
-    param_hq_list[[param]] <- param_summary
-  }
+  # Calculate HQ for each parameter
+  {
+    # param_hq_list <- list()
+    # 
+    # for (param in params) {
+    #   param_df <- df |> filter(parameter == param)
+    #   
+    #   # Special handling for pH - filter to pH units only
+    #   if (param == "pH") {
+    #     param_df <- param_df |> filter(unit == "u")
+    #   }
+    #   
+    #   # Retrieve standard for this parameter-media combination
+    #   param_stds <- strict_std |>
+    #     filter(.data$media == !!media,
+    #            str_detect(.data$parameter, !!param))
+    #   
+    #   # Skip if no standard exists
+    #   if (nrow(param_stds) == 0) next
+    #   
+    #   # Check if this is a range-based parameter (like pH)
+    #   has_low <- any(str_detect(param_stds$parameter, "low"))
+    #   has_high <- any(str_detect(param_stds$parameter, "high"))
+    #   is_range_param <- has_low && has_high
+    #   
+    #   if (is_range_param) {
+    #     # Handle range-based standards (pH)
+    #     low_std <- param_stds |> filter(str_detect(parameter, "low"))
+    #     high_std <- param_stds |> filter(str_detect(parameter, "high"))
+    #     
+    #     param_std_low <- low_std$value[1]
+    #     param_std_high <- high_std$value[1]
+    #     std_unit <- low_std$unit[1]
+    #     data_unit <- param_df$unit[1]
+    #     std_source <- low_std$regulator[1]
+    #     
+    #     # Handle unit conversion
+    #     if (param == "pH") {
+    #       display_unit <- "pH units"
+    #     } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
+    #       param_std_low <- convert_units(param_std_low, std_unit, data_unit)
+    #       param_std_high <- convert_units(param_std_high, std_unit, data_unit)
+    #       display_unit <- data_unit
+    #     } else {
+    #       display_unit <- std_unit
+    #     }
+    #     
+    #     # Calculate HQ based on distance from acceptable range
+    #     std_low_val <- param_std_low
+    #     std_high_val <- param_std_high
+    #     
+    #     param_df <- param_df |>
+    #       mutate(
+    #         hq = case_when(
+    #           concentration < std_low_val ~ std_low_val / concentration,
+    #           concentration > std_high_val ~ concentration / std_high_val,
+    #           TRUE ~ NA_real_
+    #         )
+    #       )
+    #     
+    #     std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
+    #     
+    #   } else {
+    #     # Handle single-threshold standards
+    #     param_std <- param_stds$value[1]
+    #     std_unit <- param_stds$unit[1]
+    #     data_unit <- param_df$unit[1]
+    #     std_source <- param_stds$regulator[1]
+    #     
+    #     # Handle unit conversion
+    #     if (param == "pH") {
+    #       display_unit <- "pH units"
+    #     } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
+    #       param_std <- convert_units(param_std, std_unit, data_unit)
+    #       display_unit <- data_unit
+    #     } else {
+    #       display_unit <- std_unit
+    #     }
+    #     
+    #     # Calculate HQ for single threshold
+    #     std_val <- param_std
+    #     param_df <- param_df |>
+    #       mutate(hq = concentration / std_val)
+    #     
+    #     std_text <- paste0(round(param_std, 3), " ", display_unit)
+    #   }
+    #   
+    #   # Filter to only exceedances
+    #   param_df_exceedances <- param_df |>
+    #     filter(!is.na(hq))
+    #   
+    #   # Skip if no exceedances
+    #   if (nrow(param_df_exceedances) == 0) {
+    #     message("\n[plot_top_hq_params] No exceedances for these filters. Please check your filters, or great job cleaning up the environment!")
+    #     next
+    #   }
+    #   
+    #   # Aggregate HQ by parameter using specified method
+    #   if (method == "max") {
+    #     param_summary <- param_df_exceedances |>
+    #       summarise(
+    #         hq = max(hq, na.rm = TRUE),
+    #         n_measurements = n(),
+    #         n_stations = n_distinct(station),
+    #         .groups = "drop"
+    #       ) |>
+    #       mutate(
+    #         parameter = param,
+    #         standard = std_text,
+    #         std_source = std_source
+    #       )
+    #   } else if (method == "median") {
+    #     param_summary <- param_df_exceedances |>
+    #       summarise(
+    #         hq = median(hq, na.rm = TRUE),
+    #         n_measurements = n(),
+    #         n_stations = n_distinct(station),
+    #         .groups = "drop"
+    #       ) |>
+    #       mutate(
+    #         parameter = param,
+    #         standard = std_text,
+    #         std_source = std_source
+    #       )
+    #   } else {
+    #     param_summary <- param_df_exceedances |>
+    #       summarise(
+    #         hq = mean(hq, na.rm = TRUE),
+    #         n_measurements = n(),
+    #         n_stations = n_distinct(station),
+    #         .groups = "drop"
+    #       ) |>
+    #       mutate(
+    #         parameter = param,
+    #         standard = std_text,
+    #         std_source = std_source
+    #       )
+    #   }
+    #   
+    #   param_hq_list[[param]] <- param_summary
+    # }
+  } # skipped since HQ is pre-calculated
+  param_hq_list = df |>
+    filter(HQ > 1)
+  
   
   # Combine all parameter summaries
-  if (length(param_hq_list) == 0) {
-    stop(paste("No exceedances found for any parameters in", media))
+  if (nrow(param_hq_list) == 0) {
+    # Nadav's Notes: using media "all" isn't fixed in yet
+    message(paste("No exceedances found for any parameters in", media))
   }
   
   all_params <- bind_rows(param_hq_list)
@@ -221,7 +273,9 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     )
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "water" && any(data$fraction == fraction))
+  cat(any(data$fraction == fraction))
+  cat(any(data$fraction == !!fraction))
+  fraction_applied <- (media == "water" && any(data$fraction == !!fraction))
   
   method_label <- if (method == "max") {
     "Maximum"
