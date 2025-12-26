@@ -20,6 +20,7 @@ library(shinyWidgets)
 library(bslib)
 library(terra)
 library(ggiraph)
+library(shinyjs)
 
 
 options(shiny.trace = FALSE)

@@ -686,6 +686,248 @@ server <- function(input, output, session) {
   })
   
   
+  
+  ##### Risk Map #####
+  # prepare the raster layers we'll utilize
+  
+  
+  # Risk layer definitions (add before your existing riskraster reactive)
+  risk_layer_info <- list(
+    list(id = 1, name = "Environmental\nHazards", checkbox = "risk_hq", class = "risk1"),
+    list(id = 2, name = "Vulnerability", checkbox = "risk_vul", class = "risk2"),
+    list(id = 3, name = "Air Quality", checkbox = "risk_air", class = "risk3"),
+    list(id = 4, name = "Mining Sites", checkbox = "risk_mining", class = "risk4"),
+    list(id = 5, name = "Population", checkbox = "risk_pop", class = "risk5")
+  )
+  risk_raster = reactive({
+    req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
+    
+    layers = list()
+    cat("\n[risk_raster reactive] Checkboxes on: ",
+        "\n   HQ: ", isTRUE(input$risk_hq),
+        "\n   Vul: ", isTRUE(input$risk_vul),
+        "\n   Air: ", isTRUE(input$risk_air),
+        "\n   Mining: ", isTRUE(input$risk_mining),
+        "\n   Pop: ", isTRUE(input$risk_pop))
+    
+    r = load_risk_rasters(debug=TRUE)
+    
+    if (isTRUE(input$risk_hq))      layers <- c(layers, list(r$hq))
+    if (isTRUE(input$risk_vul))     layers <- c(layers, list(r$vul))
+    if (isTRUE(input$risk_air))     layers <- c(layers, list(r$air))
+    if (isTRUE(input$risk_mining))  layers <- c(layers, list(r$mining))
+    if (isTRUE(input$risk_pop))     layers <- c(layers, list(r$pop))
+    
+    if (length(layers) == 0) {
+      cat("\n[risk_raster reactive] No layers detected")
+      return(NULL)
+    } else {
+      cat("\n", length(layers), " layers included in map. Rastering into one map now.")
+    }
+    
+    r_stack <- terra::rast(layers)
+    r_merge = terra::app(r_stack, fun = sum, na.rm = TRUE)
+    rlist = list(merged = r_merge, individuals = layers)
+    cat("[risk_raster] returning r_stack and r_merge: ", names(rlist))
+    return(rlist)
+  })
+  
+  # render the output map
+  output$risk_map <- renderLeaflet({
+    leaflet() |> 
+      addTiles() |>
+      setView(lng = -65.3, lat = -19.0, zoom = 7)
+  })
+  
+  observe({
+    req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
+    
+    r = risk_raster()
+    req(!is.null(r), !is.null(r$merged))
+
+    proxy = leafletProxy("risk_map", data = r$merged) |> clearImages()
+    
+    # note: this may throw a projection error, which means you need to reinstall terra
+    pal <- colorNumeric("viridis", terra::values(r$merged), na.color = "transparent")
+    proxy %>%
+      addRasterImage(r$merged, colors = pal, opacity = 0.7, layerId = "risk_merged", project = FALSE) # will need to project later
+  })
+  
+  observe({
+    map_clicked <- input$risk_map_click
+    req(map_clicked, !is.null(risk_raster()))
+    
+    click_lat <- map_clicked$lat
+    click_lng <- map_clicked$lng
+    cat("\n--- risk_map_click ---\n")
+    cat("Click at lat:", click_lat, "lng:", click_lng, "\n")
+    
+    point <- terra::vect(
+      matrix(c(click_lng, click_lat), ncol = 2),
+      crs = "EPSG:4326"
+    )
+    
+    # Extract values from each individual layer
+    r <- risk_raster()
+    print(names(r))
+    req(!is.null(r$individuals))
+    print(names(r$individuals))
+    
+    cat("Names(r$individuals):", paste(names(r$individuals), collapse = ", "), "\n")
+    
+    # fixed order to match UI
+    layer_keys  <- c("hq", "vul", "air", "mining", "pop")
+    layer_names <- c(
+      "Environmental Hazards",
+      "Vulnerability",
+      "Air Quality",
+      "Mining Sites",
+      "Population"
+    )
+    
+    values_vec <- rep(NA_real_, 5)
+    
+    i <- 1
+    for (layer_name in layer_keys) {
+      cat("\nProcessing layer key:", layer_name, "\n")
+      
+      if (!layer_name %in% names(r$individuals)) {
+        cat("  -> layer not present in r$individuals, setting NA\n")
+        values_vec[i] <- NA_real_
+        i <- i + 1
+        next
+      }
+      
+      layer_rast <- r$individuals[[layer_name]]
+      cat("  class(layer_rast):", class(layer_rast), "\n")
+      
+      if (inherits(layer_rast, "SpatRaster")) {
+        layer_val <- terra::extract(
+          layer_rast, point,
+          method = "bilinear", ID = FALSE
+        )
+        cat("  raw extracted layer_val[1,1]:", layer_val[1, 1], "\n")
+        
+        if (!is.na(layer_val[1, 1]) && !is.infinite(layer_val[1, 1])) {
+          max_val <- terra::global(layer_rast, "max", na.rm = TRUE)[1, 1]
+          min_val <- terra::global(layer_rast, "min", na.rm = TRUE)[1, 1]
+          cat("  min_val:", min_val, "max_val:", max_val, "\n")
+          
+          if (!is.na(max_val) && !is.na(min_val) && max_val > min_val) {
+            scaled_val <- scales::rescale(
+              layer_val[1, 1],
+              to   = c(0, 100),
+              from = c(min_val, max_val)
+            )
+          } else {
+            cat("  -> invalid min/max, setting NA\n")
+            scaled_val <- NA_real_
+          }
+        } else {
+          cat("  -> layer_val is NA/Inf, setting NA\n")
+          scaled_val <- NA_real_
+        }
+        values_vec[i] <- round(scaled_val, 1)
+        cat("  scaled value:", values_vec[i], "\n")
+      } else {
+        cat("  -> not a SpatRaster, setting NA\n")
+        values_vec[i] <- NA_real_
+      }
+      
+      i <- i + 1
+    }
+    
+    values_vec <- values_vec[seq_len(5)]
+    cat("\nFinal values_vec:", paste(values_vec, collapse = ", "), "\n")
+    
+    total_score <- sum(values_vec, na.rm = TRUE)
+    cat("Total composite score:", total_score, "\n")
+    
+    output$risk_sidebar <- renderUI({
+      tagList(
+        div(
+          class = "composite-score",
+          "Composite Risk Score: ",
+          span(
+            style = "font-size: 28px;",
+            ifelse(all(is.na(values_vec)), "-", total_score)
+          )
+        ),
+        div(
+          class = "risk-squares",
+          lapply(seq_along(values_vec), function(i) {
+            score_txt <- ifelse(is.na(values_vec[i]), "-", values_vec[i])
+            div(
+              class = "risk-square-container",
+              div(
+                class = paste0("risk-square risk", i),
+                score_txt
+              ),
+              div(
+                class = "risk-label",
+                HTML(layer_names[i])
+              )
+            )
+          })
+        ),
+        div(
+          id = "risk-coords",
+          strong("Clicked Location:"), br(),
+          paste0(
+            "Lat: ", round(click_lat, 6),
+            ", Lng: ", round(click_lng, 6)
+          )
+        )
+      )
+    })
+  })
+  
+  
+  output$risk_sidebar <- renderUI({
+    init_vals <- rep("-", 5)
+    layer_names <- c(
+      "Environmental Hazards",
+      "Vulnerability",
+      "Air Quality",
+      "Mining Sites",
+      "Population"
+    )
+    
+    tagList(
+      div(
+        class = "composite-score",
+        "Composite Risk Score: ",
+        span(style = "font-size: 28px;", "-")
+      ),
+      div(
+        class = "risk-squares",
+        lapply(seq_along(init_vals), function(i) {
+          div(
+            class = "risk-square-container",
+            div(
+              class = paste0("risk-square risk", i),
+              init_vals[i]
+            ),
+            div(
+              class = "risk-label",
+              HTML(layer_names[i])
+            )
+          )
+        })
+      ),
+      div(
+        id = "risk-coords",
+        strong("Clicked Location:"), br(),
+        "Lat: -, Lng: -"
+      )
+    )
+  })
+  
+  
+  
+  # Initialize empty sidebar
+  outputOptions(output, "risk_map", suspendWhenHidden = FALSE)
+  
   ################# RANKING PLOTS ############################
   
   

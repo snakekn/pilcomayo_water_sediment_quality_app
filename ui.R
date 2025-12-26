@@ -1,12 +1,63 @@
 # Define UI
 ui <- fluidPage(
   tags$head(tags$style(
-    HTML(
-      "
-    /* small styling for the selector box (tweak as needed) */
+    HTML("
+    /* Existing selector box styling */
     #scope-selector { margin: 8px 12px; padding: 8px; border-radius: 6px; background:#f8f9fa; display:inline-block; }
-  "
-    )
+    
+    /* NEW: Risk Map Interactive Squares */
+    #risk-sidebar .composite-score {
+      text-align: center; font-size: 22px; font-weight: bold; 
+      margin-bottom: 20px; padding: 12px; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #risk-sidebar .risk-squares {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    
+    #risk-sidebar .risk-square-container {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    #risk-sidebar .risk-square {
+      width: 100%;
+      height: 28px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    
+    #risk-sidebar .risk1 { background: linear-gradient(135deg, #ff6b6b, #ee5a52); }
+    #risk-sidebar .risk2 { background: linear-gradient(135deg, #feca57, #ff9ff3); }
+    #risk-sidebar .risk3 { background: linear-gradient(135deg, #48dbfb, #0abde3); }
+    #risk-sidebar .risk4 { background: linear-gradient(135deg, #54a0ff, #2e86de); }
+    #risk-sidebar .risk5 { background: linear-gradient(135deg, #5f27cd, #341f97); }
+    
+    #risk-sidebar .risk-label {
+      font-size: 11px; color: #333; font-weight: 500; 
+      text-align: center; margin-top: 4px;
+    }
+    
+    #risk-coords {
+      margin-top: 15px; padding: 12px; background: white; 
+      border-radius: 6px; border-left: 4px solid #667eea; font-size: 14px;
+    }
+    
+    @media (max-width: 768px) {
+      #risk-sidebar .risk-square { width: 60px; height: 60px; font-size: 16px; }
+    }
+  ")
   )),
   
   tabsetPanel(
@@ -507,70 +558,106 @@ ui <- fluidPage(
                                                       Light bars represent percents/scores calculated after omitting NA rows for that parameter.
                                                       Data is sourced from www2.pilcomayo.net."
             )),
-            column(8, plotlyOutput("param_scores_plot", height = "500px"))
-          )),  # Close Worst Parameters tabPanel
-          
-          tabPanel("Worst Sieve Sizes", fluidRow(
-            column(
-              4,
-              selectInput("sieve_plot_param", "Select Parameter:", choices = c("All Parameters" = "all")),
-              selectInput("sieve_plot_station", "Select Station:", choices = c("All Stations" = "all")),
-              radioButtons(
-                "sieve_plot_method",
-                "Rank by:",
-                choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
-              )
-            ),
-            column(8, plotlyOutput("sieve_scores_plot", height = "500px"))
-          ))  # Close Worst Sieve Sizes tabPanel
-        )  # Close tabsetPanel for Ranking Plots
-      ),  # Close Ranking Plots tabPanel
-      
-      # PCA tab
-      tabPanel(
-        "Principal Component Analysis",
-        sidebarLayout(
-          sidebarPanel(
-            # Add Data Scope at the top
+          column(8, plotlyOutput("param_scores_plot", height = "500px"))
+        )),  # Close Worst Parameters tabPanel
+        
+        tabPanel("Worst Sieve Sizes", fluidRow(
+          column(
+            4,
+            selectInput("sieve_plot_param", "Select Parameter:", choices = c("All Parameters" = "all")),
+            selectInput("sieve_plot_station", "Select Station:", choices = c("All Stations" = "all")),
             radioButtons(
-              "plot_data_scope",
-              "Data Scope:",
-              choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-              selected = "bol",
-              inline = TRUE
-            ),
-            selectInput("pca_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
-            selectInput("pca_station", "Select Station:", choices = c("All Stations" = "all")),
-            selectizeInput(
-              "pca_parameters",
-              "Select Parameters for PCA:",
-              choices = NULL,
-              multiple = TRUE,
-              options = list(maxItems = 15)
-            ),
-            actionButton("deselect_all_pca", "Clear Selection"),
-            br(),
-            br(),
-            actionButton("run_pca", "Run PCA", class = "btn-primary"),
-            
-            info_callout(
-              "Principal Component Analysis",
-              "This analysis performs PCA on selected water quality parameters to identify
+              "sieve_plot_method",
+              "Rank by:",
+              choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
+            )
+          ),
+          column(8, plotlyOutput("sieve_scores_plot", height = "500px"))
+        ))  # Close Worst Sieve Sizes tabPanel
+      )  # Close tabsetPanel for Ranking Plots
+    ),  # Close Ranking Plots tabPanel
+    
+    # PCA tab
+    tabPanel(
+      "Principal Component Analysis",
+      sidebarLayout(
+        sidebarPanel(
+          # Add Data Scope at the top
+          radioButtons(
+            "plot_data_scope",
+            "Data Scope:",
+            choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+            selected = "bol",
+            inline = TRUE
+          ),
+          selectInput("pca_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
+          selectInput("pca_station", "Select Station:", choices = c("All Stations" = "all")),
+          selectizeInput(
+            "pca_parameters",
+            "Select Parameters for PCA:",
+            choices = NULL,
+            multiple = TRUE,
+            options = list(maxItems = 15)
+          ),
+          actionButton("deselect_all_pca", "Clear Selection"),
+          br(),
+          br(),
+          actionButton("run_pca", "Run PCA", class = "btn-primary"),
+          
+          info_callout(
+            "Principal Component Analysis",
+            "This analysis performs PCA on selected water quality parameters to identify
                                     underlying patterns and relationships in the data. Missing values are
                                     imputed using optimal component estimation. The variable plot shows parameter
                                     contributions and correlations, colored by representation quality (cos²).
                                     The scree plot displays variance explained by each component to help determine
                                     the optimal number of dimensions. Select up to 15 parameters and click 'Run PCA'
                                     to begin the analysis. Data is sourced from www2.pilcomayo.net."
+          )
+        ),
+        mainPanel(
+          tabsetPanel(
+            tabPanel("Autoplot", plotlyOutput("pca_plot")),
+            tabPanel("Scree Plot", plotOutput("scree_plot"))
+          )
+        )
+      ) # close sidebarLayout 
+    ), # Close PCA tabPanel
+    tabPanel(
+      "Risk Scores Map",
+      sidebarLayout(
+        sidebarPanel(
+          conditionalPanel(
+            condition = "!output.map_data_ready",
+            div(
+              style = "text-align: center; padding: 20px;",
+              icon("spinner", class = "fa-spin fa-3x"),
+              h4("Loading data...", style = "margin-top: 20px;")
             )
           ),
-          mainPanel(
-            tabsetPanel(
-              tabPanel("Autoplot", plotlyOutput("pca_plot")),
-              tabPanel("Scree Plot", plotOutput("scree_plot"))
-            )
+          
+          conditionalPanel(
+            condition = "output.map_data_ready",
+            checkboxInput("risk_hq", "Environmental Hazards", value = TRUE),
+            checkboxInput("risk_vul", "Vulnerability from Census Data", value = TRUE),
+            checkboxInput("risk_air", "Air Quality Hazards from Mining Sites", value = TRUE),
+            checkboxInput("risk_mining", "Hazards from Nearby Mining Sites", value = TRUE),
+            checkboxInput("risk_pop", "Population Centers", value = TRUE),
+            
+            hr(),
+            
+            # Interactive Risk Squares Section
+            uiOutput("risk_sidebar"),            
+            info_callout("Risk Map",
+                         "Click anywhere on the map to see detailed risk values for each layer. 
+                     The 5 colored squares show individual risk scores (0-100), with the 
+                     composite score at the top representing total risk. Higher values = higher risk.")
           )
-        ) # close sidebarLayout 
-      ) # Close PCA tabPanel
-    )  # Close tabsetPanel
-  )  # Close fluidPage
+        ),
+        mainPanel(
+          leafletOutput("risk_map", height = 800)
+        )
+      )
+    )
+  )  # Close tabsetPanel
+)  # Close fluidPage
