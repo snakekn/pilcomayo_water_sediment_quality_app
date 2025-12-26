@@ -1,15 +1,25 @@
-calc_pca = function(data, params) {
+calc_pca = function(data, params, media_selection = "all", station_selection = "all") {
   if (length(params) < 2) stop("Please select 2 more more variables")
   
   # filter based on user-selected inputs
-  # if(param_selection != "all") {
-  #   cat("\n[plot_top_hq_sieve] Filtering using parameter \"", param_selection, "\". Measurements: ", nrow(data))
-  #   data = data |> 
-  #     filter(parameter == param_selection)
-  #   cat("\nAfter filtering: ", nrow(data))
-  # } else {
-  #   cat("\nNot filtering on parameter")
-  # }
+  if(media_selection != "all") {
+    cat("\n[calc_pca] Filtering using media \"", media_selection, "\". Pre-filter Measurements: ", nrow(data))
+    data = data |>
+      filter(media == media_selection)
+    cat("\nAfter filtering: ", nrow(data))
+  } else {
+    cat("\nNot filtering on media")
+  }
+  
+  # filter based on user-selected inputs
+  if(station_selection != "all") {
+    cat("\n[calc_pca] Filtering using station \"", station_selection, "\". Pre-filter Measurements: ", nrow(data))
+    data = data |>
+      filter(station == station_selection)
+    cat("\nAfter filtering: ", nrow(data))
+  } else {
+    cat("\nNot filtering on station")
+  }
   
   # filter for the parameter list selected
   df <- data %>%
@@ -44,16 +54,28 @@ calc_pca = function(data, params) {
   df_info = df 
   
   # drop ID columns
-  df = df |> select(-station, -date, -media)
+  df_num = df |> select(-station, -date, -media)
   
-  # Estimate optimal number of components for imputation
-  est <- estim_ncpPCA(df, method.cv = "Kfold", nbsim = 5)
+  # If there are no missing values, skip imputation
+  if (!any(is.na(df_num))) {
+    pca <- FactoMineR::PCA(df_num, graph = FALSE)
+  } else {
+    # Estimate optimal number of components for imputation
+    est <- missMDA::estim_ncpPCA(df_num, method.cv = "Kfold", nbsim = 5)
+    
+    # Impute missing values
+    impute_result <- missMDA::imputePCA(df_num, ncp = est$ncp)
+    
+    # imputePCA returns a list with $completeObs (matrix/data frame)
+    comp <- impute_result$completeObs
+    
+    # Make sure it's a data.frame
+    comp <- as.data.frame(comp)
+    
+    # Run PCA
+    pca <- FactoMineR::PCA(comp, graph = FALSE)
+  }
   
-  # Impute missing values
-  impute_result <- imputePCA(df, ncp = est$ncp)
-  
-  # Run PCA
-  pca = PCA(impute_result$completeObs, graph = FALSE)
   cat("\n[calc_pca] Completed running pca")
   return(list(df = df_info, pca = pca))
 }

@@ -614,7 +614,10 @@ server <- function(input, output, session) {
   })
   
   pca_result <- eventReactive(input$run_pca, {
-    calc_pca(master_data$all_media_scored, input$pca_parameters)
+    calc_pca(data = master_data$all_media_scored, 
+             params = input$pca_parameters, 
+             media_selection = input$pca_media, 
+             station_selection = input$pca_station)
   })
   
   output$pca_plot <- renderPlotly({
