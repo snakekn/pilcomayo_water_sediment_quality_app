@@ -491,7 +491,7 @@ ui <- fluidPage(
             selectInput("param_plot_station", "Select Station:", choices = c("All Stations" = "all")),
             selectInput("param_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sed")),
             conditionalPanel(
-              condition = "input.station_plot_media != 'sed'",
+              condition = "input.param_plot_media != 'sed'",
               selectInput("param_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "all", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
             ),
             radioButtons(
@@ -506,49 +506,19 @@ ui <- fluidPage(
                                                       Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter.
                                                       Light bars represent percents/scores calculated after omitting NA rows for that parameter.
                                                       Data is sourced from www2.pilcomayo.net."
-            ),
+            )),
             column(8, plotlyOutput("param_scores_plot", height = "500px"))
-          ))),  # Close Worst Parameters tabPanel
+          )),  # Close Worst Parameters tabPanel
           
           tabPanel("Worst Sieve Sizes", fluidRow(
             column(
               4,
+              selectInput("sieve_plot_param", "Select Parameter:", choices = c("All Parameters" = "all")),
+              selectInput("sieve_plot_station", "Select Station:", choices = c("All Stations" = "all")),
               radioButtons(
-                "sieve_plot_type",
-                "Rank Sieve Sizes Using:",
-                choices = c("Raw Sediment Samples" = "sed_value", "USGS SQGs" = "usgs")
-              ),
-              conditionalPanel(
-                condition = "input.sieve_plot_type == 'sed_value'",
-                selectInput("sieve_plot_param", "Select Parameter:", choices = NULL)
-              ),
-              conditionalPanel(
-                condition = "input.sieve_plot_type == 'sed_value'",
-                radioButtons(
-                  "sieve_param_type",
-                  "Rank by:",
-                  choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
-                )
-              ),
-              conditionalPanel(
-                condition = "input.sieve_plot_type == 'usgs'",
-                radioButtons(
-                  "sieve_plot_usgs",
-                  "Rank By:",
-                  choices = c(
-                    "Worst Scored Overall" = "worst_score",
-                    "Mean # Observations Above PEL" = "above_pel",
-                    "Mean # Observations Above TEL" = "above_tel"
-                  )
-                )
-              ),
-              conditionalPanel(
-                condition = "input.sieve_plot_type == 'usgs'",
-                checkboxInput("sieve_plot_checkbox", "Filter By Station", value = FALSE)
-              ),
-              conditionalPanel(
-                condition = "input.sieve_plot_checkbox == true",
-                selectInput("sieve_plot_station", "Select Station:", choices = NULL)
+                "sieve_plot_method",
+                "Rank by:",
+                choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
               )
             ),
             column(8, plotlyOutput("sieve_scores_plot", height = "500px"))
@@ -569,7 +539,8 @@ ui <- fluidPage(
               selected = "bol",
               inline = TRUE
             ),
-            
+            selectInput("pca_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
+            selectInput("pca_station", "Select Station:", choices = c("All Stations" = "all")),
             selectizeInput(
               "pca_parameters",
               "Select Parameters for PCA:",
@@ -595,8 +566,8 @@ ui <- fluidPage(
           ),
           mainPanel(
             tabsetPanel(
-              tabPanel("Autoplot", mainPanel(plotOutput("pca_plot"))),
-              tabPanel("Scree Plot", mainPanel(plotOutput("scree_plot")))
+              tabPanel("Autoplot", plotlyOutput("pca_plot")),
+              tabPanel("Scree Plot", plotOutput("scree_plot"))
             )
           )
         ) # close sidebarLayout 

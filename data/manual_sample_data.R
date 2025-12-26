@@ -255,32 +255,33 @@ find_merge_candidates_from_files <- function(files_or_dfs) {
 #### merge clean data files ####
 # Also note: load_base_data works well for this
 # merge the files - water
-merged_df_water <- merge_measurement_folder(here::here("data/water/raw"))
-# save to a file we can look at later
-save_path_water = here::here("data/merged_water_raw.csv")
-dir.create(dirname(save_path_water), recursive = TRUE, showWarnings = FALSE)
+# merged_df_water <- merge_measurement_folder(here::here("data/water/raw"))
 
-write_csv(merged_df_water, file=save_path_water)
+# save to a file we can look at later
+#save_path_water = here::here("data/merged_water_raw.csv")
+#dir.create(dirname(save_path_water), recursive = TRUE, showWarnings = FALSE)
+
+#write_csv(merged_df_water, file=save_path_water)
 
 # merge the files - sediment
-merged_df_sed <- merge_measurement_folder(here::here("data/sed/clean"))
+#merged_df_sed <- merge_measurement_folder(here::here("data/sed/clean"))
 # save to a file we can look at later
-save_path_sed = here::here("data/merged_sed_clean.csv")
-dir.create(dirname(save_path_sed), recursive = TRUE, showWarnings = FALSE)
+#save_path_sed = here::here("data/merged_sed_clean.csv")
+#dir.create(dirname(save_path_sed), recursive = TRUE, showWarnings = FALSE)
 
-write_csv(merged_df_sed, file=save_path_sed)
+#write_csv(merged_df_sed, file=save_path_sed)
 
 ## checks!
 
 # check if any columns are completely NA -- for sanity!
-merged_df = merged_df_water
-names(merged_df)[vapply(merged_df, function(col) all(is.na(col)), logical(1))] # char(0) means no columns!
+#merged_df = merged_df_water
+#names(merged_df)[vapply(merged_df, function(col) all(is.na(col)), logical(1))] # char(0) means no columns!
 
 # print column names 
-print(names(merged_df))
+#print(names(merged_df))
 # check for similar columns
-files <- list.files(here::here("data/sed/clean"), full.names = TRUE)
-cands = find_merge_candidates_from_files(files)
+#files <- list.files(here::here("data/sed/clean"), full.names = TRUE)
+#cands = find_merge_candidates_from_files(files)
 
 #### convert data into by_parameter type ####
 pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
@@ -288,35 +289,36 @@ pivot_merged_samples = function(merged_df, media, date_format = "mdy") {
 }
 
 # pivot the data & include the pivot method
-pivoted_water = pivot_merged_samples(merged_df_water, "water")
-pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
+#pivoted_water = pivot_merged_samples(merged_df_water, "water")
+#pivoted_sed = pivot_merged_samples(merged_df_sed, "sediment", date_format="ymd")
 
 #### calculate HQ & CR from each media ####
-water_scored = score_data(pivoted_water)
-sed_scored = score_data(pivoted_sed)
+#water_scored = score_data(pivoted_water)
+#sed_scored = score_data(pivoted_sed)
 
 # save these scored files
-saveRDS(water_scored, "data/processed/water_scored.rds")
-saveRDS(sed_scored, "data/processed/sed_scored.rds")
+#saveRDS(water_scored, "data/processed/water_scored.rds")
+#saveRDS(sed_scored, "data/processed/sed_scored.rds")
 
 # pull them up -- can place into the code
-water_scored_data = readRDS(here::here("data/processed/water_scored.rds"))
-sed_scored_data = readRDS(here::here("data/processed/sed_scored.rds"))
+#water_scored_data = readRDS(here::here("data/processed/water_scored.rds"))
+#sed_scored_data = readRDS(here::here("data/processed/sed_scored.rds"))
 
 # merge files together :)
 
 
 ## score by locyear - from get_risk_scores.R
-water_locyear = score_to_loc_year(pivoted_water, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
-sed_locyear = score_to_loc_year(pivoted_sed, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
+# water_locyear = score_to_loc_year(pivoted_water, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
+# sed_locyear = score_to_loc_year(pivoted_sed, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal")
 
 ## save the locyear data
-saveRDS(water_locyear, "data/processed/water_locyear.rds")
-saveRDS(sed_locyear, "data/processed/sed_locyear.rds")
+# saveRDS(water_locyear, "data/processed/water_locyear.rds")
+# saveRDS(sed_locyear, "data/processed/sed_locyear.rds")
 
 ## score into loctime :)
-water_loctime = weigh_inverse_time(water_locyear)
-sed_loctime = weigh_inverse_time(water_locyear)
+# water_loctime = weigh_inverse_time(water_locyear)
+# sed_loctime = weigh_inverse_time(water_locyear)
+
 ## save the loctime data
-saveRDS(water_loctime, "data/processed/water_loctime.rds")
-saveRDS(sed_loctime, "data/processed/sed_loctime.rds")
+# saveRDS(water_loctime, "data/processed/water_loctime.rds")
+# saveRDS(sed_loctime, "data/processed/sed_loctime.rds")

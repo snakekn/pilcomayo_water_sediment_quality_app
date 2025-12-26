@@ -245,8 +245,6 @@ plot_top_hq_stations <- function(data, media, param, fraction = "any", method = 
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   
-  ply <- ggplotly(p, tooltip = "text")
-  
   ply <- ply |>
     layout(
       title = list(

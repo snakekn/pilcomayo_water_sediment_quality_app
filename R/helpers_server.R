@@ -830,51 +830,54 @@ ts_get_standards <- function(param_name, media, mode = "all") {
 
 
 # Load standards with match names
-usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
-  mutate(match_name = c("Arsenic (mg/kg As)",
-                        "Cadmium (mg/kg Cd)",
-                        "Copper (mg/kg Cu)",
-                        "Chromium (mg/kg Cr)",
-                        "Lead (mg/kg Pb)",
-                        "Mercury (mg/kg Hg)",
-                        "Nickel (mg/kg Ni)",
-                        "Zinc (mg/kg Zn)"))
+{
+# usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
+#   mutate(match_name = c("Arsenic (mg/kg As)",
+#                         "Cadmium (mg/kg Cd)",
+#                         "Copper (mg/kg Cu)",
+#                         "Chromium (mg/kg Cr)",
+#                         "Lead (mg/kg Pb)",
+#                         "Mercury (mg/kg Hg)",
+#                         "Nickel (mg/kg Ni)",
+#                         "Zinc (mg/kg Zn)"))
+# 
+# bolivian_1333 <- read_csv("data/standards/bolivian_standards_1333.csv", show_col_types = FALSE) |>
+#   mutate(match_name = c("pH", "pH", 
+#                         "Color (u PtCo)", 
+#                         "Total Dissolved Solids (mg/l)", 
+#                         "Oxygen Saturation (%)", 
+#                         "Biochemical Oxygen Demand (mg/l O2)", 
+#                         "Chemical Oxygen Demand (mg/l O2)", 
+#                         NA, NA, NA, 
+#                         "Total Arsenic (ug/l As)", 
+#                         NA, NA, 
+#                         "Total Boron (ug/l B)", 
+#                         "Total Cadmium (ug/l Cd)",
+#                         "Total Calcium (mg/l Ca)",
+#                         "Chlorides (mg/l Cl-)",
+#                         "Total Chromium (ug/l Cr)",
+#                         "Total Chromium (ug/l Cr)",
+#                         NA,
+#                         "Total Copper (ug/l Cu)",
+#                         "Total Iron (ug/l Fe)",
+#                         "Total Lead (ug/l Pb)",
+#                         NA,
+#                         "Total Magnesium (mg/l Mg)",
+#                         "Total Manganese (ug/l Mn)",
+#                         "Total Mercury (ug/l Hg)",
+#                         "Total Nickel (ug/l Ni)",
+#                         "Nitrate (mg/l NO3)",
+#                         "Total Kjeldahl Nitrogen (mg/l N)",
+#                         "Total Phosphorus (mg/l PO4)",
+#                         "Total Selenium (ug/l Se)",
+#                         "Total Silver (ug/l Ag)",
+#                         "Total Sodium (mg/l Na)",
+#                         "Sulfates (mg/l SO4)",
+#                         NA, NA, NA, 
+#                         "Total Zinc (ug/l Zn)"
+#   ))
+} # all commented out
 
-bolivian_1333 <- read_csv("data/standards/bolivian_standards_1333.csv", show_col_types = FALSE) |>
-  mutate(match_name = c("pH", "pH", 
-                        "Color (u PtCo)", 
-                        "Total Dissolved Solids (mg/l)", 
-                        "Oxygen Saturation (%)", 
-                        "Biochemical Oxygen Demand (mg/l O2)", 
-                        "Chemical Oxygen Demand (mg/l O2)", 
-                        NA, NA, NA, 
-                        "Total Arsenic (ug/l As)", 
-                        NA, NA, 
-                        "Total Boron (ug/l B)", 
-                        "Total Cadmium (ug/l Cd)",
-                        "Total Calcium (mg/l Ca)",
-                        "Chlorides (mg/l Cl-)",
-                        "Total Chromium (ug/l Cr)",
-                        "Total Chromium (ug/l Cr)",
-                        NA,
-                        "Total Copper (ug/l Cu)",
-                        "Total Iron (ug/l Fe)",
-                        "Total Lead (ug/l Pb)",
-                        NA,
-                        "Total Magnesium (mg/l Mg)",
-                        "Total Manganese (ug/l Mn)",
-                        "Total Mercury (ug/l Hg)",
-                        "Total Nickel (ug/l Ni)",
-                        "Nitrate (mg/l NO3)",
-                        "Total Kjeldahl Nitrogen (mg/l N)",
-                        "Total Phosphorus (mg/l PO4)",
-                        "Total Selenium (ug/l Se)",
-                        "Total Silver (ug/l Ag)",
-                        "Total Sodium (mg/l Na)",
-                        "Sulfates (mg/l SO4)",
-                        NA, NA, NA, 
-                        "Total Zinc (ug/l Zn)"
-  ))
 
 # Classification mapping
 CLASS_MAP <- c("Class A" = 0, "Class B" = 1, "Class C" = 2, "Class D" = 3, "Unclassified" = 4)

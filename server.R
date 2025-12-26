@@ -16,9 +16,10 @@ server <- function(input, output, session) {
     all_media_locyear = NULL,
     all_media_loctime = NULL
   )
-
+  
   # to print out the new master_data
   observeEvent(reactiveValuesToList(master_data), {
+    cat("\n===== Loading Master Data =====\n")
     
     master_data$water_scored <- if (file.exists("data/processed/all_water_scored.rds")) readRDS("data/processed/all_water_scored.rds") else { print("no all_water_scored.rds"); tibble() }
     master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.rds")) readRDS("data/processed/all_water_locyear.rds") else { print("no all_water_locyear.rds"); tibble() }
@@ -175,6 +176,7 @@ server <- function(input, output, session) {
     req(master_data$water_scored)
     return(master_data$water_scored) # skip all the other combining work...
     
+    # merging occurs elsewhere now
     {
     water_files <- list.files(water_data_path_clean, pattern = "^water_\\d{4}_clean\\.xlsx$", full.names = TRUE)
     
@@ -369,14 +371,14 @@ server <- function(input, output, session) {
   })
   
   # Only Points west of Villamontes (only points in Bolivia)
-  bol_border <- st_read("data/geojson/bol_borders.geojson")
+  # bol_border <- st_read("data/geojson/bol_borders.geojson")
   
   bol_sed_usgs <- reactive({
     # Convert the sediment data to sf object if it isn't already
     cat("all_sed_clean() in bol_sed_usgs")
     filter_to_border(all_sed_clean(), "longitude_decimal", "latitude_decimal", bol_border)
   })
-  
+
   active_water_clean <- reactive({
     if(input$plot_data_scope == "bol") {
       bol_water_clean()
@@ -384,7 +386,7 @@ server <- function(input, output, session) {
       all_water_clean()
     }
   })
-  
+
   active_water_1333 <- reactive({
     if(input$plot_data_scope == "bol") {
       bol_water_1333()
@@ -392,8 +394,8 @@ server <- function(input, output, session) {
       all_water_1333()
     }
   })
-  
-  
+
+
   active_sed_clean <- reactive({
     if(input$plot_data_scope == "bol") {
       bol_sed_clean()
@@ -401,8 +403,8 @@ server <- function(input, output, session) {
       all_sed_clean()
     }
   })
-  
-  
+
+
   active_sed_usgs <- reactive({
     if(input$plot_data_scope == "bol") {
       bol_sed_usgs()
@@ -421,18 +423,15 @@ server <- function(input, output, session) {
   })
   
   water_years_1333 <- reactive({
-    #unique(active_water_1333()$Year)
     unique(master_data$water_scored$year)
   })
   
   sed_years <- reactive({
     unique(master_data$sed_scored$year)
-    #unique(active_sed_clean()$Year)
   })
   
   sed_years_usgs <- reactive({
     unique(master_data$sed_scored$year)
-    #unique(active_sed_usgs()$Year)
   })
   
   all_years <- reactive({
@@ -573,7 +572,7 @@ server <- function(input, output, session) {
   ################# PCA #########################
   
   numeric_columns <- reactive({
-    df <- active_water_1333()
+    df <- master_data$all_media_scored
     
     # Columns to exclude from parameter dropdown
     excluded_columns <- c("Decimal Latitude", "Decimal Longitude",
@@ -602,9 +601,12 @@ server <- function(input, output, session) {
   })
   
   observe({
+    df = master_data$all_media_scored
+    req(df, input$pca_media)
+    
     updateSelectizeInput(inputId = "pca_parameters",
-                         choices = numeric_columns(),
-                         selected = c("pH", "pH (mV)", "Oxygen Saturation (%)", "Dissolved Oxygen (mg/l O2)"))
+                         choices = get_param_list(df, media_type = input$pca_media),
+                         selected = NULL)
   })
   
   observeEvent(input$deselect_all_pca, {
@@ -612,40 +614,72 @@ server <- function(input, output, session) {
   })
   
   pca_result <- eventReactive(input$run_pca, {
-    
-    if (length(input$pca_parameters) < 2) stop("Please select 2 more more variables")
-    
-    df <- active_water_1333() %>%
-      select(any_of(input$pca_parameters))
-    
-    # Remove columns that are entirely NA
-    df <- df %>% select(where(~ !all(is.na(.))))
-    
-    # Estimate optimal number of components for imputation
-    est <- estim_ncpPCA(df, method.cv = "Kfold", nbsim = 5)
-    
-    # Impute missing values
-    impute_result <- imputePCA(df, ncp = est$ncp)
-    
-    # Run PCA
-    PCA(impute_result$completeObs, graph = FALSE)
+    calc_pca(master_data$all_media_scored, input$pca_parameters)
   })
   
-  output$pca_plot <- renderPlot({
-    req(pca_result())  # Assuming you have a reactive `pca_result()`
+  output$pca_plot <- renderPlotly({
+    res <- pca_result()
+    req(res)
     
-    fviz_pca_var(
-      pca_result(),
-      col.var = "cos2",  # Color by quality of representation
-      gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-      repel = TRUE       # Avoid label overlap
-    )
+    df   <- res$df
+    rpca <- res$pca
+    
+    scores   <- as.data.frame(rpca$ind$coord[, 1:2])
+    loadings <- as.data.frame(rpca$var$coord[, 1:2])
+    
+    scores$station <- df$station
+    scores$date    <- df$date
+    scores$media   <- df$media
+    
+    arrow_scale <- 1.5   # try between 1 and 3
+    
+    g <- ggplot() +
+      # points
+      geom_point(
+        data = scores,
+        aes(
+          x = Dim.1, y = Dim.2,
+          colour = media,
+          text   = paste(
+            "Station:", station,
+            "<br>Date:", date,
+            "<br>Media:", media
+          )
+        ),
+        alpha = 0.8, size = 2.5
+      ) +
+      # arrows (scaled up a bit)
+      geom_segment(
+        data = transform(loadings,
+                         Dim.1 = Dim.1 * arrow_scale,
+                         Dim.2 = Dim.2 * arrow_scale),
+        aes(x = 0, y = 0, xend = Dim.1, yend = Dim.2),
+        arrow  = arrow(length = unit(0.25, "cm")),
+        colour = "steelblue4",
+        linewidth = 0.4
+      ) +
+      # labels offset from arrow tips
+      geom_text(
+        data = transform(loadings,
+                         Dim.1 = Dim.1 * arrow_scale * 1.05,
+                         Dim.2 = Dim.2 * arrow_scale * 1.05),
+        aes(x = Dim.1, y = Dim.2, label = rownames(loadings)),
+        colour = "steelblue4",
+        size = 3
+      ) +
+      labs(x = "Dim1", y = "Dim2", colour = "Media") +
+      theme_minimal()
+    
+    # Convert to plotly – this is what makes the plot appear
+    plotly::ggplotly(g, tooltip = "text")
   })
   
   # Scree plot
   output$scree_plot <- renderPlot({
-    req(pca_result())
-    fviz_screeplot(pca_result(), addlabels = TRUE)
+    res = pca_result()
+    req(res)
+    
+    fviz_screeplot(res$pca, addlabels = TRUE)
   })
   
   
@@ -692,23 +726,20 @@ server <- function(input, output, session) {
   })
   
   observe({
-    df = master_data$all_media_scored
+    df = master_data$sed_scored
+    req(df)
+    
     params_list = get_param_list(df)
     cat("\n\n", params_list,"\n")
-    
-    updateSelectInput(inputId = "station_plot_param_sed",
-                      choices = params_list,
-                      selected = "Arsenic")
-
-    updateSelectInput(inputId = "observation_plot_param_sed",
-                      choices = params_list,
-                      selected = "Arsenic")
 
     updateSelectInput(inputId = "sieve_plot_param",
-                      choices = params_list,
-                      selected = "Arsenic")
+                      choices = c("All Parameters" = "all", params_list),
+                      selected = "all")
+    
+    updateSelectInput(inputId = "sieve_plot_station",
+                      choices = c("All Stations" = "all", sort(unique(df$station))),
+                      selected = "all")
   })
-  
   
   # Compute water quality score per observation (row)
   observation_scores <- reactive({
@@ -1391,13 +1422,6 @@ server <- function(input, output, session) {
                       choices = c("All Stations", stations))
   })
   
-  observe({
-    df <- active_sed_usgs()
-    stations <- unique(df$station)
-    updateSelectInput(inputId = "sieve_plot_station",
-                      choices = sort(stations))
-  })
-  
   active_water_1333_param_plot <- reactive({
     df <- active_water_1333()
     
@@ -1548,343 +1572,30 @@ server <- function(input, output, session) {
   # --- Step 3: Assign unique colors ---
   
   output$param_scores_plot <- renderPlotly({
+    req(master_data$all_media_scored)
+    req(input$param_plot_media, input$param_plot_method)
     
+    cat("\n\nworking to render\n\n")
+    validate(need(!is.null(master_data$all_media_scored),
+                  "No data available for ranking."))
     p = plot_top_hq_params(data = master_data$all_media_scored, 
                            media = input$param_plot_media,
                            fraction = input$param_plot_fraction,
                            method = input$param_plot_method,
                            station = input$param_plot_station)
-    quiet_plotly(p)
     
-    {
-    # 
-    # 
-    # # everything here is unused
-    # 
-    # if (input$param_plot_type == "class") {
-    #   plot_type <- input$param_plot_class
-    #   
-    #   if (plot_type == "unclassified") {
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_water_1333_param_plot(),
-    #       class_cols = class_cols(),
-    #       class_label = "Unclassified",
-    #       bar_color = "firebrick",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Unclassified: Top 15 Parameters at", input$param_plot_station),
-    #         "% Unclassified: Top 15 Parameters"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% Unclassified (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% Unclassified (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   } else if (plot_type == "class_d") {
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_water_1333_param_plot(),
-    #       class_cols = class_cols(),
-    #       class_label = "Class D",
-    #       bar_color = "darkorange",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Class D: Top 15 Worst Parameters at", input$param_plot_station),
-    #         "% Class D: Top 15 Worst Parameters"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% Class D (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% Class D (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   } else if (plot_type == "class_c") {
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_water_1333_param_plot(),
-    #       class_cols = class_cols(),
-    #       class_label = "Class C",
-    #       bar_color = "gold",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Class C: Top 15 Parameters at", input$param_plot_station),
-    #         "% Class C: Top 15 Parameters"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% Class C (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% Class C (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   } else if (plot_type == "class_b") {
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_water_1333_param_plot(),
-    #       class_cols = class_cols(),
-    #       class_label = "Class B",
-    #       bar_color = "lightgreen",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Class B: Top 15 Parameters at", input$param_plot_station),
-    #         "% Class B: Top 15 Parameters"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% Class B (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% Class B (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   } else if (plot_type == "worst_score") {
-    #     
-    #     p <- ggplot(plot_data(), aes(x = Parameter, y = Score)) +
-    #       geom_col(position = "identity",
-    #                aes(alpha = Type, 
-    #                    text = ifelse(
-    #                      Type == "Raw",
-    #                      paste0("Overall Score (all observations): ", round(Score, 2)),
-    #                      paste0("Overall Score (non-NA observations): ", round(Score, 2))
-    #                    )), show.legend = FALSE,
-    #                fill = "darkslateblue") +
-    #       scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
-    #       coord_flip() +
-    #       labs(
-    #         title = plot_title <- ifelse(
-    #           isTRUE(input$param_plot_checkbox),
-    #           paste("Overall: Top 15 Worst Parameters at", input$param_plot_station),
-    #           "Overall: Top 15 Worst Parameters"
-    #         ),
-    #         subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
-    #         x = NULL,
-    #         y = "Water Quality Score (0=best, 4=worst)"
-    #       ) +
-    #       theme_minimal()
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #   }
-    # } else if (input$param_plot_type == "usgs") {
-    #   
-    #   plot_type <- input$param_plot_usgs
-    #   
-    #   if (plot_type == "worst_score") {
-    #     
-    #     p <- ggplot(plot_data_sed(), aes(x = Parameter, y = Score)) +
-    #       geom_col(position = "identity",
-    #                aes(alpha = Type,
-    #                    text = ifelse(
-    #                      Type == "Raw",
-    #                      paste0("Overall Score (all observations): ", round(Score, 2)),
-    #                      paste0("Overall Score (non-NA observations): ", round(Score, 2))
-    #                    )), show.legend = FALSE,
-    #                fill = "darkslateblue") +
-    #       scale_alpha_manual(values = c(Raw = 1, Standardized = 0.4)) +
-    #       coord_flip() +
-    #       labs(
-    #         title = plot_title <- ifelse(
-    #           isTRUE(input$param_plot_checkbox),
-    #           paste("Overall Score: Sediment Parameters Ranked at", input$param_plot_station),
-    #           "Overall Score: Sediment Parameters Ranked"
-    #         ),
-    #         subtitle = "Dark bars = weighted counts / total observations\nLight bars = weighted counts / total non-NA observations",
-    #         x = NULL,
-    #         y = "Water Quality Score (0=best, 4=worst)"
-    #       ) +
-    #       theme_minimal()
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   } else if(plot_type == "above_tel") {
-    #     
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_sed_usgs_param_plot(),
-    #       class_cols = usgs_cols(),
-    #       class_label = "Above TEL",
-    #       bar_color = "darkorange",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Above TEL: Sediment Parameters Ranked at", input$param_plot_station),
-    #         "% Above TEL: Sediment Parameters Ranked"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% ", data$Parameter, " Above TEL (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% ", data$Parameter, " Above TEL (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #     
-    #   } else if (plot_type == "above_pel") {
-    #     
-    #     p <- plot_class_proportions_overlay(
-    #       data = active_sed_usgs_param_plot(),
-    #       class_cols = usgs_cols(),
-    #       class_label = "Above PEL",
-    #       bar_color = "firebrick",
-    #       plot_title <- ifelse(
-    #         isTRUE(input$param_plot_checkbox),
-    #         paste("% Above PEL: Sediment Parameters Ranked at", input$param_plot_station),
-    #         "% Above PEL: Sediment Parameters Ranked"
-    #       ),
-    #       plot_subtitle = "Dark bars = count / total observations\nLight bars = count / total non-NA observations",
-    #       hover_text = function(data) {
-    #         data$hover_text <- ifelse(
-    #           data$Type == "Raw",
-    #           paste0("% ", data$Parameter, " Above PEL (all observations): ", round(data$Proportion, 2)),
-    #           paste0("% ", data$Parameter, " Above PEL (non-NA observations): ", round(data$Proportion, 2))
-    #         )
-    #         return(data)
-    #       }
-    #     )
-    #     
-    #     quiet_plotly(p, tooltip = "text")
-    #     
-    #   }
-    #   
-    # }
-    
-  } # old code
+    quiet_plotly(p, tooltip = "text")
   })
   
-  
+  # Nadav's Notes: Next to do. Will want to set up in a separate file like the others
   output$sieve_scores_plot <- renderPlotly({
-    req(input$sieve_plot_type)
+    req(input$sieve_plot_method, input$sieve_plot_param, input$sieve_plot_station, master_data$sed_scored)
     
-    if (input$sieve_plot_type == "sed_value") {
-      req(input$sieve_plot_param)
-      df <- active_sed_clean()
-      
-      param <- input$sieve_plot_param
-      
-      plot_df <- df |>
-        group_by(`Sieve Size`) |>
-        summarise(mean_value = mean(.data[[param]]),
-                  max_value = max(.data[[param]]))
-      
-      if (input$sieve_param_type == "max") {
-        
-        p <- plot_df |>
-          ggplot(aes(x = reorder(`Sieve Size`, max_value), 
-                     y = max_value,
-                     text = paste0("Max ", param, ": ", round(max_value, 2)))) +
-          geom_col(fill = "tan") +
-          coord_flip() + 
-          labs(title = paste("Sieve Sizes Ranked by Max", param),
-               x = NULL, y = paste("Max", param)) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (input$sieve_param_type == "avg") {
-        
-        p <- plot_df |>
-          ggplot(aes(x = reorder(`Sieve Size`, mean_value), 
-                     y = mean_value,
-                     text = paste0("Mean ", param, ": ", round(mean_value, 2)))) +
-          geom_col(fill = "tan") +
-          coord_flip() +
-          labs(title = paste("Sieve Sizes Ranked by Mean", param),
-               x = NULL, y = paste("Mean", param)) +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      }
-      
-      
-    } else if (input$sieve_plot_type == "usgs") {
-      req(input$sieve_plot_usgs)
-      
-      df <- active_sed_usgs()
-      
-      if (input$sieve_plot_checkbox == TRUE) {
-        df <- df |>
-          filter(station == input$sieve_plot_station)
-      }
-      
-      plot_df <- df |>
-        group_by(`Sieve Size`) |>
-        summarise(mean_score = mean(sed_score),
-                  mean_above_pel = mean(num_above_pel),
-                  mean_above_tel = mean(num_above_tel)
-        )
-      
-      if (input$sieve_plot_usgs == "worst_score") {
-        
-        p <- plot_df |>
-          ggplot(aes(x = reorder(`Sieve Size`, mean_score), 
-                     y = mean_score,
-                     text = paste0("Overall Score: ", round(mean_score, 3)))) +
-          geom_col(fill = "darkslateblue") +
-          coord_flip() +
-          labs(title = "Sieve Sizes Ranked by Overall Score",
-               x = NULL, y = "Mean Overall Score (0=best, 2=worst)") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (input$sieve_plot_usgs == "above_pel") {
-        
-        p <- plot_df |>
-          ggplot(aes(x = reorder(`Sieve Size`, mean_above_pel), 
-                     y = mean_above_pel,
-                     text = paste0("Mean # Params Above PEL: ", round(mean_above_pel, 3)))) +
-          geom_col(fill = "firebrick") +
-          coord_flip() +
-          labs(title = "Sieve Sizes Ranked by Mean # Above PEL",
-               x = NULL, y = "Mean Number of Parameters Above PEL (per sample)") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      } else if (input$sieve_plot_usgs == "above_tel") {
-        
-        p <- plot_df |>
-          ggplot(aes(x = reorder(`Sieve Size`, mean_above_tel), 
-                     y = mean_above_tel,
-                     text = paste0("Mean # Params Above TEL: ", round(mean_above_tel, 3)))) +
-          geom_col(fill = "darkorange") +
-          coord_flip() +
-          labs(title = "Sieve Sizes Ranked by Mean # Above TEL",
-               x = NULL, y = "Mean Number of Parameters Above TEL (per sample)") +
-          theme_minimal()
-        
-        quiet_plotly(p, tooltip = "text")
-        
-      }
-      
-    }
-    
+    p = plot_top_hq_sieve(data = master_data$sed_scored,
+                          param_selection = input$sieve_plot_param,
+                          method = input$sieve_plot_method,
+                          station_selection = input$sieve_plot_station)
+    quiet_plotly(p, tooltip = "text")
   })
   
   

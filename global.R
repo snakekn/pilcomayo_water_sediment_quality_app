@@ -22,7 +22,8 @@ library(terra)
 library(ggiraph)
 
 
-options(shiny.trace = TRUE)
+options(shiny.trace = FALSE)
+options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors
 options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
 
@@ -65,6 +66,14 @@ compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
 #### load global values ####
 stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
+### Put together an easy-to-load standards list
+# Load csv's & prepare for standards & weights. STDs include Cancer Risk
+make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
+
+stds = readr::read_csv(here::here("data/standards/all_standards.csv")) |>
+  mutate(.key = make_key(parameter, media, hqcr)) |>
+  filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
+std_map <- split(stds, stds$.key)
 
 # these are kept centrally to help us easily redefine if needed
 
