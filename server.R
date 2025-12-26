@@ -712,11 +712,21 @@ server <- function(input, output, session) {
     
     r = load_risk_rasters(debug=TRUE)
     
-    if (isTRUE(input$risk_hq))      layers <- c(layers, list(r$hq))
-    if (isTRUE(input$risk_vul))     layers <- c(layers, list(r$vul))
-    if (isTRUE(input$risk_air))     layers <- c(layers, list(r$air))
-    if (isTRUE(input$risk_mining))  layers <- c(layers, list(r$mining))
-    if (isTRUE(input$risk_pop))     layers <- c(layers, list(r$pop))
+    if (isTRUE(input$risk_hq)) {
+      layers[["hq"]] <- r$hq
+    }
+    if (isTRUE(input$risk_vul)) {
+      layers[["vul"]] <- r$vul
+    }
+    if (isTRUE(input$risk_air)) {
+      layers[["air"]] <- r$air
+    }
+    if (isTRUE(input$risk_mining)) {
+      layers[["mining"]] <- r$mining
+    }
+    if (isTRUE(input$risk_pop)) {
+      layers[["pop"]] <- r$pop
+    }
     
     if (length(layers) == 0) {
       cat("\n[risk_raster reactive] No layers detected")
@@ -728,7 +738,7 @@ server <- function(input, output, session) {
     r_stack <- terra::rast(layers)
     r_merge = terra::app(r_stack, fun = sum, na.rm = TRUE)
     rlist = list(merged = r_merge, individuals = layers)
-    cat("[risk_raster] returning r_stack and r_merge: ", names(rlist))
+    cat("\n[risk_raster] returning r_stack and r_merge. Layers in r_merge: ", names(rlist$individuals))
     return(rlist)
   })
   
@@ -743,6 +753,9 @@ server <- function(input, output, session) {
     req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
     
     r = risk_raster()
+    if(is.null(r)) { # no layers selected
+      stop("No layers selected. Please select at least 1 layer to map risk on the region.")
+    }
     req(!is.null(r), !is.null(r$merged))
 
     proxy = leafletProxy("risk_map", data = r$merged) |> clearImages()
@@ -769,6 +782,8 @@ server <- function(input, output, session) {
     
     # Extract values from each individual layer
     r <- risk_raster()
+    cat("\nClicked point: ", click_lat, click_lng,
+        "\nAvailable keys in r$individuals:", paste(names(r$individuals), collapse = ", "), "\n")
     print(names(r))
     req(!is.null(r$individuals))
     print(names(r$individuals))

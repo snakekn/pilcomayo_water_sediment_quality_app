@@ -1,6 +1,5 @@
 load_risk_rasters = function(debug = FALSE) {
-  library(terra)
-  
+
   # identify where the data is held
   data_path = "data/"
   
@@ -38,7 +37,7 @@ load_risk_rasters = function(debug = FALSE) {
 make_dummy_raster = function() {
   r_dummy <<- rast(nrows = 100, ncols = 100,
                    xmin = -66.3, xmax = -65.2,
-                   ymin =  -28.8,  ymax =  -19.2)
+                   ymin =  -28.8,  ymax =  -27.2)
   # note: will need to reproject later if they're not all the same
   
   values(r_dummy) <- runif(ncell(r_dummy), 0, 1)  # random 0–1
