@@ -1,5 +1,7 @@
 # helpers.R - Place this in your app directory and source it before ui.R/server.R
 # Small helper to reconcile legacy coord names the app expects
+library(sf)
+
 .reconcile_legacy_names <- function(df) {
   rename_map <- c(
     "Decimal latitude"  = "Latitude Decimal",
@@ -1578,10 +1580,20 @@ compare_units <- function(sample_unit, standard_unit) {
     # The factor simplifies to:
     # factor = (gram_factor_s / denom_scale_s) / (gram_factor_t / denom_scale_t)
     factor <- (t$gram_factor_g / t$denom_scale) / (s$gram_factor_g / s$denom_scale)
-    return(list(convertible = TRUE, conversion_factor = as.numeric(factor), message = "Mass units convertible via prefix/denom scaling.", sample_parsed = s, standard_parsed = t))
+    
+    # debugging
+    # cat("\n[calculate_hqcr]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
+    #     std$value, " (",std$unit,")\nHQ: ", hq, "\nConversion Factor: ", unit_check_hq$conversion_factor)
+    # 
+    
+    res = list(convertible = TRUE, conversion_factor = as.numeric(factor), message = "Mass units convertible via prefix/denom scaling.", sample_parsed = s, standard_parsed = t)
+    # str(res, max.level=3, give.attr=FALSE, strict.width="cut")
+    
+    return(res)
   }
   
   # otherwise fallback: not convertible by metric multipliers only
+  cat("[compare_units] Fallback.")
   list(convertible = FALSE, conversion_factor = NA_real_, message = "Units not both mass or count-per-volume families; cannot auto-convert.", sample_parsed = s, standard_parsed = t)
 }
 

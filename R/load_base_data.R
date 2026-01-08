@@ -1,4 +1,19 @@
 load_base_data <- function(load = TRUE, loctime = FALSE, save = FALSE) {
+  
+  library(tidyverse)
+  
+  # load all helper functions
+  load_scripts <- function(dir = "scripts/risk_analysis") {
+    if (!dir.exists(dir)) return(invisible())
+    files <- list.files(dir, pattern = "[.]R$", full.names = TRUE, recursive = TRUE)
+    for (f in files) {
+      # source into the *current* app environment to avoid globals
+      sys.source(f, envir = globalenv()) 
+    }
+  }
+  
+  load_scripts(dir = "R")
+  
   # if the user is looking to complete all tasks (not just save the data)
   if(load) {
     print("Loading water data...")

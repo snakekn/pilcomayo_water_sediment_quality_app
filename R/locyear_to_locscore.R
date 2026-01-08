@@ -5,7 +5,6 @@
 # Note: If we need it, we can load it from elsewhere
 # --> made a flag to allow us to remove the detailed datapoints 
 weigh_inverse_time <- function(locyear, details = FALSE) {
-  req(locyear)
   
   df <- locyear |>
     group_by(station, year) |>  # Group by station and year
