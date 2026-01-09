@@ -1,3 +1,4 @@
+
 plot_top_hq_stations <- function(data, media, param, fraction = "Total", 
                                  temporal_aggregation = "max",  # RENAMED from method
                                  param_aggregation = NULL,
@@ -23,7 +24,16 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   # Handle "all" parameter - use all parameters in dataset
   if (length(param) == 1 && tolower(param) == "all") {
     message("Using ALL parameters in dataset...")
-    
+}
+  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", method, "\n")
+  
+  # Unit conversion helper function (defined once at top level)
+  convert_units <- function(value, from_unit, to_unit) {
+    from <- tolower(gsub("\\s+", "", from_unit))
+    to <- tolower(gsub("\\s+", "", to_unit))
+    if (from == to) return(value)
+# Nadav: enter code block with conversions
+  }
     # Filter for media only
     df <- data |>
       filter(media == !!media)
@@ -36,7 +46,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     if (is.null(param_aggregation)) {
       param_aggregation <- "mean"
       message("Setting param_aggregation to 'mean' (required when using 'all' parameters)")
-    }
+    
     
     param_display <- "All Parameters"
     
@@ -52,6 +62,15 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     all_parameters <- param
     param_display <- if (length(param) == 1) param else paste(length(param), "parameters")
   }
+
+  # Filter for media and parameter
+  if (media != "all") { # only filter on media if we're not using them all
+    data = data |> filter(media == !!media) # update data
+    cat("\n\nafter filtering for media, nrow(df) = ", nrow(df), "\n")
+  }
+  df <- data |> # then filter by param no matter what. Move data into df
+    filter(parameter == param)
+  cat("\n\nafter filtering for parameter, nrow(df) = ", nrow(df), "\n")
   
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
@@ -65,13 +84,14 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         filter(is.na(fraction) | fraction == !!fraction)
     }
   }
+  if(nrow(df) == 0) stop(paste("No data found using the current filters. Please update your filters."))
   
   # Determine if fraction was applied (for title labeling)
   fraction_applied <- (media == "water" && 
                          !(length(param) == 1 && tolower(param) == "all") &&
                          !(length(param) == 1 && param == "pH") && 
                          any(data$fraction == fraction))
-  
+
   # Special handling for pH - filter to pH units only
   if (length(param) == 1 && param == "pH") {
     df <- df |>
@@ -139,9 +159,11 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     }
   }
   
-  # Filter to only exceedances (HQ values that exist and are > 0)
+  # Filter to only exceedances
+  cat("\n\before filtering for hq, nrow(df) = ", nrow(df), "\n")
   df_exceedances <- df |>
-    filter(!is.na(HQ), HQ > 0)
+    filter(!is.na(hq), hq > 1) # remove where HQ is acceptable
+
   
   # Check if there are any exceedances
   if (nrow(df_exceedances) == 0) {
@@ -336,7 +358,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       "</sup>"
     )
   }
-  
+
   ply <- ply |>
     layout(
       title = list(text = plotly_title),

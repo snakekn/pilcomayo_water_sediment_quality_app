@@ -20,9 +20,11 @@ library(shinyWidgets)
 library(bslib)
 library(terra)
 library(ggiraph)
+library(shinyjs)
 
 
-options(shiny.trace = TRUE)
+options(shiny.trace = FALSE)
+options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors
 options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
 
@@ -54,17 +56,25 @@ compiled_water_data_path = "data/compiled/water_compiled.csv"
 compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
 #### load pre-compiled data ####
-initial_water_clean = readr::read_csv(here::here("data/processed/merged_water_clean.csv"))
-initial_sed_clean = readr::read_csv(here::here("data/processed/merged_sed_clean.csv"))
-
-initial_water_scored = readRDS(here::here("data/processed/water_scored.rds")) # with HQCRWL scores
-initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
-
-initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
-initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
+# initial_water_clean = readr::read_csv(here::here("data/processed/merged_water_clean.csv"))
+# initial_sed_clean = readr::read_csv(here::here("data/processed/merged_sed_clean.csv"))
+# 
+# initial_water_scored = readRDS(here::here("data/processed/water_scored.rds")) # with HQCRWL scores
+# initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
+# 
+# initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
+# initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
 
 #### load global values ####
 stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
+### Put together an easy-to-load standards list
+# Load csv's & prepare for standards & weights. STDs include Cancer Risk
+make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
+
+stds = readr::read_csv(here::here("data/standards/all_standards.csv")) |>
+  mutate(.key = make_key(parameter, media, hqcr)) |>
+  filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
+std_map <- split(stds, stds$.key)
 
 # these are kept centrally to help us easily redefine if needed
 

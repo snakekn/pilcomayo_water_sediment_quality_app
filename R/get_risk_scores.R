@@ -1,6 +1,6 @@
 
 #### Split scored df by station & year, merge into a single set of scores per location-year ####
-# potentially good for showing all on a map. Note: can take awhile to load, so we want to parse this (or show a loading bar) early if possible
+# potentially good for showing all on a map. Note: can take awhile to load, so we want to sse this (or show a loading bar) early if possible
 score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal") {
 
     req <- c("station", "year", "parameter","media","concentration","unit") # regular check
@@ -101,7 +101,10 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
-stds = readr::read_csv(here::here("data/standards/strict_standards.csv")) |>
+#stds_location = here::here("data/standards/strict_standards.csv")
+stds_location = here::here("data/standards/strict_standards_1_7_2026.csv") # need to review both for inconsistencies
+
+stds = readr::read_csv(stds_location) |>
   mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
@@ -211,6 +214,9 @@ score_data <- function(sample_data) {
   # Convert suspended sediment concentrations BEFORE scoring
   sample_data <- convert_suspended_concentrations(sample_data)
   
+  # debugging
+  # View(sample_data)
+  
   # Calculate hqcr for each row
   scored <- sample_data |>
     dplyr::mutate(
@@ -219,10 +225,13 @@ score_data <- function(sample_data) {
         calculate_hqcr
       )
     )
-  
+
   # Unnest the hqcr list-column to extract HQ, CR, WL, and std_info
   scored <- scored |>
     tidyr::unnest_wider(hqcr)
+  
+  # debugging
+  # View(scored)
   
   # Now add the derived columns after unnesting
   scored <- scored |>
@@ -233,6 +242,9 @@ score_data <- function(sample_data) {
       has_WL = !is.na(WL),
       has_standard = has_HQ | has_CR | has_WL  # Add this column
     )
+  
+  # debugging
+  # View(scored)
   
   return(scored)
 }
@@ -275,10 +287,11 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     }
     
     unit_check_hq = compare_units(unit, std$unit)
+    
     if(!unit_check_hq$convertible) {
       # Can't convert units
     } else {
-      val = val * unit_check_hq$conversion_factor
+      val = val / unit_check_hq$conversion_factor
       # INVERSE: HQ = standard / measured (lower values = higher hazard)
       if (val == 0) {
         hq <- Inf
@@ -314,6 +327,9 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     upper <- std_high$value
     midpoint <- (lower + upper) / 2
     
+    # debugging
+    # cat("\n[pH exception]","\nval: ",val,"\nlower:",lower,"\nupper:",upper,"\n")
+    
     # Calculate HQ based on which side of midpoint
     if (is.na(val)) {
       hq <- NA_real_
@@ -348,19 +364,36 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
   } # end pH special-case
   
   ### Calculate HQ
+  
+  # debugging
+  # cat("\n[main body]\n")
+  
   std = get_std(param, "hq", med) # fetch HQ standard
   # print(std)
   # confirm we got the standard, otherwise stop trying to calculate based on this parameter-media
   if(!is.null(std)) {
     # check the units are the same and abort if they're not
     unit_check_hq = compare_units(unit, std$unit) # in helpers_server.R. Gives helpful responses
+    
+    # debugging
+    # cat("\n[calculate_hqcr] Checking compare_units results\n")
+    # str(unit_check_hq)
+    
     if(!unit_check_hq$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val / unit_check_hq$conversion_factor
-      hq = val/std$value
+      val_norm = val / unit_check_hq$conversion_factor
+      hq = val_norm/std$value
+      
+      # debugging
+      # print("\n[hq: ]")
+      # print(hq)
       
       std_info[["HQ"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
+      
+      # debugging!
+      # cat("\n[calculate_hqcr]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
+      #     std$value, " (",std$unit,")\nHQ: ", hq, "\nConversion Factor: ", unit_check_hq$conversion_factor)
     }
   } # ELSE: leave HQ as NA_real_ 
   
@@ -374,8 +407,8 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_wl$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_wl$message, " Received sample units ", unit_check_wl$sample_parsed$raw, " and standard ", unit_check_wl$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val / unit_check_wl$conversion_factor
-      wl = val/std$value
+      val_norm = val / unit_check_wl$conversion_factor
+      wl = val_norm/std$value
       
       std_info[["WL"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
       
@@ -393,20 +426,20 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     if(!unit_check_cr$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
-      val = val / unit_check_cr$conversion_factor
+      val_norm = val / unit_check_cr$conversion_factor
       
       ep <- EXPOSURE_FACTORS
       sf <- std$value
       
       cr = switch(route,
-                  "inhalation" = val * sf,  # val in µg/m^3; sf is unit risk (µg/m^3)^-1
+                  "inhalation" = val_norm * sf,  # val in µg/m^3; sf is unit risk (µg/m^3)^-1
                   "oral" = {
-                    dose <- (val * ep$IR$oral_L_per_day * ep$EF * ep$ED) / (ep$BW * ep$EL)
+                    dose <- (val_norm * ep$IR$oral_L_per_day * ep$EF * ep$ED) / (ep$BW * ep$EL)
                     dose * sf
                   },
                   "soil_oral" = {
                     CF <- 1e-6
-                    dose <- (val * ep$IR$soil_mg_per_day * CF * ep$EF * ep$ED) / (ep$BW * ep$EL)
+                    dose <- (val_norm * ep$IR$soil_mg_per_day * CF * ep$EF * ep$ED) / (ep$BW * ep$EL)
                     dose * sf
                   },
                   NA_real_
@@ -415,6 +448,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     
     std_info[["CR"]] = list(std_reg = std$regulator, std_val = std$value, std_unit = std$unit)
   }
+  
   # print(std) # had an issue with !is.null(std) failing when the std wasn't null (received properly)
   if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
     return(list(HQ=hq, CR = cr, WL=wl, std_info = std_info))

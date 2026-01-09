@@ -4,7 +4,7 @@ load_sediment_data <- function(path, is.clean = FALSE, translate_to = NULL) {
   
   if (str_detect(file_path, ".csv")) data_raw <- suppressMessages(read_csv(file_path, col_names = FALSE)) 
   
-  if (str_detect(file_path, ".xls")) data_raw <- suppressMessages(read_excel(file_path, col_names = FALSE))
+  if (str_detect(file_path, ".xls")) data_raw <- suppressMessages(readxl::read_excel(file_path, col_names = FALSE))
   
   if (!is.clean) {
     data <- clean_sediment_data(data_raw)

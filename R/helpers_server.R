@@ -1,5 +1,7 @@
 # helpers.R - Place this in your app directory and source it before ui.R/server.R
 # Small helper to reconcile legacy coord names the app expects
+library(sf)
+
 .reconcile_legacy_names <- function(df) {
   rename_map <- c(
     "Decimal latitude"  = "Latitude Decimal",
@@ -29,6 +31,9 @@
 
 # filter to Bolivia
 filter_to_border <- function(df, lon_col, lat_col, border_sf) {
+  message("\nSKIPPING IN DEV TO REDUCE LONG DELAYS, REMOVE THIS BREAK WHEN POSTING TO PRODUCTION")
+  return(df)
+  # Nadav's Note: Sloppy but may help with quicker loading time
   
   # 1. Check column existence
   if (!lon_col %in% names(df)) stop(paste("Longitude column not found:", lon_col))
@@ -534,12 +539,14 @@ dataUploadServer <- function(id, base_data, master_data) {
 
 
 # Load spatial data
-pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
-bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
-river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+# pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+# bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+# river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+# pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp", quiet = TRUE)
+
+# Load census data
 census_potosi <- st_read("data/census/shp/potosi_census_summary_shape.shp", quiet = TRUE)
 names(census_potosi) <- c("province", "iprov", "pop", "prop_ch_u6", "prop_elder65", "prop_age_vuln", "prop_no_health", "prop_pub_health", "prop_trad_care", "prop_inf_only", "prop_farm", "prop_mine", "prop_manu", "prop_cons", "prop_indig", "prop_agro_part", "prop_agro_sale", "prop_agro_cons", "prop_disab", "prop_child_loss", "hh_count", "prop_river_w", "prop_unprot_w", "prop_no_pipe", "prop_solid_ws", "prop_liq_ws", "prop_struct_vuln", "deaths_tot", "deaths_avg_age", "deaths_under50", "prop_under50", "deaths_u5", "prop_u5", "deaths_u15", "prop_u15", "geometry")
-pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp")
 
 #### To quiet down plotly warnings ####
 quiet_ggplotly <- function(p, tooltip = "text") {
@@ -550,6 +557,20 @@ quiet_ggplotly <- function(p, tooltip = "text") {
 
 
 quiet_plotly <- function(p, ...) {
+  # save current options
+  old_opts <- options(
+    shiny.trace = getOption("shiny.trace"),
+    warn        = getOption("warn"),
+    ts_debug    = getOption("ts_debug")
+  )
+  
+  # turn noisy options off just for this call
+  options(shiny.trace = FALSE,
+          warn        = 0,      # or whatever you normally use
+          ts_debug    = FALSE)
+  
+  on.exit(options(old_opts), add = TRUE)  # restore on exit
+  
   withCallingHandlers(
     {
       suppressWarnings(
@@ -559,18 +580,17 @@ quiet_plotly <- function(p, ...) {
     warning = function(w) {
       msg <- conditionMessage(w)
       
-      # Suppress ONLY plotly-noise warnings
       if (grepl("plotly", msg, ignore.case = TRUE) ||
           grepl("JSON", msg) ||
           grepl("incompatible with", msg) ||
           grepl("Couldn't transform", msg) ||
           grepl("data for this geom", msg)) {
-        
         invokeRestart("muffleWarning")
       }
     }
   )
 }
+
 
 #### Get standards dynamically and based on regulator ####
 # ============================================================================
@@ -812,51 +832,54 @@ ts_get_standards <- function(param_name, media, mode = "all") {
 
 
 # Load standards with match names
-usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
-  mutate(match_name = c("Arsenic (mg/kg As)",
-                        "Cadmium (mg/kg Cd)",
-                        "Copper (mg/kg Cu)",
-                        "Chromium (mg/kg Cr)",
-                        "Lead (mg/kg Pb)",
-                        "Mercury (mg/kg Hg)",
-                        "Nickel (mg/kg Ni)",
-                        "Zinc (mg/kg Zn)"))
+{
+# usgs_sqg <- read_csv("data/standards/USGS_SQG.csv", show_col_types = FALSE) |>
+#   mutate(match_name = c("Arsenic (mg/kg As)",
+#                         "Cadmium (mg/kg Cd)",
+#                         "Copper (mg/kg Cu)",
+#                         "Chromium (mg/kg Cr)",
+#                         "Lead (mg/kg Pb)",
+#                         "Mercury (mg/kg Hg)",
+#                         "Nickel (mg/kg Ni)",
+#                         "Zinc (mg/kg Zn)"))
+# 
+# bolivian_1333 <- read_csv("data/standards/bolivian_standards_1333.csv", show_col_types = FALSE) |>
+#   mutate(match_name = c("pH", "pH", 
+#                         "Color (u PtCo)", 
+#                         "Total Dissolved Solids (mg/l)", 
+#                         "Oxygen Saturation (%)", 
+#                         "Biochemical Oxygen Demand (mg/l O2)", 
+#                         "Chemical Oxygen Demand (mg/l O2)", 
+#                         NA, NA, NA, 
+#                         "Total Arsenic (ug/l As)", 
+#                         NA, NA, 
+#                         "Total Boron (ug/l B)", 
+#                         "Total Cadmium (ug/l Cd)",
+#                         "Total Calcium (mg/l Ca)",
+#                         "Chlorides (mg/l Cl-)",
+#                         "Total Chromium (ug/l Cr)",
+#                         "Total Chromium (ug/l Cr)",
+#                         NA,
+#                         "Total Copper (ug/l Cu)",
+#                         "Total Iron (ug/l Fe)",
+#                         "Total Lead (ug/l Pb)",
+#                         NA,
+#                         "Total Magnesium (mg/l Mg)",
+#                         "Total Manganese (ug/l Mn)",
+#                         "Total Mercury (ug/l Hg)",
+#                         "Total Nickel (ug/l Ni)",
+#                         "Nitrate (mg/l NO3)",
+#                         "Total Kjeldahl Nitrogen (mg/l N)",
+#                         "Total Phosphorus (mg/l PO4)",
+#                         "Total Selenium (ug/l Se)",
+#                         "Total Silver (ug/l Ag)",
+#                         "Total Sodium (mg/l Na)",
+#                         "Sulfates (mg/l SO4)",
+#                         NA, NA, NA, 
+#                         "Total Zinc (ug/l Zn)"
+#   ))
+} # all commented out
 
-bolivian_1333 <- read_csv("data/standards/bolivian_standards_1333.csv", show_col_types = FALSE) |>
-  mutate(match_name = c("pH", "pH", 
-                        "Color (u PtCo)", 
-                        "Total Dissolved Solids (mg/l)", 
-                        "Oxygen Saturation (%)", 
-                        "Biochemical Oxygen Demand (mg/l O2)", 
-                        "Chemical Oxygen Demand (mg/l O2)", 
-                        NA, NA, NA, 
-                        "Total Arsenic (ug/l As)", 
-                        NA, NA, 
-                        "Total Boron (ug/l B)", 
-                        "Total Cadmium (ug/l Cd)",
-                        "Total Calcium (mg/l Ca)",
-                        "Chlorides (mg/l Cl-)",
-                        "Total Chromium (ug/l Cr)",
-                        "Total Chromium (ug/l Cr)",
-                        NA,
-                        "Total Copper (ug/l Cu)",
-                        "Total Iron (ug/l Fe)",
-                        "Total Lead (ug/l Pb)",
-                        NA,
-                        "Total Magnesium (mg/l Mg)",
-                        "Total Manganese (ug/l Mn)",
-                        "Total Mercury (ug/l Hg)",
-                        "Total Nickel (ug/l Ni)",
-                        "Nitrate (mg/l NO3)",
-                        "Total Kjeldahl Nitrogen (mg/l N)",
-                        "Total Phosphorus (mg/l PO4)",
-                        "Total Selenium (ug/l Se)",
-                        "Total Silver (ug/l Ag)",
-                        "Total Sodium (mg/l Na)",
-                        "Sulfates (mg/l SO4)",
-                        NA, NA, NA, 
-                        "Total Zinc (ug/l Zn)"
-  ))
 
 # Classification mapping
 CLASS_MAP <- c("Class A" = 0, "Class B" = 1, "Class C" = 2, "Class D" = 3, "Unclassified" = 4)
@@ -1106,6 +1129,25 @@ create_base_map <- function(zoom = 7, center_lng = -63.5, center_lat = -21.3) {
 # ============================================================================
 # TIME SERIES HELPERS
 # ============================================================================
+
+# callout no data
+no_data_callout <- function(media_label = "sample") {
+  HTML(sprintf("
+    <div style='
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-left: 5px solid #dc3545;
+        border-radius: 4px;
+        font-size: 16px;
+        width: 80%%;
+        margin: 20px auto;
+    '>
+      <strong>No %s data found.</strong><br>
+      No measurements are available for the selected station, parameter, and filters.
+    </div>
+  ", media_label))
+}
+
 
 #' Get standard threshold values for a parameter
 get_standard_thresholds <- function(param, data_type = c("water", "sediment")) {
@@ -1538,12 +1580,84 @@ compare_units <- function(sample_unit, standard_unit) {
     # The factor simplifies to:
     # factor = (gram_factor_s / denom_scale_s) / (gram_factor_t / denom_scale_t)
     factor <- (t$gram_factor_g / t$denom_scale) / (s$gram_factor_g / s$denom_scale)
-    return(list(convertible = TRUE, conversion_factor = as.numeric(factor), message = "Mass units convertible via prefix/denom scaling.", sample_parsed = s, standard_parsed = t))
+    
+    # debugging
+    # cat("\n[calculate_hqcr]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
+    #     std$value, " (",std$unit,")\nHQ: ", hq, "\nConversion Factor: ", unit_check_hq$conversion_factor)
+    # 
+    
+    res = list(convertible = TRUE, conversion_factor = as.numeric(factor), message = "Mass units convertible via prefix/denom scaling.", sample_parsed = s, standard_parsed = t)
+    # str(res, max.level=3, give.attr=FALSE, strict.width="cut")
+    
+    return(res)
   }
   
   # otherwise fallback: not convertible by metric multipliers only
+  cat("[compare_units] Fallback.")
   list(convertible = FALSE, conversion_factor = NA_real_, message = "Units not both mass or count-per-volume families; cannot auto-convert.", sample_parsed = s, standard_parsed = t)
 }
+
+# -------------------------------------------------------
+# get_param_list(): extract valid parameter names for a media type
+# -------------------------------------------------------
+get_param_list <- function(df, media_type = "all", need_std = FALSE) {
+  
+  # Require the expected columns
+  required_cols <- c("media", "parameter")
+  if (!all(required_cols %in% names(df))) {
+    message("get_param_list(): dataset missing required columns: ",
+         paste(setdiff(required_cols, names(df)), collapse = ", "))
+  }
+  
+  # Columns we never want treated as parameters
+  exclude_cols = c("Average Velocity",
+                   "Decimal Latitude",
+                   "Decimal Longitude",
+                   "latitude_decimal",
+                   "longitude_decimal",
+                   "Latitude Decimal", 
+                   "Longitude Decimal", 
+                   "Lat_dd", 
+                   "Long_dd",
+                   "Distance from Bank",
+                   "distance_from_bank",
+                   "Distance from Shore",
+                   "Clay (%)", "Silt (%)", "Sand (%)",
+                   "0.032 mm - No. 450 (ASTM) (%)",
+                   "0.063 mm - No. 230 (ASTM) (%)",
+                   "0.125 mm - No. 120 (ASTM) (%)",
+                   "0.250 mm - No. 060 (ASTM) (%)",
+                   "0.500 mm - No. 035 (ASTM) (%)",
+                   "1.00 mm - No. 018 (ASTM) (%)",
+                   "2.00 mm - No. 010 (ASTM) (%)",
+                   "Year", "0.016 mm (%)",
+                   "4.75 mm - No. 004 (ASTM) (%)",
+                   "Flow",
+                   "0.016 mm",
+                   "0.032 mm - No. 450",
+                   "0.063 mm - No. 230",
+                   "0.125 mm - No. 120",
+                   "0.250 mm - No. 060",
+                   "0.500 mm - No. 035",
+                   "1.00 mm - No. 018",
+                   "2.00 mm - No. 010",
+                   "4.75 mm - N° 004"
+  )
+  
+  # only filter by media if we don't want to see them all
+  if(media_type != "all") df = df |> filter(media == media_type)
+  # filter the entire list by those in the stds list, so we can only choose those that can calculate a HQ
+  if(need_std == TRUE) df = df |> filter(parameter %in% stds$parameter)
+  
+  df %>%
+    filter(!parameter %in% exclude_cols) %>%
+    mutate(concentration = suppressWarnings(as.numeric(concentration))) %>%
+    filter(!is.na(concentration)) %>%
+    pull(parameter) %>%
+    unique() %>%
+    sort()
+}
+
 
 # ---- convenience wrapper that returns a human-readable summary ----
 compare_units_summary <- function(sample_unit, standard_unit) {

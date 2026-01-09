@@ -27,22 +27,8 @@ plot_pilcomayo_ts <- function(
 
   if (nrow(df) == 0) {
     message("No data found for this selection.")
-    return(HTML(
-      sprintf("
-      <div style='
-          padding: 20px;
-          background-color: #f8f9fa;
-          border-left: 5px solid #dc3545;
-          border-radius: 4px;
-          font-size: 16px;
-          width: 80%%;
-          margin: 20px auto;
-      '>
-        <strong>No %s data found.</strong><br>
-        No measurements are available for the selected station, parameter, and filters.
-      </div>
-    ", media_label)
-    ))
+    no_data_callout
+    return(no_data_callout(media_label))
   }
 
   # fraction filter

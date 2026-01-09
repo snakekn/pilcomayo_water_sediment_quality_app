@@ -1,7 +1,15 @@
-plot_top_hq_params <- function(data, media, fraction = "Total", 
-                               temporal_aggregation = "max",
-                               spatial_aggregation = "max",
-                               decay_per_day = NULL) {   # NEW: for weighted temporal aggregation
+plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max", station = "All") {
+  cat("[plot_top_hq_params] Params: ")
+  params_callout <- list(
+    media = media_type,
+    fraction = fraction,
+    method = method,
+    station = station,
+    temporal_aggregation = "max",
+    spatial_aggregation = "max",
+    decay_per_day = NULL
+  )
+  print(params_callout)
   
   # Validate temporal_aggregation parameter
   valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted")
@@ -21,37 +29,34 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
   # Standardize method names
   if (spatial_aggregation == "average") spatial_aggregation <- "mean"
   
-  # Unit conversion helper function
-  convert_units <- function(value, from_unit, to_unit) {
-    from <- tolower(gsub("\\s+", "", from_unit))
-    to <- tolower(gsub("\\s+", "", to_unit))
-    if (from == to) return(value)
-    
-    conversions <- list(
-      "kg" = 1000, "g" = 1, "mg" = 0.001, "ug" = 0.000001, "µg" = 0.000001,
-      "mg/kg" = 1, "ug/kg" = 0.001, "µg/kg" = 0.001,
-      "mg/l" = 1, "ug/l" = 0.001, "µg/l" = 0.001,
-      "ppm" = 1, "ppb" = 0.001
-    )
-    
-    from_factor <- conversions[[from]]
-    to_factor <- conversions[[to]]
-    
-    if (is.null(from_factor) || is.null(to_factor)) {
-      warning(paste("Cannot convert from", from_unit, "to", to_unit, "- using original values"))
-      return(value)
-    }
-    
-    converted <- value * (from_factor / to_factor)
-    return(converted)
+  # for easy usage
+  df = data
+  
+  # Filter for station
+  if(!station %in% c("All", "all", "All Stations")) {
+    cat("\n[plot_top_hq_params] Station filtering\n")
+    cat("Pre-filter for station: ", nrow(df))
+    df = df |> filter(station == !!station)
+    cat("Post-filter for station: ", nrow(df))
+  } else {    
+    cat("\n[plot_top_hq_params] Not filtering for station. Measurements: ", nrow(df), "\n") 
   }
   
+  
   # Filter for media
-  df <- data |>
-    filter(media == !!media)
+  
+  ## fix to avoid all media
+  if(media_type != "all") {
+    cat("\n[plot_top_hq_params] Filtering for media. Pre-filter measurements: ", nrow(df))
+    df <- df |>
+      filter(media == media_type)
+    cat("\n[plot_top_hq_params] Post-filter measurements: ", nrow(df))
+  } else {
+    cat("\nNot filtering for media.")
+  }
   
   # Only apply fraction filter for drinking water and non-pH parameters
-  if (media == "water") {
+  if (media_type != "sed" && fraction != "all") {
     # Get unique parameters that have the specified fraction
     params_with_fraction <- df |>
       filter(fraction == !!fraction) |>
@@ -64,6 +69,16 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
         (parameter %in% params_with_fraction & fraction == !!fraction) |
           (!parameter %in% params_with_fraction)
       )
+    cat("\n[plot_top_hq_params] Filtering for fraction. Post-filter measurements: ", nrow(df))
+  } else {
+    cat("\nNot considering fraction")
+  }
+  
+  # check if we filtered everything out
+  if(nrow(df) == 0) {
+    stop("No more measurements maintained after filtering. Please check your filters")
+  } else {
+    cat("\nFiltering left some measurements: ", nrow(df))
   }
   
   # Get unique parameters in the filtered data
@@ -272,24 +287,55 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
     
     param_hq_list[[param]] <- param_summary
   }
+
+  # Filter by exceedances
+  df = df |>
+    filter(HQ > 1)
   
   # Combine all parameter summaries
-  if (length(param_hq_list) == 0) {
-    stop(paste("No exceedances found for any parameters in", media))
+  if (nrow(df) == 0) {
+    # Nadav's Notes: using media "all" isn't fixed in yet
+    stop(paste("No exceedances found for any parameters in", media_type))
   }
   
-  all_params <- bind_rows(param_hq_list)
-  
+  # only selects one std max. Is an issue if we want to show all media and the different stds for each type
+  std_lookup = df |>
+    distinct(parameter, std_info) |>
+    mutate(std_reg = map_chr(std_info, ~.x$HQ$std_reg),
+           std_val = map_chr(std_info, ~ as.character(.x$HQ$std_val)),
+           std_unit = map_chr(std_info, ~.x$HQ$std_unit)) |>
+    distinct(parameter, std_reg, std_val, std_unit) |>  # one row per parameter
+    group_by(parameter) |>
+    slice_min(as.numeric(std_val), n=1)
+    
+  param_summary = df |>
+    group_by(parameter) |>
+    summarize(
+      hq = case_when(method == "max" ~ max(HQ, na.rm = TRUE),
+                     method %in% c("mean", "average") ~ mean(HQ, na.rm = TRUE),
+                     method == "median" ~ median(HQ, na.rm = TRUE)
+                     ),
+      n_measurements = n(),
+      n_stations = n_distinct(station),
+      .groups = "drop"
+    ) |>
+    left_join(std_lookup, by = "parameter")
+
   # Get top 10 parameters by HQ
-  top_params <- all_params |>
+  top_params <- param_summary |>
     arrange(desc(hq)) |>
     slice_head(n = 10) |>
     mutate(
-      param_label = paste0(parameter, " (n=", n_measurements, ")"),
-      param_label = factor(param_label, levels = rev(param_label)),
-      exceeds_standard = hq >= 1,
+      param_label = paste0(parameter, " (n=", n_measurements, ")")
+    )
+  
+  top_params = top_params |>
+    mutate(
+      param_label = factor(param_label, levels=rev(unique(param_label))),
+      #exceeds_standard = hq >= 1,
       hover_text = paste0(
         "Parameter: ", parameter, "<br>",
+
         # Show temporal aggregation method only if actual aggregation occurred
         if (temporal_aggregation != "recent") {
           paste0("Temporal aggregation: ", temporal_label, "<br>")
@@ -316,35 +362,57 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
         } else {
           paste0("HQ: ", round(hq, 3), "<br>")
         },
-        "Standard: ", standard, " (", std_source, ")<br>",
+        "Standard: ", trim_zeros(std_val), " ", std_unit, " (", std_reg, ")<br>",
         "# Stations: ", n_stations, "<br>",
         "# Measurements: ", n_measurements
       )
     )
-  
+
   # Determine if fraction was applied (for title labeling)
   fraction_applied <- (media == "water" && any(data$fraction == fraction))
   
   # Create title based on aggregation methods used
   title_text <- paste(
-    "Top 10 Parameters by", temporal_label, "+", spatial_label, "Hazard Quotient"
+    "Top 10 Parameters by", temporal_label, "+", spatial_label, "Hazard Quotient")
+  use_log = (log10(max(top_params$hq)) - log10(min(top_params$hq))) >= 2
+
+  method_label <- if (method == "max") {
+    "Maximum"
+  } else if (method == "median") {
+    "Median"
+  } else {
+    "Average"
+  }
+
+  y_lab <- paste(
+    method_label,
+    if (use_log) "Hazard Quotient (HQ, log10 scale)"
+    else         "Hazard Quotient (HQ)"
   )
   
+  main_title <- paste(
+    "Top 10 Parameters by",
+    method_label,
+    if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient"
+  )
+  
+  ## Nadav's Notes: Would be helpful to trigger log10 if the magnitude difference is high
   # Create bar chart with hover text
-  p <- ggplot(top_params, aes(x = param_label, y = hq, fill = exceeds_standard, text = hover_text)) +
+  p <- ggplot(top_params, aes(x = param_label, y = hq, text = hover_text)) +
     geom_col() +
     geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
-    scale_fill_manual(
-      values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
-      labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
-      name = NULL
-    ) +
+    # scale_fill_manual(
+    #   values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
+    #   labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
+    #   name = NULL
+    # ) +
     coord_flip() +
     labs(
       title = title_text,
       subtitle = paste0("Media: ", media, if (fraction_applied) paste0(" (", fraction, ")")),
       x = "Parameter",
       y = paste(temporal_label, "+", spatial_label, "Hazard Quotient (HQ)")
+
     ) +
     theme_minimal(base_size = 12) +
     theme(
@@ -355,6 +423,25 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
       panel.grid.minor = element_blank()
     )
   
+    if (use_log) {
+      p <- p +
+        scale_y_log10(
+          breaks = scales::breaks_log(10),
+          labels = scales::label_number(accuracy = 1, big.mark = ",")
+        )
+        
+    } else {
+      p <- p +
+        scale_y_continuous(
+          labels = scales::label_number(accuracy = 1, big.mark = ",")
+        )
+    }
+  
+  p = p + theme(
+    axis.text.x = element_text(angle = -45, hjust = 0)  # angle HQ ticks
+  )
+
+    
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   
@@ -391,4 +478,9 @@ plot_top_hq_params <- function(data, media, fraction = "Total",
   }
   
   return(ply)
+}
+
+trim_zeros <- function(x) {
+  s <- format(x, scientific = FALSE, trim = TRUE)  # e.g. "0.010000"
+  sub("\\.?0+$", "", s)                            # -> "0.01"
 }
