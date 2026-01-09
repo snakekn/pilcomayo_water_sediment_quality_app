@@ -1,198 +1,297 @@
-plot_top_hq_stations <- function(data, media, param, fraction = "Total", method = "max") {
+plot_top_hq_stations <- function(data, media, param, fraction = "Total", 
+                                 temporal_aggregation = "max",  # RENAMED from method
+                                 param_aggregation = NULL,
+                                 decay_per_day = NULL) {   # NEW: for weighted temporal aggregation 
   
-  # Validate method parameter
-  if (!method %in% c("max", "mean", "average")) {
-    stop("method must be either 'max', 'mean', or 'average'")
+  # Validate temporal_aggregation parameter
+  valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted")
+  if (!temporal_aggregation %in% valid_temporal_aggregations) {
+    stop(paste("Invalid temporal_aggregation. Choose from:", paste(valid_temporal_aggregations, collapse = ", ")))
   }
   
-  # Standardize method name
-  if (method == "average") method <- "mean"
+  # Standardize method names
+  if (temporal_aggregation == "average") temporal_aggregation <- "mean"
   
-  # Unit conversion helper function (defined once at top level)
-  convert_units <- function(value, from_unit, to_unit) {
-    from <- tolower(gsub("\\s+", "", from_unit))
-    to <- tolower(gsub("\\s+", "", to_unit))
-    if (from == to) return(value)
+  # Validate param_aggregation if provided
+  if (!is.null(param_aggregation)) {
+    valid_param_aggregations <- c("mean", "median", "max", "sum")
+    if (!param_aggregation %in% valid_param_aggregations) {
+      stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
+    }
+  }
+  
+  # Handle "all" parameter - use all parameters in dataset
+  if (length(param) == 1 && tolower(param) == "all") {
+    message("Using ALL parameters in dataset...")
     
-    conversions <- list(
-      "kg" = 1000, "g" = 1, "mg" = 0.001, "ug" = 0.000001, "µg" = 0.000001,
-      "mg/kg" = 1, "ug/kg" = 0.001, "µg/kg" = 0.001,
-      "mg/l" = 1, "ug/l" = 0.001, "µg/l" = 0.001,
-      "ppm" = 1, "ppb" = 0.001
-    )
+    # Filter for media only
+    df <- data |>
+      filter(media == !!media)
     
-    from_factor <- conversions[[from]]
-    to_factor <- conversions[[to]]
+    # Get list of unique parameters for reporting
+    all_parameters <- unique(df$parameter)
+    message(paste("Found", length(all_parameters), "unique parameters in dataset"))
     
-    if (is.null(from_factor) || is.null(to_factor)) {
-      warning(paste("Cannot convert from", from_unit, "to", to_unit, "- using original values"))
-      return(value)
+    # Force param_aggregation if not specified
+    if (is.null(param_aggregation)) {
+      param_aggregation <- "mean"
+      message("Setting param_aggregation to 'mean' (required when using 'all' parameters)")
     }
     
-    converted <- value * (from_factor / to_factor)
-    return(converted)
+    param_display <- "All Parameters"
+    
+  } else {
+    # Handle specific parameter(s)
+    message(paste("Using", length(param), "specified parameter(s)..."))
+    
+    # Filter for media and parameter
+    df <- data |>
+      filter(media == !!media) |>
+      filter(parameter %in% param)
+    
+    all_parameters <- param
+    param_display <- if (length(param) == 1) param else paste(length(param), "parameters")
   }
-  
-  # Filter for media and parameter
-  df <- data |>
-    filter(media == !!media) |>
-    filter(parameter == param)
   
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
   if (media == "water") {
-    if (param != "pH" && any(data$fraction == fraction)) {
+    # Skip fraction filtering if using "all" or if param is pH
+    if (!(length(param) == 1 && tolower(param) == "all") && 
+        !(length(param) == 1 && param == "pH") && 
+        any(data$fraction == fraction)) {
       df <- df |>
-        filter(fraction == !!fraction)
+        filter(is.na(fraction) | fraction == !!fraction)
     }
   }
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "water" && param != "pH" && any(data$fraction == fraction))
+  fraction_applied <- (media == "water" && 
+                         !(length(param) == 1 && tolower(param) == "all") &&
+                         !(length(param) == 1 && param == "pH") && 
+                         any(data$fraction == fraction))
   
   # Special handling for pH - filter to pH units only
-  if (param == "pH") {
+  if (length(param) == 1 && param == "pH") {
     df <- df |>
       filter(unit == "u")
   }
   
-  # Retrieve standard for this parameter-media combination
-  param_stds <- strict_std |>
-    filter(.data$media == !!media,
-           str_detect(.data$parameter, !!param))
-  
-  # Check if standard exists
-  has_standard <- nrow(param_stds) > 0
-  
-  if (!has_standard) {
-    stop(paste("No standard found for", param, "in", media, "- cannot calculate hazard quotients"))
-  }
-  
-  # Check if this is a range-based parameter (like pH)
-  has_low <- any(str_detect(param_stds$parameter, "low"))
-  has_high <- any(str_detect(param_stds$parameter, "high"))
-  is_range_param <- has_low && has_high
-  
-  if (is_range_param) {
-    # Handle range-based standards (pH)
-    low_std <- param_stds |> filter(str_detect(parameter, "low"))
-    high_std <- param_stds |> filter(str_detect(parameter, "high"))
-    
-    param_std_low <- low_std$value[1]
-    param_std_high <- high_std$value[1]
-    std_unit <- low_std$unit[1]
-    data_unit <- df$unit[1]
-    std_source <- low_std$regulator[1]
-    
-    # Handle unit conversion - special case for pH which is dimensionless
-    if (param == "pH") {
-      display_unit <- "pH units"
-      # Don't convert - pH is dimensionless
-    } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-      param_std_low <- convert_units(param_std_low, std_unit, data_unit)
-      param_std_high <- convert_units(param_std_high, std_unit, data_unit)
-      display_unit <- data_unit
-    } else {
-      display_unit <- std_unit
-    }
-    
-    # Calculate HQ based on distance from acceptable range
-    # For range-based parameters: HQ > 1 when outside range
-    # CRITICAL: Use !! to force evaluation of param_std_low and param_std_high
-    std_low_val <- param_std_low
-    std_high_val <- param_std_high
-    
-    df <- df |>
-      mutate(
-        hq = case_when(
-          concentration < std_low_val ~ std_low_val / concentration,
-          concentration > std_high_val ~ concentration / std_high_val,
-          TRUE ~ NA_real_
-        )
-      )
-    
-    std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
-    
+  # Retrieve standard for this parameter-media combination (for display purposes)
+  # Skip standard lookup if using "all" parameters
+  if (length(param) == 1 && tolower(param) == "all") {
+    has_standard <- FALSE
+    std_text <- "Various"
+    std_source <- "Multiple"
   } else {
-    # Handle single-threshold standards
-    param_std <- param_stds$value[1]
-    std_unit <- param_stds$unit[1]
-    data_unit <- df$unit[1]
-    std_source <- param_stds$regulator[1]
+    param_stds <- strict_std |>
+      filter(.data$media == !!media,
+             str_detect(.data$parameter, !!param[1]))  # Use first param for standard lookup
     
-    # Handle unit conversion
-    if (param == "pH") {
-      display_unit <- "pH units"
-    } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-      param_std <- convert_units(param_std, std_unit, data_unit)
-      display_unit <- data_unit
+    # Check if standard exists
+    has_standard <- nrow(param_stds) > 0
+    
+    if (!has_standard) {
+      warning(paste("No standard found for", param[1], "in", media, "- proceeding with pre-calculated HQ values"))
+      std_text <- "Pre-calculated"
+      std_source <- "Various"
     } else {
-      display_unit <- std_unit
+      # Check if this is a range-based parameter (like pH)
+      has_low <- any(str_detect(param_stds$parameter, "low"))
+      has_high <- any(str_detect(param_stds$parameter, "high"))
+      is_range_param <- has_low && has_high
+      
+      if (is_range_param) {
+        # Handle range-based standards (pH)
+        low_std <- param_stds |> filter(str_detect(parameter, "low"))
+        high_std <- param_stds |> filter(str_detect(parameter, "high"))
+        
+        param_std_low <- low_std$value[1]
+        param_std_high <- high_std$value[1]
+        std_unit <- low_std$unit[1]
+        std_source <- low_std$regulator[1]
+        
+        # Handle unit display
+        if (length(param) == 1 && param == "pH") {
+          display_unit <- "pH units"
+        } else {
+          display_unit <- std_unit
+        }
+        
+        std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
+        
+      } else {
+        # Handle single-threshold standards
+        param_std <- param_stds$value[1]
+        std_unit <- param_stds$unit[1]
+        std_source <- param_stds$regulator[1]
+        
+        # Handle unit display
+        if (length(param) == 1 && param == "pH") {
+          display_unit <- "pH units"
+        } else {
+          display_unit <- std_unit
+        }
+        
+        std_text <- paste0(round(param_std, 3), " ", display_unit)
+      }
     }
-    
-    # Calculate HQ for single threshold
-    std_val <- param_std
-    df <- df |>
-      mutate(hq = concentration / std_val)
-    
-    std_text <- paste0(round(param_std, 3), " ", display_unit)
   }
   
-  # Filter to only exceedances
+  # Filter to only exceedances (HQ values that exist and are > 0)
   df_exceedances <- df |>
-    filter(!is.na(hq))
+    filter(!is.na(HQ), HQ > 0)
   
   # Check if there are any exceedances
   if (nrow(df_exceedances) == 0) {
-    stop(paste("No exceedances found for", param, "in", media, "- all measurements are within acceptable range"))
+    stop(paste("No exceedances found for", 
+               ifelse(length(param) == 1 && tolower(param) == "all", 
+                      "all parameters", 
+                      paste(param, collapse = ", ")), 
+               "in", media, "- all HQ values are NA or zero"))
   }
   
-  # Aggregate HQ by station using specified method
-  # Aggregate HQ by station using specified method
-  if (method == "max") {
+  # PARAMETER AGGREGATION (if specified)
+  # This allows aggregating multiple parameters before temporal aggregation
+  if (!is.null(param_aggregation)) {
+    message(paste("Aggregating across parameters using", param_aggregation, "method..."))
+    
+    df_exceedances <- df_exceedances |>
+      group_by(station, date) |>  # Group by station AND date to preserve temporal info
+      summarise(
+        HQ = switch(param_aggregation,
+                    "mean" = mean(HQ, na.rm = TRUE),
+                    "median" = median(HQ, na.rm = TRUE),
+                    "max" = max(HQ, na.rm = TRUE),
+                    "sum" = sum(HQ, na.rm = TRUE)),
+        n_parameters = n(),
+        parameters = paste(unique(parameter), collapse = ", "),
+        .groups = "drop"
+      )
+    
+    message(paste("Aggregated", unique(df_exceedances$n_parameters), "parameters per station-date"))
+  }
+  
+  # TEMPORAL AGGREGATION by station using specified method
+  message(paste("Temporal aggregation method:", temporal_aggregation))
+  
+  if (temporal_aggregation == "recent") {
+    # Get most recent measurement for each station
+    message("Getting most recent measurement for each station...")
+    
+    station_hq <- df_exceedances |>
+      group_by(station) |>
+      arrange(desc(date)) |>
+      slice(1) |>
+      ungroup() |>
+      mutate(
+        max_date = date,
+        n_measurements = 1
+      ) |>
+      select(station, HQ, max_date, n_measurements)
+    
+    method_label <- "Most Recent"
+    
+  } else if (temporal_aggregation == "weighted") {
+    # Weighted average with more recent observations weighted higher
+    message("Calculating weighted average with recency weighting...")
+    
+    # Get target date (most recent date in dataset)
+    target_date <- max(df_exceedances$date, na.rm = TRUE)
+    
+    # Set default decay if not provided
+    if (is.null(decay_per_day)) {
+      decay_per_day <- 0.001  # gentle decay
+      message("Using default decay: 0.001 per day")
+    }
+    
+    station_hq <- df_exceedances |>
+      group_by(station) |>
+      mutate(
+        days_ago = as.numeric(target_date - date),
+        weight = exp(-decay_per_day * days_ago)
+      ) |>
+      summarise(
+        max_date = date[which.max(HQ)],  # Date of maximum HQ for reference
+        HQ = weighted.mean(HQ, w = weight, na.rm = TRUE),
+        n_measurements = n(),
+        effective_n = sum(weight),
+        .groups = "drop"
+      )
+    
+    method_label <- "Weighted Average"
+    message(paste("Weighted average with decay =", decay_per_day))
+    
+  } else if (temporal_aggregation == "max") {
+    # Maximum HQ across all time points
     station_hq <- df_exceedances |>
       group_by(station) |>
       summarise(
-        hq = max(hq, na.rm = TRUE),
-        max_date = date[which.max(hq)],
+        max_date = date[which.max(HQ)],  # Get date BEFORE HQ is aggregated
+        HQ = max(HQ, na.rm = TRUE),
         n_measurements = n(),
         .groups = "drop"
       )
     method_label <- "Maximum"
-  } else {
+    
+  } else {  # temporal_aggregation == "mean"
+    # Mean HQ across all time points
     station_hq <- df_exceedances |>
       group_by(station) |>
       summarise(
-        hq = mean(hq, na.rm = TRUE),
-        max_date = date[which.max(hq)],
+        max_date = date[which.max(HQ)],  # Get date of max even for mean method
+        HQ = mean(HQ, na.rm = TRUE),
         n_measurements = n(),
         .groups = "drop"
       )
     method_label <- "Average"
   }
   
-  
-  
   # Get top 10 stations by HQ
   top_stations <- station_hq |>
-    arrange(desc(hq)) |>
+    arrange(desc(HQ)) |>
     slice_head(n = 10) |>
     mutate(
       station_label = paste0(station, " (n=", n_measurements, ")"),
       station_label = factor(station_label, levels = rev(station_label)),
-      exceeds_standard = hq >= 1,
+      exceeds_standard = HQ >= 1,
       hover_text = paste0(
         "Station: ", station, "<br>",
-        if (method == "max") paste0("Date: ", max_date, "<br>"),
-        if (method == "mean") {paste0(str_to_title(method), " ")},
-        "HQ: ", round(hq, 3), "<br>",
-        "Total # observations: ", n_measurements, "<br>"
+        if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
+        # Show parameter aggregation method if used
+        if (!is.null(param_aggregation)) {
+          paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
+        },
+        # Show temporal aggregation method only if actual aggregation occurred (not "recent")
+        if (temporal_aggregation != "recent") {
+          paste0("Temporal aggregation: ", method_label, "<br>")
+        },
+        # HQ label - use "Aggregated HQ" if any aggregation occurred
+        if (!is.null(param_aggregation) || temporal_aggregation != "recent") {
+          paste0("Aggregated HQ: ", round(HQ, 3), "<br>")
+        } else {
+          paste0("HQ: ", round(HQ, 3), "<br>")
+        },
+        if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
       )
     )
   
+  # Create title based on whether param_aggregation was used
+  if (!is.null(param_aggregation)) {
+    title_text <- paste(
+      "Top 10 Stations by", method_label, "Hazard Quotient:",
+      paste0(str_to_title(param_aggregation), " of ", param_display)
+    )
+  } else {
+    title_text <- paste(
+      "Top 10 Stations by", method_label, "Hazard Quotient:",
+      if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display
+    )
+  }
+  
   # Create bar chart with hover text
-  p <- ggplot(top_stations, aes(x = station_label, y = hq, fill = exceeds_standard, text = hover_text)) +
+  p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = exceeds_standard, text = hover_text)) +
     geom_col() +
     geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
     scale_fill_manual(
@@ -202,10 +301,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
     ) +
     coord_flip() +
     labs(
-      title = paste(
-        "Top 10 Stations by", method_label, "Hazard Quotient:",
-        if (fraction_applied) paste(param, " (", fraction, ")", sep = "") else param
-      ),
+      title = title_text,
       subtitle = paste0("Media: ", media, "\nStandard: ", std_text, " (", std_source, ")"),
       x = "Station",
       y = paste(method_label, "Hazard Quotient (HQ)")
@@ -222,19 +318,28 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   
-  ply <- ggplotly(p, tooltip = "text")
+  # Update layout with conditional title
+  if (!is.null(param_aggregation)) {
+    plotly_title <- paste0(
+      "Top 10 Stations by ", method_label, " Hazard Quotient: ",
+      str_to_title(param_aggregation), " of ", param_display,
+      "<br><sup>",
+      "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+      "</sup>"
+    )
+  } else {
+    plotly_title <- paste0(
+      "Top 10 Stations by ", method_label, " Hazard Quotient: ",
+      if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
+      "<br><sup>",
+      "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+      "</sup>"
+    )
+  }
   
   ply <- ply |>
     layout(
-      title = list(
-        text = paste0(
-          "Top 10 Stations by ", method_label, " Hazard Quotient: ",
-          if (fraction_applied) paste(param, " (", fraction, ")", sep = "") else param,
-          "<br><sup>",  # `<sup>` renders smaller subtitle text
-          "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
-          "</sup>"
-        )
-      ),
+      title = list(text = plotly_title),
       legend = list(
         orientation = "h",
         x = 0.5,
@@ -243,7 +348,6 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
         yanchor = "top"
       )
     )
-  
   
   # Fix legend labels - find and replace any TRUE/FALSE with proper labels
   for (i in seq_along(ply$x$data)) {
@@ -261,7 +365,6 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total", method 
       }
     }
   }
-  
   
   return(ply)
 }

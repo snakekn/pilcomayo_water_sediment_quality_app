@@ -1,12 +1,25 @@
-plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") {
+plot_top_hq_params <- function(data, media, fraction = "Total", 
+                               temporal_aggregation = "max",
+                               spatial_aggregation = "max",
+                               decay_per_day = NULL) {   # NEW: for weighted temporal aggregation
   
-  # Validate method parameter
-  if (!method %in% c("max", "mean", "average", "median")) {
-    stop("method must be either 'max', 'mean', 'average', or 'median'")
+  # Validate temporal_aggregation parameter
+  valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted")
+  if (!temporal_aggregation %in% valid_temporal_aggregations) {
+    stop(paste("Invalid temporal_aggregation. Choose from:", paste(valid_temporal_aggregations, collapse = ", ")))
   }
   
-  # Standardize method name
-  if (method == "average") method <- "mean"
+  # Standardize method names
+  if (temporal_aggregation == "average") temporal_aggregation <- "mean"
+  
+  # Validate spatial_aggregation parameter
+  valid_spatial_aggregations <- c("mean", "average", "median", "max")
+  if (!spatial_aggregation %in% valid_spatial_aggregations) {
+    stop(paste("Invalid spatial_aggregation. Choose from:", paste(valid_spatial_aggregations, collapse = ", ")))
+  }
+  
+  # Standardize method names
+  if (spatial_aggregation == "average") spatial_aggregation <- "mean"
   
   # Unit conversion helper function
   convert_units <- function(value, from_unit, to_unit) {
@@ -149,47 +162,113 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     # Skip if no exceedances
     if (nrow(param_df_exceedances) == 0) next
     
-    # Aggregate HQ by parameter using specified method
-    if (method == "max") {
-      param_summary <- param_df_exceedances |>
-        summarise(
-          hq = max(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
-          .groups = "drop"
-        ) |>
+    # STEP 1: TEMPORAL AGGREGATION by station
+    message(paste("Processing", param, "- Temporal aggregation:", temporal_aggregation))
+    
+    if (temporal_aggregation == "recent") {
+      # Get most recent measurement for each station
+      station_temporal <- param_df_exceedances |>
+        group_by(station) |>
+        arrange(desc(date)) |>
+        slice(1) |>
+        ungroup() |>
+        select(station, hq, date)
+      
+      temporal_label <- "Most Recent"
+      
+    } else if (temporal_aggregation == "weighted") {
+      # Weighted average with more recent observations weighted higher
+      target_date <- max(param_df_exceedances$date, na.rm = TRUE)
+      
+      if (is.null(decay_per_day)) {
+        decay_per_day <- 0.001
+      }
+      
+      station_temporal <- param_df_exceedances |>
+        group_by(station) |>
         mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
+          days_ago = as.numeric(target_date - date),
+          weight = exp(-decay_per_day * days_ago)
+        ) |>
+        summarise(
+          hq = weighted.mean(hq, w = weight, na.rm = TRUE),
+          date = date[which.max(hq)],
+          .groups = "drop"
         )
-    } else if (method == "median") {
-      param_summary <- param_df_exceedances |>
+      
+      temporal_label <- "Weighted Average"
+      
+    } else if (temporal_aggregation == "max") {
+      # Maximum HQ across all time points for each station
+      station_temporal <- param_df_exceedances |>
+        group_by(station) |>
+        summarise(
+          date = date[which.max(hq)],
+          hq = max(hq, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      temporal_label <- "Maximum"
+      
+    } else {  # temporal_aggregation == "mean"
+      # Mean HQ across all time points for each station
+      station_temporal <- param_df_exceedances |>
+        group_by(station) |>
+        summarise(
+          date = date[which.max(hq)],
+          hq = mean(hq, na.rm = TRUE),
+          .groups = "drop"
+        )
+      
+      temporal_label <- "Average"
+    }
+    
+    # STEP 2: SPATIAL AGGREGATION across all stations
+    if (spatial_aggregation == "max") {
+      param_summary <- station_temporal |>
+        summarise(
+          max_station = station[which.max(hq)],  # Track which station has max
+          max_date = date[which.max(hq)],  # Track date of max HQ
+          hq = max(hq, na.rm = TRUE),
+          n_stations = n(),
+          .groups = "drop"
+        )
+      
+      spatial_label <- "Maximum"
+      
+    } else if (spatial_aggregation == "median") {
+      param_summary <- station_temporal |>
         summarise(
           hq = median(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
+          n_stations = n(),
+          max_station = NA_character_,  # Not applicable for median
+          max_date = as.Date(NA),  # Not applicable for median
           .groups = "drop"
-        ) |>
-        mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
         )
-    } else {
-      param_summary <- param_df_exceedances |>
+      
+      spatial_label <- "Median"
+      
+    } else {  # spatial_aggregation == "mean"
+      param_summary <- station_temporal |>
         summarise(
           hq = mean(hq, na.rm = TRUE),
-          n_measurements = n(),
-          n_stations = n_distinct(station),
+          n_stations = n(),
+          max_station = NA_character_,  # Not applicable for mean
+          max_date = as.Date(NA),  # Not applicable for mean
           .groups = "drop"
-        ) |>
-        mutate(
-          parameter = param,
-          standard = std_text,
-          std_source = std_source
         )
+      
+      spatial_label <- "Average"
     }
+    
+    # Add parameter info
+    param_summary <- param_summary |>
+      mutate(
+        parameter = param,
+        standard = std_text,
+        std_source = std_source,
+        n_measurements = nrow(param_df_exceedances)
+      )
     
     param_hq_list[[param]] <- param_summary
   }
@@ -211,9 +290,32 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
       exceeds_standard = hq >= 1,
       hover_text = paste0(
         "Parameter: ", parameter, "<br>",
-        if (method == "mean") paste0(str_to_title(method), " "),
-        if (method == "median") paste0(str_to_title(method), " "),
-        "HQ: ", round(hq, 3), "<br>",
+        # Show temporal aggregation method only if actual aggregation occurred
+        if (temporal_aggregation != "recent") {
+          paste0("Temporal aggregation: ", temporal_label, "<br>")
+        } else {
+          ""
+        },
+        # Show date for recent or max temporal aggregation
+        if (temporal_aggregation %in% c("recent", "max")) {
+          ifelse(!is.na(max_date),
+                 paste0("Date: ", max_date, "<br>"),
+                 "")
+        } else {
+          ""
+        },
+        # Always show spatial aggregation
+        "Spatial aggregation: ", spatial_label, "<br>",
+        # Show station if spatial aggregation is max
+        ifelse(!is.na(max_station), 
+               paste0("Station: ", max_station, "<br>"),
+               ""),
+        # HQ label - use "Aggregated HQ" if any aggregation occurred
+        if (temporal_aggregation != "recent") {
+          paste0("Aggregated HQ: ", round(hq, 3), "<br>")
+        } else {
+          paste0("HQ: ", round(hq, 3), "<br>")
+        },
         "Standard: ", standard, " (", std_source, ")<br>",
         "# Stations: ", n_stations, "<br>",
         "# Measurements: ", n_measurements
@@ -223,13 +325,10 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
   # Determine if fraction was applied (for title labeling)
   fraction_applied <- (media == "water" && any(data$fraction == fraction))
   
-  method_label <- if (method == "max") {
-    "Maximum"
-  } else if (method == "median") {
-    "Median"
-  } else {
-    "Average"
-  }
+  # Create title based on aggregation methods used
+  title_text <- paste(
+    "Top 10 Parameters by", temporal_label, "+", spatial_label, "Hazard Quotient"
+  )
   
   # Create bar chart with hover text
   p <- ggplot(top_params, aes(x = param_label, y = hq, fill = exceeds_standard, text = hover_text)) +
@@ -242,13 +341,10 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     ) +
     coord_flip() +
     labs(
-      title = paste(
-        "Top 10 Parameters by", method_label, "Hazard Quotient",
-        if (fraction_applied) paste0(" (", fraction, ")")
-      ),
-      subtitle = paste("Media:", media),
+      title = title_text,
+      subtitle = paste0("Media: ", media, if (fraction_applied) paste0(" (", fraction, ")")),
       x = "Parameter",
-      y = paste(method_label, "Hazard Quotient (HQ)")
+      y = paste(temporal_label, "+", spatial_label, "Hazard Quotient (HQ)")
     ) +
     theme_minimal(base_size = 12) +
     theme(
@@ -266,10 +362,9 @@ plot_top_hq_params <- function(data, media, fraction = "Total", method = "max") 
     layout(
       title = list(
         text = paste0(
-          "Top 10 Parameters by ", method_label, " Hazard Quotient",
-          if (fraction_applied) paste0(" (", fraction, ")"),
+          "Top 10 Parameters by ", temporal_label, " + ", spatial_label, " Hazard Quotient",
           "<br><sup>",
-          "Media: ", media,
+          "Media: ", media, if (fraction_applied) paste0(" (", fraction, ")"),
           "</sup>"
         )
       ),
