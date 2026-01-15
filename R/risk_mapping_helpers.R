@@ -13,7 +13,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
   message("Filtering data for parameter(s)...")
   
   # Validate param_aggregation method
-  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
+  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95", "nemerow")
   if (!param_aggregation %in% valid_param_aggregations) {
     stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
   }
@@ -221,12 +221,16 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     summarise(
       parameter_hqs = list(HQ),
       parameter_names = list(parameter),
+      max_HQ = max(HQ, na.rm = TRUE),
+      mean_HQ = mean(HQ, na.rm = TRUE),
+      Nemerow = sqrt((mean_HQ^2+max_HQ^2)/2),
       HQ = switch(param_aggregation,
                   "mean" = mean(HQ, na.rm = TRUE),
                   "median" = median(HQ, na.rm = TRUE),
                   "max" = max(HQ, na.rm = TRUE),
                   "sum" = sum(HQ, na.rm = TRUE),
-                  "pct95" = quantile(HQ, probs = 0.95)),
+                  "pct95" = quantile(HQ, probs = 0.95),
+                  "nemerow" = sqrt((max(HQ, na.rm = TRUE)^2+mean(HQ, na.rm = TRUE)^2)/2)),
       date = max(date),
       n_parameters = n(),
       .groups = "drop"

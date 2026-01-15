@@ -42,8 +42,8 @@ create_risk_map <- function(data,
                             max_risk_distance = 5000,
                             resolution = 100,
                             crs = "EPSG:4326",
-                            border_sf = bol_border,
-                            river_network_sf = river_network) {
+                            border_sf = NULL,
+                            river_network_sf = NULL) {
   
   interpolation_method <- "distance_weighted"
   
@@ -55,6 +55,28 @@ create_risk_map <- function(data,
   valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
   if (!param_aggregation %in% valid_param_aggregations) {
     stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
+  }
+  
+  # if borders are null, load them. Fixes issue if bol_border isn't loaded in environment
+  if(exists("bol_border") && is.null(border_sf)) { # load bol_border
+    border_sf = bol_border
+  } else if(is.null(border_sf)) { # load from geojson file
+    bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+  } 
+  
+  if (is.null(border_sf)) { # still doesn't exist
+    stop(paste("No Bolivian Border found. Please specify a border"))
+  }
+  
+  # if river_network is null, load them. Fixes issue if river_network isn't loaded in environment
+  if(exists("river_network") && is.null(river_network_sf)) { # load river_network
+    river_network_sf = river_network
+  } else if(is.null(river_network_sf)) { # load from geojson file
+    river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+  } 
+  
+  if (is.null(river_network_sf)) { # still doesn't exist
+    stop(paste("No river network found. Please specify a network"))
   }
   
   message(paste("Starting risk map creation using interpolation method:", interpolation_method))

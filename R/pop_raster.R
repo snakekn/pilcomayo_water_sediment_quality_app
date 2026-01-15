@@ -17,7 +17,7 @@ load_pop_rasters = function() {
   values_matrix <- as.matrix(my_raster)
   
   # Get extent
-  ext(my_raster)
+  terra::ext(my_raster)
   
   # Get CRS
   crs(my_raster)
