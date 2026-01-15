@@ -5,10 +5,15 @@ prepare_water_quality_data <- function(data, params, fraction, date,
                                        param_aggregation = "mean",
                                        temporal_aggregation = "recent",  # NEW: "recent", "all", or "weighted"
                                        decay_per_day = NULL) {    # NEW: optional weight decay factor
+  message("Replacing HQ < 1 with HQ = 0")
+  
+  data <- data |>
+    mutate(HQ = ifelse(HQ < 1, 0 , HQ))
+  
   message("Filtering data for parameter(s)...")
   
   # Validate param_aggregation method
-  valid_param_aggregations <- c("mean", "median", "max", "sum")
+  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
   if (!param_aggregation %in% valid_param_aggregations) {
     stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
   }
@@ -220,7 +225,8 @@ prepare_water_quality_data <- function(data, params, fraction, date,
                   "mean" = mean(HQ, na.rm = TRUE),
                   "median" = median(HQ, na.rm = TRUE),
                   "max" = max(HQ, na.rm = TRUE),
-                  "sum" = sum(HQ, na.rm = TRUE)),
+                  "sum" = sum(HQ, na.rm = TRUE),
+                  "pct95" = quantile(HQ, probs = 0.95)),
       date = max(date),
       n_parameters = n(),
       .groups = "drop"

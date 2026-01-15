@@ -52,7 +52,7 @@ create_risk_map <- function(data,
     stop(paste("Invalid interpolation_method. Choose from:", paste(valid_interpolation_methods, collapse = ", ")))
   }
   
-  valid_param_aggregations <- c("mean", "median", "max", "sum")
+  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
   if (!param_aggregation %in% valid_param_aggregations) {
     stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
   }
