@@ -18,7 +18,7 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
   ### Main Script
   
   # group by parameter & media, get the lowest value, arrange by name of parameter
-  strict_std = std_file |>
+  strict_std <<- std_file |>
     mutate(is_ph_low = tolower(parameter) == "ph" & grepl("low", parameter, ignore.case = TRUE)) |>
     group_by(parameter, media) |>
     slice_min(
@@ -36,4 +36,6 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
   
   ## TODO:
   # add CR risk as part of the strict calculation
+  
+  return(strict_std)
 }

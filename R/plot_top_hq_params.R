@@ -1,15 +1,27 @@
-plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max", station = "All") {
+plot_top_hq_params <- function(data, 
+                               media_type, 
+                               fraction = "all", 
+                               station = "all",
+                               temporal_aggregation = "max", 
+                               spatial_aggregation = "max",
+                               decay_per_day = NULL
+                               ) {
   cat("[plot_top_hq_params] Params: ")
   params_callout <- list(
     media = media_type,
     fraction = fraction,
-    method = method,
     station = station,
-    temporal_aggregation = "max",
-    spatial_aggregation = "max",
-    decay_per_day = NULL
+    temporal_aggregation = temporal_aggregation,
+    spatial_aggregation = spatial_aggregation,
+    decay_per_day = decay_per_day
   )
   print(params_callout)
+  
+  # Confirm strict_std exists, or make it
+  if(!exists("strict_std")) {
+    strict_std = set_strict_stds()
+  }
+  
   
   # Validate temporal_aggregation parameter
   valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted")
@@ -73,7 +85,7 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
   } else {
     cat("\nNot considering fraction")
   }
-  
+
   # check if we filtered everything out
   if(nrow(df) == 0) {
     stop("No more measurements maintained after filtering. Please check your filters")
@@ -81,13 +93,18 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
     cat("\nFiltering left some measurements: ", nrow(df))
   }
   
+  # View(df) # debugging
+
   # Get unique parameters in the filtered data
   params <- unique(df$parameter)
+  
+  # print(length(params))
   
   # Calculate HQ for each parameter
   param_hq_list <- list()
   
   for (param in params) {
+    # cat("\n [plot_top_hq_params] On Param: ", param)
     param_df <- df |> filter(parameter == param)
     
     # Special handling for pH - filter to pH units only
@@ -97,7 +114,7 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
     
     # Retrieve standard for this parameter-media combination
     param_stds <- strict_std |>
-      filter(.data$media == !!media,
+      filter(.data$media == !!media_type,
              str_detect(.data$parameter, !!param))
     
     # Skip if no standard exists
@@ -143,6 +160,8 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
           )
         )
       
+      # View(param_df)
+      
       std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
       
     } else {
@@ -164,21 +183,26 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
       
       # Calculate HQ for single threshold
       std_val <- param_std
-      param_df <- param_df |>
-        mutate(hq = concentration / std_val)
-      
+      # param_df <- param_df |>
+      #   mutate(hq = concentration / std_val)
+      # 
       std_text <- paste0(round(param_std, 3), " ", display_unit)
+      # print(std_text) # debugging
     }
     
     # Filter to only exceedances
     param_df_exceedances <- param_df |>
-      filter(!is.na(hq))
+      filter(!is.na(HQ))
+    
+    cat("\n[plot_top_hq_params] ", param, " exceedance count: ", nrow(param_df_exceedances))
+    
+    # View(param_df_exceedances) # debugging
     
     # Skip if no exceedances
     if (nrow(param_df_exceedances) == 0) next
     
     # STEP 1: TEMPORAL AGGREGATION by station
-    message(paste("Processing", param, "- Temporal aggregation:", temporal_aggregation))
+    # message(paste("Processing", param, "- Temporal aggregation:", temporal_aggregation))
     
     if (temporal_aggregation == "recent") {
       # Get most recent measurement for each station
@@ -187,7 +211,7 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
         arrange(desc(date)) |>
         slice(1) |>
         ungroup() |>
-        select(station, hq, date)
+        select(station, HQ, date)
       
       temporal_label <- "Most Recent"
       
@@ -206,7 +230,7 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
           weight = exp(-decay_per_day * days_ago)
         ) |>
         summarise(
-          hq = weighted.mean(hq, w = weight, na.rm = TRUE),
+          hq = weighted.mean(HQ, w = weight, na.rm = TRUE),
           date = date[which.max(hq)],
           .groups = "drop"
         )
@@ -218,10 +242,12 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
       station_temporal <- param_df_exceedances |>
         group_by(station) |>
         summarise(
-          date = date[which.max(hq)],
-          hq = max(hq, na.rm = TRUE),
+          date = date[which.max(HQ)],
+          hq = max(HQ, na.rm = TRUE),
           .groups = "drop"
         )
+      
+      # View(station_temporal) # debugging
       
       temporal_label <- "Maximum"
       
@@ -231,15 +257,19 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
         group_by(station) |>
         summarise(
           date = date[which.max(hq)],
-          hq = mean(hq, na.rm = TRUE),
+          hq = mean(HQ, na.rm = TRUE),
           .groups = "drop"
         )
       
       temporal_label <- "Average"
     }
     
+    temporal_label = paste(temporal_label, "Across Years")
+    
     # STEP 2: SPATIAL AGGREGATION across all stations
     if (spatial_aggregation == "max") {
+      # View(station_temporal) # debugging
+      
       param_summary <- station_temporal |>
         summarise(
           max_station = station[which.max(hq)],  # Track which station has max
@@ -276,6 +306,8 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
       spatial_label <- "Average"
     }
     
+    spatial_label = paste(spatial_label, "Across Stations")
+    
     # Add parameter info
     param_summary <- param_summary |>
       mutate(
@@ -285,8 +317,13 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
         n_measurements = nrow(param_df_exceedances)
       )
     
+    # View(param_summary) ## debugging
+    
     param_hq_list[[param]] <- param_summary
+    # print(param_summary)
   }
+  
+  # View(param_hq_list)
 
   # Filter by exceedances
   df = df |>
@@ -308,26 +345,46 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
     group_by(parameter) |>
     slice_min(as.numeric(std_val), n=1)
     
-  param_summary = df |>
-    group_by(parameter) |>
-    summarize(
-      hq = case_when(method == "max" ~ max(HQ, na.rm = TRUE),
-                     method %in% c("mean", "average") ~ mean(HQ, na.rm = TRUE),
-                     method == "median" ~ median(HQ, na.rm = TRUE)
-                     ),
-      n_measurements = n(),
-      n_stations = n_distinct(station),
-      .groups = "drop"
-    ) |>
-    left_join(std_lookup, by = "parameter")
+  # param_summary = df |>
+  #   group_by(parameter) |>
+  #   summarize(
+  #     hq = case_when(method == "max" ~ max(HQ, na.rm = TRUE),
+  #                    method %in% c("mean", "average") ~ mean(HQ, na.rm = TRUE),
+  #                    method == "median" ~ median(HQ, na.rm = TRUE)
+  #                    ),
+  #     n_measurements = n(),
+  #     n_stations = n_distinct(station),
+  #     .groups = "drop"
+  #   ) |>
+  #   left_join(std_lookup, by = "parameter")
 
-  # Get top 10 parameters by HQ
-  top_params <- param_summary |>
-    arrange(desc(hq)) |>
+  # Debugging: find hq-problematic params
+  problem_tib <- map_lgl(param_hq_list, ~ !"hq" %in% names(.x) || nrow(.x)==0)
+  if(any(problem_tib)) {
+    cat("Problem params:", names(param_hq_list)[problem_tib], "\n")
+    print(param_hq_list[problem_tib][[1]])
+  }
+  
+  unnested <- param_hq_list |>
+    enframe(name = "param_name", value = "summary") |>
+    unnest(summary)
+  
+  # View(unnested)
+  
+  top_params <- unnested |>
+    arrange(desc(.data$hq)) |>  # .data$hq forces proper scoping
     slice_head(n = 10) |>
-    mutate(
-      param_label = paste0(parameter, " (n=", n_measurements, ")")
-    )
+    mutate(param_label = paste0(param_name, " (n=", n_measurements, ")"))
+  
+  # 
+  # # Get top 10 parameters by HQ
+  # top_params <- bind_rows(param_hq_list, .id = "param_name") |>  # Direct bind_rows [file:1]
+  #   mutate(hq = coalesce(hq, 0)) |>  # GUARANTEE hq exists
+  #   arrange(desc(hq)) |>
+  #   slice_head(n = 10) |>
+  #   mutate(param_label = paste0(param_name, " (n=", n_measurements, ")"))
+  # 
+  # View(top_params)
   
   top_params = top_params |>
     mutate(
@@ -362,39 +419,43 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
         } else {
           paste0("HQ: ", round(hq, 3), "<br>")
         },
-        "Standard: ", trim_zeros(std_val), " ", std_unit, " (", std_reg, ")<br>",
+        "Standard: ", trim_zeros(standard), " (", std_source, ")<br>",
         "# Stations: ", n_stations, "<br>",
         "# Measurements: ", n_measurements
       )
     )
 
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "water" && any(data$fraction == fraction))
-  
+  fraction_applied <- (media_type == "water" && fraction != "all")
+
   # Create title based on aggregation methods used
   title_text <- paste(
-    "Top 10 Parameters by", temporal_label, "+", spatial_label, "Hazard Quotient")
-  use_log = (log10(max(top_params$hq)) - log10(min(top_params$hq))) >= 2
-
-  method_label <- if (method == "max") {
-    "Maximum"
-  } else if (method == "median") {
-    "Median"
-  } else {
-    "Average"
-  }
-
-  y_lab <- paste(
-    method_label,
-    if (use_log) "Hazard Quotient (HQ, log10 scale)"
-    else         "Hazard Quotient (HQ)"
-  )
+    "Top 10 Parameters (ranked using Hazard Quotient)")
+  use_log = (ceiling(log10(max(top_params$hq))) - floor(log10(min(top_params$hq)))) >= 2
+  # print(use_log)
+  # print(max(top_params$hq))
+  # print(min(top_params$hq))
   
-  main_title <- paste(
-    "Top 10 Parameters by",
-    method_label,
-    if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient"
-  )
+  
+  # method_label <- if (method == "max") {
+  #   "Maximum"
+  # } else if (method == "median") {
+  #   "Median"
+  # } else {
+  #   "Average"
+  # }
+
+  # y_lab <- paste(
+  #   method_label,
+  #   if (use_log) "Hazard Quotient (HQ, log10 scale)"
+  #   else         "Hazard Quotient (HQ)"
+  # )
+  
+  # main_title <- paste(
+  #   "Top 10 Parameters by",
+  #   method_label,
+  #   if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient"
+  # )
   
   ## Nadav's Notes: Would be helpful to trigger log10 if the magnitude difference is high
   # Create bar chart with hover text
@@ -409,9 +470,9 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
     coord_flip() +
     labs(
       title = title_text,
-      subtitle = paste0("Media: ", media, if (fraction_applied) paste0(" (", fraction, ")")),
       x = "Parameter",
-      y = paste(temporal_label, "+", spatial_label, "Hazard Quotient (HQ)")
+      y = paste(temporal_label, "+", spatial_label, 
+                if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient")
 
     ) +
     theme_minimal(base_size = 12) +
@@ -449,9 +510,11 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
     layout(
       title = list(
         text = paste0(
-          "Top 10 Parameters by ", temporal_label, " + ", spatial_label, " Hazard Quotient",
+          "Top 10 Parameters (Ranked using ",
+        if (use_log) "Hazard Quotient (log10))" else "Hazard Quotient)",
           "<br><sup>",
-          "Media: ", media, if (fraction_applied) paste0(" (", fraction, ")"),
+        "Media: ", media_type, if (fraction_applied) paste0(" (", fraction, ")"), ". ",
+        temporal_label, " & ", spatial_label,
           "</sup>"
         )
       ),
@@ -478,9 +541,4 @@ plot_top_hq_params <- function(data, media_type, fraction = "all", method = "max
   }
   
   return(ply)
-}
-
-trim_zeros <- function(x) {
-  s <- format(x, scientific = FALSE, trim = TRUE)  # e.g. "0.010000"
-  sub("\\.?0+$", "", s)                            # -> "0.01"
 }

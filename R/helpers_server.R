@@ -27,7 +27,36 @@ library(sf)
   })
 }
 
+# Unit conversion helper function (defined once at top level)
+convert_units <- function(value, from_unit, to_unit) {
+  from <- tolower(gsub("\\s+", "", from_unit))
+  to <- tolower(gsub("\\s+", "", to_unit))
+  if (from == to) return(value)
+  
+  conversions <- list(
+    "kg" = 1000, "g" = 1, "mg" = 0.001, "ug" = 0.000001, "µg" = 0.000001,
+    "mg/kg" = 1, "ug/kg" = 0.001, "µg/kg" = 0.001,
+    "mg/l" = 1, "ug/l" = 0.001, "µg/l" = 0.001,
+    "ppm" = 1, "ppb" = 0.001
+  )
+  
+  from_factor <- conversions[[from]]
+  to_factor <- conversions[[to]]
+  
+  if (is.null(from_factor) || is.null(to_factor)) {
+    warning(paste("Cannot convert from", from_unit, "to", to_unit, "- using original values"))
+    return(value)
+  }
+  
+  converted <- value * (from_factor / to_factor)
+  return(converted)
+}
 
+# Remove zeros to reformat a number
+trim_zeros <- function(x) {
+  s <- format(x, scientific = FALSE, trim = TRUE)  # e.g. "0.010000"
+  sub("\\.?0+$", "", s)                            # -> "0.01"
+}
 
 # filter to Bolivia
 filter_to_border <- function(df, lon_col, lat_col, border_sf) {

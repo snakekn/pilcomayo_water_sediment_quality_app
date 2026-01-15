@@ -1,4 +1,3 @@
-
 plot_top_hq_stations <- function(data, media, param, fraction = "Total", 
                                  temporal_aggregation = "max",  # RENAMED from method
                                  param_aggregation = NULL,
@@ -27,13 +26,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
 }
   cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", method, "\n")
   
-  # Unit conversion helper function (defined once at top level)
-  convert_units <- function(value, from_unit, to_unit) {
-    from <- tolower(gsub("\\s+", "", from_unit))
-    to <- tolower(gsub("\\s+", "", to_unit))
-    if (from == to) return(value)
-# Nadav: enter code block with conversions
-  }
+  
     # Filter for media only
     df <- data |>
       filter(media == !!media)

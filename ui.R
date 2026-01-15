@@ -405,12 +405,21 @@ ui <- fluidPage(
               condition = "input.station_plot_media != 'sed'",
               selectInput("station_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "any", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
             ),
-            radioButtons(
-              "station_plot_method",
+            radioButtons( # 1/8/2026: changed from param_plot_method
+              "station_plot_method_temporal",
               "Rank by:",
+              choices = c("Average Value" = "average", "Most Extreme Value" = "max") # recent, mean, average, max, weighted
+            ),
+            radioButtons( # 1/8/2026: changed from param_plot_method
+              "station_plot_method_spatial",
+              "Rank by:",
+              choices = c("Average Value" = "average", "Most Extreme Value" = "max") # mean, average, median, max
+            ),
+            radioButtons( # 1/8/2026: changed from param_plot_method
+              "station_plot_method",
+              "OLD METHOD",
               choices = c("Average Value" = "average", "Most Extreme Value" = "max")
             ),
-            
             info_callout(
               "Station Ranking",
               "This plot ranks water sampling stations based on water quality standards from Bolivian law.
@@ -545,10 +554,21 @@ ui <- fluidPage(
               condition = "input.param_plot_media != 'sed'",
               selectInput("param_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "all", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
             ),
+            radioButtons( 
+              "param_plot_method_temporal",
+              "Rank Data by Year Using:",
+              choices = c("Most Recent Year Only" = "recent", "Average Value Across Time" = "average", "Most Extreme Year" = "max", "Time-Weighted Value" = "weighted")
+            ),
             radioButtons(
-              "param_plot_method",
-              "Rank by:",
-              choices = c("Average Value" = "average", "Most Extreme Value" = "max")
+              "param_plot_method_spatial",
+              "Rank by:", # Nadav's Note: Better way to state?
+              choices = c("Average Value" = "average", "Most Extreme Value" = "max", "Median Value" = "median")
+            ),
+            shinyBS::bsCollapse(id = "param_plot_adv",
+                                bsCollapsePanel(title = "⚙️ Advanced Settings",
+                                                sliderInput("decay_per_day", "Decay/day", 0, 0.1, 0.001),
+                                                style = "default"  # Grey! Down/up arrows [web:18][web:24]
+                                                )
             ),
             info_callout(
               "Parameter Ranking",

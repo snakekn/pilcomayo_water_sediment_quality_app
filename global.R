@@ -21,7 +21,7 @@ library(bslib)
 library(terra)
 library(ggiraph)
 library(shinyjs)
-
+library(shinyBS)
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)

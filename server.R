@@ -1332,6 +1332,7 @@ server <- function(input, output, session) {
   output$station_scores_plot <- renderPlotly({
     df <- master_data$all_media_scored
 
+    # 1/8/2026: Update to utilize new param names
     p = plot_top_hq_stations(df, 
                              media = input$station_plot_media, 
                              param = input$station_plot_param, 
@@ -1833,16 +1834,22 @@ server <- function(input, output, session) {
   
   output$param_scores_plot <- renderPlotly({
     req(master_data$all_media_scored)
-    req(input$param_plot_media, input$param_plot_method)
+    req(input$param_plot_media, input$param_plot_method_spatial, input$param_plot_method_temporal)
     
     cat("\n\nworking to render\n\n")
     validate(need(!is.null(master_data$all_media_scored),
                   "No data available for ranking."))
+    
+    View(master_data$all_media_scored)
+    
+    # 1/8/2026: Update to utilize new param names
     p = plot_top_hq_params(data = master_data$all_media_scored, 
                            media = input$param_plot_media,
                            fraction = input$param_plot_fraction,
-                           method = input$param_plot_method,
-                           station = input$param_plot_station)
+                           temporal_aggregation = input$param_plot_method_temporal,
+                           spatial_aggregation = input$param_plot_method_spatial,
+                           station = input$param_plot_station,
+                           decay_per_day = input$param_plot_decay)
     
     quiet_plotly(p, tooltip = "text")
   })
@@ -1857,7 +1864,6 @@ server <- function(input, output, session) {
                           station_selection = input$sieve_plot_station)
     quiet_plotly(p, tooltip = "text")
   })
-  
   
   ################# SLIDER MAPS ########################
   
@@ -2380,7 +2386,7 @@ server <- function(input, output, session) {
   
     cat("\n=== DEBUG observe ts_tabs ===\n")
     cat(names(df))
-    updateSelectInput(session, "ts_station", choices = sort(unique(df$station)), selected = "Tarapaya")
+    updateSelectInput(session, "ts_station", choices = c("All Stations" = "all", sort(unique(df$station))), selected = "All Stations")
     
     exclude_cols = c("Average Velocity",
                      "Decimal Latitude",

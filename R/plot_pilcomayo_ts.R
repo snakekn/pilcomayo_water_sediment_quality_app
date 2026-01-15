@@ -18,12 +18,16 @@ plot_pilcomayo_ts <- function(
   # -------------------------------------------------------
   # 1. FILTER INPUT DATA
   # -------------------------------------------------------
+  
   df <- data %>%
     filter(
       .data$media == .env$media,
       .data$parameter == .env$param,
-      .data$station == .env$station
     )
+  
+  if (!station %in% c("all", "All Stations")) {
+    df = df |> filter(.data$station ==.env$station)
+  }
 
   if (nrow(df) == 0) {
     message("No data found for this selection.")
@@ -199,6 +203,8 @@ plot_pilcomayo_ts <- function(
   # -------------------------------------------------------
   # 7. BASE PLOT
   # -------------------------------------------------------
+  station_label = if_else(station %in% c("all", "All Stations"),"All Stations", station)
+  
   p <- ggplot() +
     geom_line(
       data = df_avg,
@@ -216,7 +222,7 @@ plot_pilcomayo_ts <- function(
     labs(
       x = "Date",
       y = paste0(param, " (", df$unit[1], ")"),
-      title = paste0("Time Series of ", param, " at ", station, " (", str_to_title(media), ")")
+      title = paste0("Time Series of ", param, " at ", station_label, " (", str_to_title(media), ")")
     ) +
     theme_minimal()
 
