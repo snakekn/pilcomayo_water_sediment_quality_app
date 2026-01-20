@@ -1,3 +1,4 @@
+# example: plot_top_hq_params(all_media_scored, media_type = "all", temporal_aggregation = "recent")
 plot_top_hq_params <- function(data, 
                                media_type, 
                                fraction = "all", 
@@ -6,6 +7,8 @@ plot_top_hq_params <- function(data,
                                spatial_aggregation = "max",
                                decay_per_day = NULL
                                ) {
+  library(plotly)
+  
   cat("[plot_top_hq_params] Params: ")
   params_callout <- list(
     media = media_type,
@@ -15,7 +18,7 @@ plot_top_hq_params <- function(data,
     spatial_aggregation = spatial_aggregation,
     decay_per_day = decay_per_day
   )
-  print(params_callout)
+  # print(params_callout)
   
   # Confirm strict_std exists, or make it
   if(!exists("strict_std")) {
@@ -33,7 +36,7 @@ plot_top_hq_params <- function(data,
   if (temporal_aggregation == "average") temporal_aggregation <- "mean"
   
   # Validate spatial_aggregation parameter
-  valid_spatial_aggregations <- c("mean", "average", "median", "max")
+  valid_spatial_aggregations <- c("mean", "average", "median", "max". "pct95")
   if (!spatial_aggregation %in% valid_spatial_aggregations) {
     stop(paste("Invalid spatial_aggregation. Choose from:", paste(valid_spatial_aggregations, collapse = ", ")))
   }
@@ -54,7 +57,6 @@ plot_top_hq_params <- function(data,
     cat("\n[plot_top_hq_params] Not filtering for station. Measurements: ", nrow(df), "\n") 
   }
   
-  
   # Filter for media
   
   ## fix to avoid all media
@@ -62,13 +64,14 @@ plot_top_hq_params <- function(data,
     cat("\n[plot_top_hq_params] Filtering for media. Pre-filter measurements: ", nrow(df))
     df <- df |>
       filter(media == media_type)
+
     cat("\n[plot_top_hq_params] Post-filter measurements: ", nrow(df))
   } else {
     cat("\nNot filtering for media.")
   }
   
   # Only apply fraction filter for drinking water and non-pH parameters
-  if (media_type != "sed" && fraction != "all") {
+  if (media_type != "sediment" && fraction != "all") {
     # Get unique parameters that have the specified fraction
     params_with_fraction <- df |>
       filter(fraction == !!fraction) |>
@@ -101,11 +104,12 @@ plot_top_hq_params <- function(data,
   # print(length(params))
   
   # Calculate HQ for each parameter
-  param_hq_list <- list()
+  param_hq_list <<- tibble()
   
   for (param in params) {
     # cat("\n [plot_top_hq_params] On Param: ", param)
     param_df <- df |> filter(parameter == param)
+    # cat("\n Total measurements for the parameter: ", length(param_df))
     
     # Special handling for pH - filter to pH units only
     if (param == "pH") {
@@ -113,12 +117,22 @@ plot_top_hq_params <- function(data,
     }
     
     # Retrieve standard for this parameter-media combination
+    if(media_type != "all") {
+      df = df |>
+        filter(media == media_type)
+    }
+    
     param_stds <- strict_std |>
-      filter(.data$media == !!media_type,
-             str_detect(.data$parameter, !!param))
+      filter(str_detect(.data$parameter, !!param))
     
     # Skip if no standard exists
-    if (nrow(param_stds) == 0) next
+    if (nrow(param_stds) == 0) {
+      message(" -- Skipping because no standard exists")
+      next
+    } else {
+      message(cat("Standards found: ", length(param_stds)))
+      # message(head(param_stds))
+    }
     
     # Check if this is a range-based parameter (like pH)
     has_low <- any(str_detect(param_stds$parameter, "low"))
@@ -256,7 +270,7 @@ plot_top_hq_params <- function(data,
       station_temporal <- param_df_exceedances |>
         group_by(station) |>
         summarise(
-          date = date[which.max(hq)],
+          date = date[which.max(HQ)],
           hq = mean(HQ, na.rm = TRUE),
           .groups = "drop"
         )
@@ -266,15 +280,17 @@ plot_top_hq_params <- function(data,
     
     temporal_label = paste(temporal_label, "Across Years")
     
+    # View(station_temporal)
+    
     # STEP 2: SPATIAL AGGREGATION across all stations
     if (spatial_aggregation == "max") {
       # View(station_temporal) # debugging
       
       param_summary <- station_temporal |>
         summarise(
-          max_station = station[which.max(hq)],  # Track which station has max
-          max_date = date[which.max(hq)],  # Track date of max HQ
-          hq = max(hq, na.rm = TRUE),
+          max_station = station[which.max(HQ)],  # Track which station has max
+          max_date = date[which.max(HQ)],  # Track date of max HQ
+          hq = max(HQ, na.rm = TRUE),
           n_stations = n(),
           .groups = "drop"
         )
@@ -284,7 +300,7 @@ plot_top_hq_params <- function(data,
     } else if (spatial_aggregation == "median") {
       param_summary <- station_temporal |>
         summarise(
-          hq = median(hq, na.rm = TRUE),
+          hq = median(HQ, na.rm = TRUE),
           n_stations = n(),
           max_station = NA_character_,  # Not applicable for median
           max_date = as.Date(NA),  # Not applicable for median
@@ -293,17 +309,27 @@ plot_top_hq_params <- function(data,
       
       spatial_label <- "Median"
       
-    } else {  # spatial_aggregation == "mean"
+    } else if (spatial_aggregation == "mean") {  # spatial_aggregation == "mean"
       param_summary <- station_temporal |>
         summarise(
-          hq = mean(hq, na.rm = TRUE),
+          hq = mean(HQ, na.rm = TRUE),
           n_stations = n(),
           max_station = NA_character_,  # Not applicable for mean
           max_date = as.Date(NA),  # Not applicable for mean
           .groups = "drop"
         )
-      
       spatial_label <- "Average"
+      
+    } else if (spatial_aggregation == "pct95") {
+      param_summary = station_temporal |>
+        summarise(
+          hq = quantile(HQ, probs = 0.95, na.rm=TRUE),
+          n_stations = n(),
+          max_station = NA_character_,  # Not applicable for mean
+          max_date = as.Date(NA),  # Not applicable for mean
+          .groups = "drop"
+        )
+      spatial_label = "95th Percentile"
     }
     
     spatial_label = paste(spatial_label, "Across Stations")
@@ -319,7 +345,14 @@ plot_top_hq_params <- function(data,
     
     # View(param_summary) ## debugging
     
-    param_hq_list[[param]] <- param_summary
+    # param_hq_list[[param]] <<- param_summary
+    # message(param_hq_list[[param]])
+    # 
+    param_hq_list <- bind_rows(
+      param_hq_list,
+      param_summary |> mutate(parameter = param)
+    )
+    # print(param)
     # print(param_summary)
   }
   
@@ -331,7 +364,6 @@ plot_top_hq_params <- function(data,
   
   # Combine all parameter summaries
   if (nrow(df) == 0) {
-    # Nadav's Notes: using media "all" isn't fixed in yet
     stop(paste("No exceedances found for any parameters in", media_type))
   }
   
@@ -359,23 +391,20 @@ plot_top_hq_params <- function(data,
   #   left_join(std_lookup, by = "parameter")
 
   # Debugging: find hq-problematic params
-  problem_tib <- map_lgl(param_hq_list, ~ !"hq" %in% names(.x) || nrow(.x)==0)
-  if(any(problem_tib)) {
-    cat("Problem params:", names(param_hq_list)[problem_tib], "\n")
-    print(param_hq_list[problem_tib][[1]])
-  }
+  # problem_tib <- map_lgl(param_hq_list, ~ !"hq" %in% names(.x) || nrow(.x)==0)
+  # if(any(problem_tib)) {
+  #   cat("Problem params:", names(param_hq_list)[problem_tib], "\n")
+  #   print(param_hq_list[problem_tib][[1]])
+  # }
+
+  # View(param_hq_list)
   
-  unnested <- param_hq_list |>
-    enframe(name = "param_name", value = "summary") |>
-    unnest(summary)
-  
-  # View(unnested)
-  
-  top_params <- unnested |>
+  top_params <- param_hq_list |>
     arrange(desc(.data$hq)) |>  # .data$hq forces proper scoping
     slice_head(n = 10) |>
-    mutate(param_label = paste0(param_name, " (n=", n_measurements, ")"))
+    mutate(param_label = paste0(parameter, " (n=", n_measurements, ")"))
   
+
   # 
   # # Get top 10 parameters by HQ
   # top_params <- bind_rows(param_hq_list, .id = "param_name") |>  # Direct bind_rows [file:1]
@@ -471,8 +500,11 @@ plot_top_hq_params <- function(data,
     labs(
       title = title_text,
       x = "Parameter",
-      y = paste(temporal_label, "+", spatial_label, 
-                if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient")
+      y = paste(if (use_log) {
+                  "Hazard Quotient (logarithmic scale)"
+                  } else {
+                    "Hazard Quotient"
+                  })
 
     ) +
     theme_minimal(base_size = 12) +
@@ -502,7 +534,12 @@ plot_top_hq_params <- function(data,
     axis.text.x = element_text(angle = -45, hjust = 0)  # angle HQ ticks
   )
 
-    
+   
+  media_label = case_match(media_type,
+                          "all" ~ "All Media",
+                          "sediment" ~ "Sediment",
+                          "water" ~ "Water",
+                          .default = "None Selected") 
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   
@@ -510,10 +547,9 @@ plot_top_hq_params <- function(data,
     layout(
       title = list(
         text = paste0(
-          "Top 10 Parameters (Ranked using ",
-        if (use_log) "Hazard Quotient (log10))" else "Hazard Quotient)",
+          "Top 10 Parameters (Ranked using Hazard Quotient)",
           "<br><sup>",
-        "Media: ", media_type, if (fraction_applied) paste0(" (", fraction, ")"), ". ",
+        "Media: ", media_label, if (fraction_applied) paste0(" (", fraction, ")"), ". ",
         temporal_label, " & ", spatial_label,
           "</sup>"
         )

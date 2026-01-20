@@ -1,6 +1,7 @@
 #### Risk Mapping Helper Functions
 
 # Helper: Prepare water quality data - WITH TEMPORAL AGGREGATION
+# example: prepare_water_quality_data(all_media_scored, unique(all_media_scored$parameter), fraction = NULL, date = 2024)
 prepare_water_quality_data <- function(data, params, fraction, date, 
                                        param_aggregation = "mean",
                                        temporal_aggregation = "recent",  # NEW: "recent", "all", or "weighted"
@@ -93,7 +94,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
       }
     }))
     
-    wq_param <- all_water_scored |> filter(parameter %in% actual_params)
+    wq_param <- data |> filter(parameter %in% actual_params)
     
     if (nrow(wq_param) == 0) {
       stop(paste("No data found for parameter(s):", paste(params, collapse = ", ")))
@@ -101,7 +102,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     
     all_parameters <- actual_params
   }
-  
+
   # Filter by fraction if specified
   if (!is.null(fraction) && "fraction" %in% names(wq_param)) {
     # Only remove rows where fraction is NOT NA AND fraction doesn't match the specified fraction
@@ -117,8 +118,11 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     stop("Data must contain a 'date' column")
   }
   
+
   if (!inherits(wq_param$date, "Date")) {
+    #message("pre-test")
     wq_param$date <- as.Date(wq_param$date)
+    #message("test worked")
   }
   
   # Filter by date
@@ -221,15 +225,12 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     summarise(
       parameter_hqs = list(HQ),
       parameter_names = list(parameter),
-      max_HQ = max(HQ, na.rm = TRUE),
-      mean_HQ = mean(HQ, na.rm = TRUE),
-      Nemerow = sqrt((mean_HQ^2+max_HQ^2)/2),
       HQ = switch(param_aggregation,
                   "mean" = mean(HQ, na.rm = TRUE),
                   "median" = median(HQ, na.rm = TRUE),
                   "max" = max(HQ, na.rm = TRUE),
                   "sum" = sum(HQ, na.rm = TRUE),
-                  "pct95" = quantile(HQ, probs = 0.95),
+                  "pct95" = quantile(HQ, probs = 0.95, na.rm=TRUE),
                   "nemerow" = sqrt((max(HQ, na.rm = TRUE)^2+mean(HQ, na.rm = TRUE)^2)/2)),
       date = max(date),
       n_parameters = n(),
@@ -263,9 +264,11 @@ prepare_water_quality_data <- function(data, params, fraction, date,
 
 # Helper: Snap points to river network - MODIFIED to preserve all metadata
 snap_points_to_river <- function(wq_param, river_network_sf, border_sf, snap_distance) {
+  library(sf)
+  
   message("Converting to spatial points and snapping to river...")
   
-  wq_points <- st_as_sf(wq_param, 
+  wq_points <- sf::st_as_sf(wq_param, 
                         coords = c("longitude_decimal", "latitude_decimal"),
                         crs = 4326)
   
@@ -608,6 +611,9 @@ find_next_downstream_station <- function(current_station, current_seg, all_stati
 # NEW: Create gradient-based risk raster
 create_gradient_risk_raster <- function(river_network_sf, snapped_points, station_pairs, 
                                         resolution, max_risk_distance) {
+  
+  library(terra)
+  
   message("Creating gradient-based risk raster...")
   
   # Sample points densely along river with interpolated HQ values
@@ -620,12 +626,12 @@ create_gradient_risk_raster <- function(river_network_sf, snapped_points, statio
   bbox[3] <- bbox[3] + max_risk_distance
   bbox[4] <- bbox[4] + max_risk_distance
   
-  ext <- ext(bbox[1], bbox[3], bbox[2], bbox[4])
-  risk_raster <- rast(ext, resolution = resolution, crs = st_crs(river_network_sf)$wkt)
+  ext <- terra::ext(bbox[1], bbox[3], bbox[2], bbox[4])
+  risk_raster <- terra::rast(ext, resolution = resolution, crs = st_crs(river_network_sf)$wkt)
   
   # Rasterize sample points
   if (nrow(sample_points) > 0) {
-    river_raster <- rasterize(vect(sample_points), risk_raster, 
+    river_raster <- terra::rasterize(vect(sample_points), risk_raster, 
                               field = "HQ", fun = "mean", background = NA)
   } else {
     river_raster <- risk_raster

@@ -31,6 +31,7 @@
 
 
 # Main function 
+# example: create_risk_map(all_media_scored, "all", param_aggregation = "pct95")
 create_risk_map <- function(data, 
                             params,
                             fraction = NULL,
@@ -52,7 +53,7 @@ create_risk_map <- function(data,
     stop(paste("Invalid interpolation_method. Choose from:", paste(valid_interpolation_methods, collapse = ", ")))
   }
   
-  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
+  valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95", "nemerow")
   if (!param_aggregation %in% valid_param_aggregations) {
     stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
   }
@@ -120,11 +121,6 @@ create_risk_map <- function(data,
   ))
 }
 
-
-
-
-
-
 plot_risk_map <- function(risk_map_result, 
                           title = NULL,
                           show_stations = TRUE,
@@ -132,6 +128,7 @@ plot_risk_map <- function(risk_map_result,
                           opacity = 0.7,
                           high_risk_threshold = 10) {
   
+  library(htmltools)
   library(leaflet)
   library(leaflet.extras)
   
@@ -143,6 +140,16 @@ plot_risk_map <- function(risk_map_result,
   date_used <- risk_map_result$date_used
   
   n_params <- length(unique(unlist(snapped_points$parameter_names)))
+  
+  # Confirm if pilco_line exists or make it
+  # if pilco_line is null, load them
+  if(!exists("pilco_line")) { # load pilco_line
+    pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+  } 
+  
+  if (is.null(pilco_line)) {
+    stop(paste("No Pilco line found. Please specify a line"))
+  } 
   
   # Extract metadata about parameters and param_aggregation and temporal_aggregation
   parameters_used <- attr(snapped_points, "parameters_used")
@@ -340,13 +347,27 @@ plot_risk_map <- function(risk_map_result,
       date <- stations_wgs84$date[i]
       min_date <- if("min_date" %in% names(stations_wgs84)) stations_wgs84$min_date[i] else date
       
-      if (hq > high_risk_threshold) {
-        warning_text <- paste0(" <span style='color:darkred; font-weight:bold;'>(EXTREME RISK)</span>")
-      } else if (hq > 1) {
-        warning_text <- paste0(" <span style='color:red;'>(High Risk)</span>")
-      } else {
-        warning_text <- " <span style='color:green;'>(Safe)</span>"
-      }
+      # Bins set up on 1/19/26 in meeting
+      hq_lims = c("Below Regulatory Limits" = 1, 
+                  "Low Risk" = 1.5,
+                  "Moderate Risk" = 2.5, 
+                  "High Risk" = 5,
+                  "Very High Risk" = 12.5, 
+                  "Extreme Risk" = 35000, 
+                  "Higher than Limits Support" = 1e10)
+      lim_values = as.numeric(hq_lims)
+      names_vec = names(hq_lims)
+      
+      warning_text = names_vec[findInterval(hq, lim_values, rightmost.closed=TRUE)+1]
+      
+      # 
+      # if (hq > high_risk_threshold) {
+      #   warning_text <- paste0(" <span style='color:darkred; font-weight:bold;'>(EXTREME RISK)</span>")
+      # } else if (hq > 1) {
+      #   warning_text <- paste0(" <span style='color:red;'>(High Risk)</span>")
+      # } else {
+      #   warning_text <- " <span style='color:green;'>(Safe)</span>"
+      # }
       
       # Format date range
       if (temporal_aggregation_method == "recent") {

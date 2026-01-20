@@ -1,10 +1,12 @@
+# example: plot_top_hq_stations(all_media_scored, media = "water", param = "Arsenic", temporal_aggregation = "recent", param_aggregation = "pct95")
 plot_top_hq_stations <- function(data, media, param, fraction = "Total", 
                                  temporal_aggregation = "max",  # RENAMED from method
                                  param_aggregation = NULL,
-                                 decay_per_day = NULL) {   # NEW: for weighted temporal aggregation 
+                                 decay_per_day = NULL,   # NEW: for weighted temporal aggregation 
+                                 all_stations = FALSE) {
   
   # Validate temporal_aggregation parameter
-  valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted")
+  valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted", "nemerow")
   if (!temporal_aggregation %in% valid_temporal_aggregations) {
     stop(paste("Invalid temporal_aggregation. Choose from:", paste(valid_temporal_aggregations, collapse = ", ")))
   }
@@ -14,7 +16,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   
   # Validate param_aggregation if provided
   if (!is.null(param_aggregation)) {
-    valid_param_aggregations <- c("mean", "median", "max", "sum")
+    valid_param_aggregations <- c("mean", "median", "max", "sum", "pct95")
     if (!param_aggregation %in% valid_param_aggregations) {
       stop(paste("Invalid param_aggregation. Choose from:", paste(valid_param_aggregations, collapse = ", ")))
     }
@@ -23,38 +25,41 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   # Handle "all" parameter - use all parameters in dataset
   if (length(param) == 1 && tolower(param) == "all") {
     message("Using ALL parameters in dataset...")
-}
-  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", method, "\n")
+  }
+  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   
     # Filter for media only
-    df <- data |>
-      filter(media == !!media)
+    if(media != "all") {
+      df <- data |>
+        filter(media == !!media)
+    } else {
+      df = data
+    }
     
     # Get list of unique parameters for reporting
     all_parameters <- unique(df$parameter)
     message(paste("Found", length(all_parameters), "unique parameters in dataset"))
     
-    # Force param_aggregation if not specified
-    if (is.null(param_aggregation)) {
-      param_aggregation <- "mean"
-      message("Setting param_aggregation to 'mean' (required when using 'all' parameters)")
+    # # Force param_aggregation if not specified
+    # if (is.null(param_aggregation)) {
+    #   param_aggregation <- "mean"
+    #   message("Setting param_aggregation to 'mean' (required when using 'all' parameters)")
+    # 
     
-    
-    param_display <- "All Parameters"
-    
-  } else {
-    # Handle specific parameter(s)
+  #   param_display <- "All Parameters"
+  #   
+  # } else {
+  #   # Handle specific parameter(s)
     message(paste("Using", length(param), "specified parameter(s)..."))
-    
-    # Filter for media and parameter
+
+    # Filter for parameter
     df <- data |>
-      filter(media == !!media) |>
       filter(parameter %in% param)
-    
+
     all_parameters <- param
     param_display <- if (length(param) == 1) param else paste(length(param), "parameters")
-  }
+  # }
 
   # Filter for media and parameter
   if (media != "all") { # only filter on media if we're not using them all
@@ -153,10 +158,14 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   }
   
   # Filter to only exceedances
-  cat("\n\before filtering for hq, nrow(df) = ", nrow(df), "\n")
-  df_exceedances <- df |>
-    filter(!is.na(hq), hq > 1) # remove where HQ is acceptable
+  cat("\nBefore filtering for hq, nrow(df) = ", nrow(df), "\n")
 
+  df_exceedances <- df |>
+    filter(!is.na(HQ), HQ > 1) # remove where HQ is acceptable
+
+  cat("\nAfter filtering for hq>1, nrow(df) = ", nrow(df), "\n")
+  
+  # View(df_exceedances)
   
   # Check if there are any exceedances
   if (nrow(df_exceedances) == 0) {
@@ -179,7 +188,9 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                     "mean" = mean(HQ, na.rm = TRUE),
                     "median" = median(HQ, na.rm = TRUE),
                     "max" = max(HQ, na.rm = TRUE),
-                    "sum" = sum(HQ, na.rm = TRUE)),
+                    "sum" = sum(HQ, na.rm = TRUE),
+                    "pct95" = quantile(HQ, probs = 0.95, na.rm=TRUE)),
+
         n_parameters = n(),
         parameters = paste(unique(parameter), collapse = ", "),
         .groups = "drop"
@@ -250,7 +261,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       )
     method_label <- "Maximum"
     
-  } else {  # temporal_aggregation == "mean"
+  } else if (temporal_aggregation == "mean") {  # temporal_aggregation == "mean"
     # Mean HQ across all time points
     station_hq <- df_exceedances |>
       group_by(station) |>
@@ -261,46 +272,96 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         .groups = "drop"
       )
     method_label <- "Average"
+  } else if (temporal_aggregation == "nemerow") {
+    station_hq <- df_exceedances |>
+      group_by(station) |>
+      summarise(
+        max_date = date[which.max(HQ)],  # Get date of max even for mean method
+        HQ = sqrt((max(HQ, na.rm = TRUE)^2+mean(HQ, na.rm = TRUE)^2)/2),
+        n_measurements = n(),
+        .groups = "drop"
+      )
+    method_label <- "Pollution Index"
   }
   
+  # View(station_hq)
+  
   # Get top 10 stations by HQ
-  top_stations <- station_hq |>
-    arrange(desc(HQ)) |>
-    slice_head(n = 10) |>
-    mutate(
-      station_label = paste0(station, " (n=", n_measurements, ")"),
-      station_label = factor(station_label, levels = rev(station_label)),
-      exceeds_standard = HQ >= 1,
-      hover_text = paste0(
-        "Station: ", station, "<br>",
-        if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
-        # Show parameter aggregation method if used
-        if (!is.null(param_aggregation)) {
-          paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
-        },
-        # Show temporal aggregation method only if actual aggregation occurred (not "recent")
-        if (temporal_aggregation != "recent") {
-          paste0("Temporal aggregation: ", method_label, "<br>")
-        },
-        # HQ label - use "Aggregated HQ" if any aggregation occurred
-        if (!is.null(param_aggregation) || temporal_aggregation != "recent") {
-          paste0("Aggregated HQ: ", round(HQ, 3), "<br>")
-        } else {
-          paste0("HQ: ", round(HQ, 3), "<br>")
-        },
-        if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
+  if(temporal_aggregation != "recent") {
+    top_stations <- station_hq |>
+      arrange(desc(HQ)) |>
+      mutate(
+        station_label = paste0(station, "(n=", n_measurements, ")"),
+        station_label = factor(station_label, levels = rev(station_label)),
+        exceeds_standard = HQ >= 1,
+        hover_text = paste0(
+          "Station: ", station, "<br>",
+          if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
+          # Show parameter aggregation method if used
+          if (!is.null(param_aggregation)) {
+            paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
+          },
+          # Show temporal aggregation method only if actual aggregation occurred (not "recent")
+          if (temporal_aggregation != "recent") {
+            paste0("Temporal aggregation: ", method_label, "<br>")
+          },
+          # HQ label - use "Aggregated HQ" if any aggregation occurred
+          if (!is.null(param_aggregation) || temporal_aggregation != "recent") {
+            paste0("Aggregated HQ: ", round(HQ, 3), "<br>")
+          } else {
+            paste0("HQ: ", round(HQ, 3), "<br>")
+          },
+          if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
+        )
       )
-    )
+  } else {
+    top_stations <- station_hq |>
+      arrange(desc(HQ)) |>
+      mutate(
+        station_label = paste0(station),
+        station_label = factor(station_label, levels = rev(station_label)),
+        exceeds_standard = HQ >= 1,
+        hover_text = paste0(
+          "Station: ", station, "<br>",
+          if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
+          # Show parameter aggregation method if used
+          if (!is.null(param_aggregation)) {
+            paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
+          },
+          # Show temporal aggregation method only if actual aggregation occurred (not "recent")
+          if (temporal_aggregation != "recent") {
+            paste0("Temporal aggregation: ", method_label, "<br>")
+          },
+          # HQ label - use "Aggregated HQ" if any aggregation occurred
+          if (!is.null(param_aggregation) || temporal_aggregation != "recent") {
+            paste0("Aggregated HQ: ", round(HQ, 3), "<br>")
+          } else {
+            paste0("HQ: ", round(HQ, 3), "<br>")
+          },
+          if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
+        )
+      )
+  }
+  
+  
+  if (!all_stations) { # options are all or 10 baby
+    top_stations = top_stations |> slice_head(n = 10)
+  }
+  
+  param_aggregation_title = case_match(param_aggregation,
+                                   "pct95" ~ "95th Percentile",
+                                   .default = param_aggregation)
+  print(param_aggregation_title)
   
   # Create title based on whether param_aggregation was used
   if (!is.null(param_aggregation)) {
     title_text <- paste(
-      "Top 10 Stations by", method_label, "Hazard Quotient:",
-      paste0(str_to_title(param_aggregation), " of ", param_display)
+      "All Stations Ranked by", method_label, "Hazard Quotient:",
+      paste0(str_to_title(param_aggregation_title), " of ", param_display)
     )
   } else {
     title_text <- paste(
-      "Top 10 Stations by", method_label, "Hazard Quotient:",
+      "All Stations Stations by", method_label, "Hazard Quotient:",
       if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display
     )
   }
@@ -334,23 +395,44 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   ply <- ggplotly(p, tooltip = "text")
   
   # Update layout with conditional title
-  if (!is.null(param_aggregation)) {
-    plotly_title <- paste0(
-      "Top 10 Stations by ", method_label, " Hazard Quotient: ",
-      str_to_title(param_aggregation), " of ", param_display,
-      "<br><sup>",
-      "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
-      "</sup>"
-    )
+  if (all_stations == TRUE) {
+    if (!is.null(param_aggregation)) {
+      plotly_title <- paste0(
+        "All Stations Ranked by ", method_label, " Hazard Quotient: ",
+        str_to_title(param_aggregation_title), " of ", param_display,
+        "<br><sup>",
+        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "</sup>"
+      )
+    } else {
+      plotly_title <- paste0(
+        "All Stations Ranked by ", method_label, " Hazard Quotient: ",
+        if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
+        "<br><sup>",
+        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "</sup>"
+      )
+    }
   } else {
-    plotly_title <- paste0(
-      "Top 10 Stations by ", method_label, " Hazard Quotient: ",
-      if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
-      "<br><sup>",
-      "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
-      "</sup>"
-    )
+    if (!is.null(param_aggregation)) {
+      plotly_title <- paste0(
+        "Top 10 Stations Ranked by ", method_label, " Hazard Quotient: ",
+        str_to_title(param_aggregation_title), " of ", param_display,
+        "<br><sup>",
+        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "</sup>"
+      )
+    } else {
+      plotly_title <- paste0(
+        "Top 10 Stations Ranked by ", method_label, " Hazard Quotient: ",
+        if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
+        "<br><sup>",
+        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "</sup>"
+      )
+    }
   }
+  
 
   ply <- ply |>
     layout(
