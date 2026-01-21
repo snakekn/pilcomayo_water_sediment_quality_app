@@ -36,7 +36,7 @@ plot_top_hq_params <- function(data,
   if (temporal_aggregation == "average") temporal_aggregation <- "mean"
   
   # Validate spatial_aggregation parameter
-  valid_spatial_aggregations <- c("mean", "average", "median", "max". "pct95")
+  valid_spatial_aggregations <- c("mean", "average", "median", "max", "pct95")
   if (!spatial_aggregation %in% valid_spatial_aggregations) {
     stop(paste("Invalid spatial_aggregation. Choose from:", paste(valid_spatial_aggregations, collapse = ", ")))
   }
