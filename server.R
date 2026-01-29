@@ -617,7 +617,8 @@ server <- function(input, output, session) {
     calc_pca(data = master_data$all_media_scored, 
              params = input$pca_parameters, 
              media_selection = input$pca_media, 
-             station_selection = input$pca_station)
+             station_selection = input$pca_station,
+             draw_circle = TRUE)
   })
   
   output$pca_plot <- renderPlotly({
@@ -627,6 +628,9 @@ server <- function(input, output, session) {
     df   <- res$df
     rpca <- res$pca
     
+    message("[pca_plot output] dimensional values")
+    message(rpca$eig)
+    
     scores   <- as.data.frame(rpca$ind$coord[, 1:2])
     loadings <- as.data.frame(rpca$var$coord[, 1:2])
     
@@ -634,24 +638,30 @@ server <- function(input, output, session) {
     scores$date    <- df$date
     scores$media   <- df$media
     
-    arrow_scale <- 1.5   # try between 1 and 3
+    arrow_scale <- 1 # 1.5   # try between 1 and 3
+    
+    theta  <- seq(0, 2*pi, length.out = 200)
+    circle <- data.frame(x = cos(theta), y = sin(theta))
+    
     
     g <- ggplot() +
       # points
-      geom_point(
-        data = scores,
-        aes(
-          x = Dim.1, y = Dim.2,
-          colour = media,
-          text   = paste(
-            "Station:", station,
-            "<br>Date:", date,
-            "<br>Media:", media
-          )
-        ),
-        alpha = 0.8, size = 2.5
-      ) +
+      # geom_point(
+      #   data = scores,
+      #   aes(
+      #     x = Dim.1, y = Dim.2,
+      #     colour = media,
+      #     text   = paste(
+      #       "Station:", station,
+      #       "<br>Date:", date,
+      #       "<br>Media:", media
+      #     )
+      #   ),
+      #   alpha = 0.8, size = 2.5
+      # ) +
       # arrows (scaled up a bit)
+      geom_path(data = circle, aes(x, y), color = "grey50") +   # unit circle
+      
       geom_segment(
         data = transform(loadings,
                          Dim.1 = Dim.1 * arrow_scale,
@@ -670,8 +680,9 @@ server <- function(input, output, session) {
         colour = "steelblue4",
         size = 3
       ) +
-      labs(x = "Dim1", y = "Dim2", colour = "Media") +
-      theme_minimal()
+      labs(x = sprintf("1st Dimension (%d%%)", round(rpca$eig[[1,2]],0)), y = sprintf("2nd Dimension (%d%%)", round(rpca$eig[[2,2]],0)))+ #, colour = "Media") +
+      theme_minimal()+
+      coord_fixed(ratio=1)
     
     # Convert to plotly – this is what makes the plot appear
     plotly::ggplotly(g, tooltip = "text")
@@ -686,7 +697,56 @@ server <- function(input, output, session) {
   })
   
   
+  output$pca_static <- renderPlot({
+      req(pca_result())
+    
+    res <- pca_result()
+    req(res)
+    
+    df   <- res$df
+    rpca <- res$pca
+    
+    scores   <- as.data.frame(rpca$ind$coord[, 1:2])
+    loadings <- as.data.frame(rpca$var$coord[, 1:2])
+    
+    scores$station <- df$station
+    scores$date    <- df$date
+    scores$media   <- df$media
+    
+    arrow_scale <- 1 # 1.5   # try between 1 and 3
+    
+      circle_scale <- 1.1
+      theta <- seq(0, 2*pi, length.out = 200)
+      circle <- data.frame(
+        Dim.1 = cos(theta)*circle_scale, 
+        Dim.2 = sin(theta)*circle_scale)
   
+      ggplot() +
+        geom_path(data = circle, aes(Dim.1, Dim.2), color = "grey50") +   # unit circle
+        geom_segment(
+          data = transform(loadings,
+                           Dim.1 = Dim.1 * arrow_scale,
+                           Dim.2 = Dim.2 * arrow_scale),
+          aes(x = 0, y = 0, xend = Dim.1, yend = Dim.2),
+          arrow  = arrow(length = unit(0.25, "cm")),
+          colour = "steelblue4",
+          linewidth = 0.4
+        ) +
+        # labels offset from arrow tips
+        geom_text(
+          data = transform(loadings,
+                           Dim.1 = Dim.1 * arrow_scale * 1.05,
+                           Dim.2 = Dim.2 * arrow_scale * 1.05),
+          aes(x = Dim.1, y = Dim.2, label = rownames(loadings)),
+          colour = "steelblue4",
+          size = 3
+        ) +
+        labs(x = sprintf("1st Dimension (%d%%)", round(rpca$eig[[1,2]],0)), y = sprintf("2nd Dimension (%d%%)", round(rpca$eig[[2,2]],0)))+ #, colour = "Media") +
+        theme_minimal()+
+        coord_fixed(ratio=1)
+      
+  })
+      
   ##### Risk Map #####
   # prepare the raster layers we'll utilize
   

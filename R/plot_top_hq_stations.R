@@ -4,6 +4,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                                  param_aggregation = NULL,
                                  decay_per_day = NULL,   # NEW: for weighted temporal aggregation 
                                  all_stations = FALSE) {
+  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   # Validate temporal_aggregation parameter
   valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted", "nemerow")
@@ -25,9 +26,14 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   # Handle "all" parameter - use all parameters in dataset
   if (length(param) == 1 && tolower(param) == "all") {
     message("Using ALL parameters in dataset...")
+  } else {
+    message("Filtering for parameters: ")
+    message(param)
+    message("Total rows pre-param filtering: ", nrow(data))
+    data = data |>
+      filter(parameter %in% param)
+    message("Total rows post-param filtering: ", nrow(data))
   }
-  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
-  
   
     # Filter for media only
     if(media != "all") {
@@ -40,36 +46,18 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     # Get list of unique parameters for reporting
     all_parameters <- unique(df$parameter)
     message(paste("Found", length(all_parameters), "unique parameters in dataset"))
-    
-    # # Force param_aggregation if not specified
-    # if (is.null(param_aggregation)) {
-    #   param_aggregation <- "mean"
-    #   message("Setting param_aggregation to 'mean' (required when using 'all' parameters)")
-    # 
-    
-  #   param_display <- "All Parameters"
-  #   
-  # } else {
-  #   # Handle specific parameter(s)
-    message(paste("Using", length(param), "specified parameter(s)..."))
 
-    # Filter for parameter
-    df <- data |>
-      filter(parameter %in% param)
-
+    
     all_parameters <- param
-    param_display <- if (length(param) == 1) param else paste(length(param), "parameters")
-  # }
+    param_display <- if (param == "all") "All Parameters" else if (length(param) > 1) paste(length(param), "Parameters") else param 
+    
 
   # Filter for media and parameter
   if (media != "all") { # only filter on media if we're not using them all
     data = data |> filter(media == !!media) # update data
     cat("\n\nafter filtering for media, nrow(df) = ", nrow(df), "\n")
   }
-  df <- data |> # then filter by param no matter what. Move data into df
-    filter(parameter == param)
-  cat("\n\nafter filtering for parameter, nrow(df) = ", nrow(df), "\n")
-  
+    
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
@@ -348,6 +336,9 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     top_stations = top_stations |> slice_head(n = 10)
   }
   
+  # debugging
+  # View(top_stations)
+  
   param_aggregation_title = case_match(param_aggregation,
                                    "pct95" ~ "95th Percentile",
                                    .default = param_aggregation)
@@ -366,6 +357,9 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     )
   }
   
+  use_log = (ceiling(log10(max(top_stations$HQ))) - floor(log10(min(top_stations$HQ)))) >= 2
+  
+  
   # Create bar chart with hover text
   p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = exceeds_standard, text = hover_text)) +
     geom_col() +
@@ -380,7 +374,11 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       title = title_text,
       subtitle = paste0("Media: ", media, "\nStandard: ", std_text, " (", std_source, ")"),
       x = "Station",
-      y = paste(method_label, "Hazard Quotient (HQ)")
+      y = paste(if (use_log) {
+        paste(method_label, "Hazard Quotient (logarithmic scale)")
+      } else {
+        paste(method_label, "Hazard Quotient")
+      })
     ) +
     theme_minimal(base_size = 12) +
     theme(
@@ -390,6 +388,20 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank()
     )
+  
+  if (use_log) {
+    p <- p +
+      scale_y_log10(
+        breaks = scales::breaks_log(10),
+        labels = scales::label_number(accuracy = 1, big.mark = ",")
+      )
+    
+  } else {
+    p <- p +
+      scale_y_continuous(
+        labels = scales::label_number(accuracy = 1, big.mark = ",")
+      )
+  }
   
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")

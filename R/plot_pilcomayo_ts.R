@@ -225,6 +225,13 @@ plot_pilcomayo_ts <- function(
       title = paste0("Time Series of ", param, " at ", station_label, " (", str_to_title(media), ")")
     ) +
     theme_minimal()
+  
+  # change to log
+  + scale_y_log10(
+      breaks = scales::breaks_log(10),
+      labels = scales::label_number(accuracy = 1, big.mark = ",")
+    )
+    
 
   # -------------------------------------------------------
   # 8. ADD STANDARD LINES (unchanged)

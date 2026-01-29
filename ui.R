@@ -637,7 +637,10 @@ ui <- fluidPage(
         ),
         mainPanel(
           tabsetPanel(
-            tabPanel("Autoplot", plotlyOutput("pca_plot")),
+            tabPanel("Autoplot", 
+                     plotlyOutput("pca_plot"),
+                     plotOutput("pca_static", height = "600px")  # Static below interactive
+            ),
             tabPanel("Scree Plot", plotOutput("scree_plot"))
           )
         )

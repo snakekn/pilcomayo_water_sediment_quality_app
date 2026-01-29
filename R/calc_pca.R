@@ -1,4 +1,4 @@
-calc_pca = function(data, params, media_selection = "all", station_selection = "all") {
+calc_pca = function(data, params, media_selection = "all", station_selection = "all", draw_circle = FALSE) {
   if (length(params) < 2) stop("Please select 2 more more variables")
   
   # filter based on user-selected inputs
@@ -58,7 +58,7 @@ calc_pca = function(data, params, media_selection = "all", station_selection = "
   
   # If there are no missing values, skip imputation
   if (!any(is.na(df_num))) {
-    pca <- FactoMineR::PCA(df_num, graph = FALSE)
+    pca <- FactoMineR::PCA(df_num, graph = FALSE, scale.unit=draw_circle)
   } else {
     # Estimate optimal number of components for imputation
     est <- missMDA::estim_ncpPCA(df_num, method.cv = "Kfold", nbsim = 5)
@@ -73,7 +73,7 @@ calc_pca = function(data, params, media_selection = "all", station_selection = "
     comp <- as.data.frame(comp)
     
     # Run PCA
-    pca <- FactoMineR::PCA(comp, graph = FALSE)
+    pca <- FactoMineR::PCA(comp, graph = FALSE, scale.unit=draw_circle)
   }
   
   cat("\n[calc_pca] Completed running pca")

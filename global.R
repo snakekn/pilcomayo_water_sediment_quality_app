@@ -22,6 +22,7 @@ library(terra)
 library(ggiraph)
 library(shinyjs)
 library(shinyBS)
+library(ggrepel)
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)

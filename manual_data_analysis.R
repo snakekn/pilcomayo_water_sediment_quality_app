@@ -41,7 +41,8 @@ view_stations_ranked = function(data, media, param, summarize_flag = FALSE, year
   data
 }
 
-get_table_5 = function(data, param, overall_flag) {
+# example: get_table_5(all_water_scored, "Arsenic")
+get_table_5 = function(data, param) {
   table = data |> 
     filter(parameter == param) |>
     mutate(conc_norm = case_match(tolower(unit),
@@ -50,44 +51,51 @@ get_table_5 = function(data, param, overall_flag) {
     group_by(year) |>
     summarize(n = n(),
               n_over = sum(HQ > 1, na.rm=TRUE),
-              pct_over = n_over/n,
-              hq_max = max(HQ, na.rm=TRUE),
+              pct_over = round(n_over/n*100,0),
+              hq_max = round(max(HQ, na.rm=TRUE),0),
               station_max = station[which.max(HQ)],
-              mean = mean(conc_norm, na.rm=TRUE)) |>
+              mean_conc = round(mean(conc_norm, na.rm=TRUE),1),
+              max_conc = round(max(conc_norm, na.rm=TRUE),1)) |>
     kableExtra::kable() |> kableExtra::kable_styling()
   
   table
-  }
-    
+}
+
+# example: get_table_8(all_sed_scored, "Arsenic")
 get_table_8 = function(data, param) {
   table = data |> 
     filter(parameter == param) |>
     mutate(conc_norm = case_match(tolower(unit),
                                   "mg/l" ~ concentration * 1000,
                                   .default = concentration)) |>
-    summarize(n = n(),
+    summarize(timeframe = "all years",
+              n = n(),
               n_over = sum(HQ > 1, na.rm=TRUE),
-              pct_over = n_over/n,
-              hq_max = max(HQ, na.rm=TRUE),
+              pct_over = round(n_over/n*100,0),
+              hq_max = round(max(HQ, na.rm=TRUE),0),
               station_max = station[which.max(HQ)],
-              mean = mean(conc_norm, na.rm=TRUE),
-              std = unique(std_info)) |>
-    mutate(timeframe = "all years")
-  @ View(table |> select(std) |> unique())
+              mean = round(mean(conc_norm, na.rm=TRUE),1),
+              unit = "",
+              std = unique(std_info))
+  
+  # print(nrow(table))
+  # View(table |> select(std) |> unique())
+  
   recent = data |> 
     filter(parameter == param, year == 2024) |>
     mutate(conc_norm = case_match(tolower(unit),
                                   "mg/l" ~ concentration * 1000,
                                   .default = concentration)) |>
-    summarize(n = n(),
+    summarize(timeframe = "recent year (2024)", 
+              n = n(),
               n_over = sum(HQ > 1, na.rm=TRUE),
-              pct_over = n_over/n,
-              hq_max = max(HQ, na.rm=TRUE),
+              pct_over = round(n_over/n*100,0),
+              hq_max = round(max(HQ, na.rm=TRUE),0),
               station_max = station[which.max(HQ)],
-              mean = mean(conc_norm, na.rm=TRUE),
-              std = unique(std_info)) |>
-    mutate(timeframe = "recent year (2024)")
-  
+              mean = round(mean(conc_norm, na.rm=TRUE),1),
+              unit = "",
+              std = unique(std_info))
+
   res = bind_rows(table, recent)
   View(res)
   return(res)
@@ -138,3 +146,53 @@ plot_top_hq_stations(all_media_scored,
                      temporal_aggregation = "recent", 
                      param_aggregation = "pct95", 
                      all_stations = FALSE)
+
+
+# any contaminants never HQ>1?
+all_media_scored |>
+  filter(HQ<1) |>
+  select(parameter, station, HQ)
+
+prep = all_water_scored  |> 
+    group_by(station, parameter) |>
+    mutate(conc_norm = case_match(tolower(unit),
+                                  "mg/l" ~ concentration * 1000,
+                                  .default = concentration)) |>
+    summarize(timeframe = "all years",
+              n = n(),
+              n_over = sum(HQ > 1, na.rm=TRUE),
+              pct_over = round(n_over/n*100,0),
+              hq_max = round(max(HQ, na.rm=TRUE),0),
+              station_max = station[which.max(HQ)],
+              mean = round(mean(conc_norm, na.rm=TRUE),1),
+              unit = "",
+              std = unique(std_info))
+by_station = prep |>
+  group_by(parameter) |>
+  summarize(params_over = sum(pct_over > 0),
+            min_pct = min(pct_over, na.rm=TRUE),
+            avg_pct = mean(pct_over, na.rm=TRUE),
+            max_pct = max(pct_over, na.rm=TRUE))
+  
+  # print(nrow(table))
+  # View(table |> select(std) |> unique())
+  
+  recent = data |> 
+    filter(parameter == param, year == 2024) |>
+    mutate(conc_norm = case_match(tolower(unit),
+                                  "mg/l" ~ concentration * 1000,
+                                  .default = concentration)) |>
+    summarize(timeframe = "recent year (2024)", 
+              n = n(),
+              n_over = sum(HQ > 1, na.rm=TRUE),
+              pct_over = round(n_over/n*100,0),
+              hq_max = round(max(HQ, na.rm=TRUE),0),
+              station_max = station[which.max(HQ)],
+              mean = round(mean(conc_norm, na.rm=TRUE),1),
+              unit = "",
+              std = unique(std_info))
+  
+  res = bind_rows(table, recent)
+  View(res)
+  return(res)
+}
