@@ -4,8 +4,8 @@
 # example: prepare_water_quality_data(all_media_scored, unique(all_media_scored$parameter), fraction = NULL, date = 2024)
 prepare_water_quality_data <- function(data, params, fraction, date, 
                                        param_aggregation = "mean",
-                                       temporal_aggregation = "recent",  # NEW: "recent", "all", or "weighted"
-                                       decay_per_day = NULL) {    # NEW: optional weight decay factor
+                                       temporal_aggregation = "recent",  # "recent", "mean", or "weighted"
+                                       decay_per_day = NULL) {
   message("Replacing HQ < 1 with HQ = 0")
   
   data <- data |>
@@ -102,7 +102,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     
     all_parameters <- actual_params
   }
-
+  
   # Filter by fraction if specified
   if (!is.null(fraction) && "fraction" %in% names(wq_param)) {
     # Only remove rows where fraction is NOT NA AND fraction doesn't match the specified fraction
@@ -118,11 +118,8 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     stop("Data must contain a 'date' column")
   }
   
-
   if (!inherits(wq_param$date, "Date")) {
-    #message("pre-test")
     wq_param$date <- as.Date(wq_param$date)
-    #message("test worked")
   }
   
   # Filter by date
@@ -143,21 +140,49 @@ prepare_water_quality_data <- function(data, params, fraction, date,
   if (temporal_aggregation == "recent") {
     message("Getting most recent measurement for each station-parameter combination...")
     
-    wq_temporal <- wq_param %>%
+    # First, find the most recent date for each station-parameter combo (across ALL sieve sizes)
+    most_recent_dates <- wq_param %>%
       group_by(station, parameter) %>%
-      arrange(desc(date)) %>%
-      slice(1) %>%
-      ungroup()
+      summarise(max_date = max(date, na.rm = TRUE), .groups = "drop")
     
+    # Then filter to only those recent dates and aggregate
+    group_vars <- c("station", "parameter")
+    if ("fraction" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "fraction")
+      message("Note: Grouping by fraction")
+    }
+    if ("sieve_size" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "sieve_size")
+      message("Note: Multiple sieve sizes detected")
+    }
+    
+    wq_temporal <- wq_param %>%
+      left_join(most_recent_dates, by = c("station", "parameter")) %>%
+      filter(date == max_date) %>%
+      group_by(across(all_of(group_vars))) %>%
+      slice(1) %>%  # In case there are duplicates on the same date
+      ungroup() %>%
+      select(-max_date)
+    
+    message(paste("Date range:", min(wq_temporal$date), "-", max(wq_temporal$date)))
   } else if (temporal_aggregation == "mean") {
     message("Averaging all measurements across time for each station-parameter combination...")
     
+    # Build grouping variables conditionally
+    group_vars <- c("station", "parameter")
+    if ("fraction" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "fraction")
+    }
+    if ("sieve_size" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "sieve_size")
+    }
+    
     wq_temporal <- wq_param %>%
-      group_by(station, parameter) %>%
+      group_by(across(all_of(group_vars))) %>%
       summarise(
         HQ = mean(HQ, na.rm = TRUE),
         date = max(date),  # Most recent date
-        min_date = min(date),  # ADD THIS LINE
+        min_date = min(date),
         longitude_decimal = first(longitude_decimal),
         latitude_decimal = first(latitude_decimal),
         n_observations = n(),
@@ -170,14 +195,23 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     # Weighted average with more recent observations weighted higher
     message("Calculating weighted average with recency weighting...")
     
-    # Set default decay if not provided (0.1 = observations lose ~10% weight per day)
+    # Set default decay if not provided
     if (is.null(decay_per_day)) {
       decay_per_day <- 0.001  # gentle decay
       message("Using default decay: 0.001 per day")
     }
     
+    # Build grouping variables conditionally
+    group_vars <- c("station", "parameter")
+    if ("fraction" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "fraction")
+    }
+    if ("sieve_size" %in% names(wq_param)) {
+      group_vars <- c(group_vars, "sieve_size")
+    }
+    
     wq_temporal <- wq_param %>%
-      group_by(station, parameter) %>%
+      group_by(across(all_of(group_vars))) %>%
       mutate(
         days_ago = as.numeric(target_date - date),
         # Exponential decay: weight = exp(-decay * days_ago)
@@ -199,7 +233,31 @@ prepare_water_quality_data <- function(data, params, fraction, date,
   
   message(paste("Found", nrow(wq_temporal), "station-parameter combinations"))
   
-  # Now aggregate across parameters for each station (SPATIAL AGGREGATION)
+  # AGGREGATE ACROSS SIEVE SIZES (if present)
+  if ("sieve_size" %in% names(wq_temporal)) {
+    message("Aggregating across sieve sizes using max HQ...")
+    
+    # Preserve fraction in grouping if it exists
+    sieve_group_vars <- c("station", "parameter")
+    if ("fraction" %in% names(wq_temporal)) {
+      sieve_group_vars <- c(sieve_group_vars, "fraction")
+    }
+    
+    wq_temporal <- wq_temporal %>%
+      group_by(across(all_of(sieve_group_vars))) %>%
+      summarise(
+        HQ = max(HQ, na.rm = TRUE),
+        date = max(date),
+        longitude_decimal = first(longitude_decimal),
+        latitude_decimal = first(latitude_decimal),
+        .groups = "drop"
+      )
+    
+    message(paste("After sieve_size aggregation:", nrow(wq_temporal), "station-parameter combinations"))
+  }
+  
+  
+  # Now aggregate across parameters for each station (PARAMETER AGGREGATION)
   message("Aggregating across parameters for each station...")
   
   # Calculate mean coordinates for each station across ALL measurements
@@ -237,7 +295,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
       .groups = "drop"
     ) %>%
     left_join(station_coords, by = "station") %>%
-    left_join(station_date_ranges, by = "station") %>%  # ADD THIS LINE
+    left_join(station_date_ranges, by = "station") %>%
     rename(longitude_decimal = mean_longitude,
            latitude_decimal = mean_latitude)
   
