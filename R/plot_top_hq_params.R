@@ -5,7 +5,9 @@ plot_top_hq_params <- function(data,
                                station = "all",
                                temporal_aggregation = "max", 
                                spatial_aggregation = "max",
-                               decay_per_day = NULL
+                               decay_per_day = NULL,
+                               return_data = FALSE,
+                               all_params = FALSE
                                ) {
   library(plotly)
   
@@ -18,7 +20,7 @@ plot_top_hq_params <- function(data,
     spatial_aggregation = spatial_aggregation,
     decay_per_day = decay_per_day
   )
-  # print(params_callout)
+  message(print(params_callout))
   
   # Confirm strict_std exists, or make it
   if(!exists("strict_std")) {
@@ -130,7 +132,7 @@ plot_top_hq_params <- function(data,
       message(" -- Skipping because no standard exists")
       next
     } else {
-      message(cat("Standards found: ", length(param_stds)))
+      message(cat("\nStandards found: ", length(param_stds)))
       # message(head(param_stds))
     }
     
@@ -225,7 +227,8 @@ plot_top_hq_params <- function(data,
         arrange(desc(date)) |>
         slice(1) |>
         ungroup() |>
-        select(station, HQ, date)
+        select(station, HQ, date) |>
+        rename(hq = HQ)
       
       temporal_label <- "Most Recent"
       
@@ -266,6 +269,7 @@ plot_top_hq_params <- function(data,
       temporal_label <- "Maximum"
       
     } else {  # temporal_aggregation == "mean"
+
       # Mean HQ across all time points for each station
       station_temporal <- param_df_exceedances |>
         group_by(station) |>
@@ -288,9 +292,9 @@ plot_top_hq_params <- function(data,
       
       param_summary <- station_temporal |>
         summarise(
-          max_station = station[which.max(HQ)],  # Track which station has max
-          max_date = date[which.max(HQ)],  # Track date of max HQ
-          hq = max(HQ, na.rm = TRUE),
+          max_station = station[which.max(hq)],  # Track which station has max
+          max_date = date[which.max(hq)],  # Track date of max HQ
+          hq = max(hq, na.rm = TRUE),
           n_stations = n(),
           .groups = "drop"
         )
@@ -300,7 +304,7 @@ plot_top_hq_params <- function(data,
     } else if (spatial_aggregation == "median") {
       param_summary <- station_temporal |>
         summarise(
-          hq = median(HQ, na.rm = TRUE),
+          hq = median(hq, na.rm = TRUE),
           n_stations = n(),
           max_station = NA_character_,  # Not applicable for median
           max_date = as.Date(NA),  # Not applicable for median
@@ -312,7 +316,7 @@ plot_top_hq_params <- function(data,
     } else if (spatial_aggregation == "mean") {  # spatial_aggregation == "mean"
       param_summary <- station_temporal |>
         summarise(
-          hq = mean(HQ, na.rm = TRUE),
+          hq = mean(hq, na.rm = TRUE),
           n_stations = n(),
           max_station = NA_character_,  # Not applicable for mean
           max_date = as.Date(NA),  # Not applicable for mean
@@ -323,7 +327,7 @@ plot_top_hq_params <- function(data,
     } else if (spatial_aggregation == "pct95") {
       param_summary = station_temporal |>
         summarise(
-          hq = quantile(HQ, probs = 0.95, na.rm=TRUE),
+          hq = quantile(hq, probs = 0.95, na.rm=TRUE),
           n_stations = n(),
           max_station = NA_character_,  # Not applicable for mean
           max_date = as.Date(NA),  # Not applicable for mean
@@ -401,10 +405,18 @@ plot_top_hq_params <- function(data,
   
   top_params <- param_hq_list |>
     arrange(desc(.data$hq)) |>  # .data$hq forces proper scoping
-    slice_head(n = 10) |>
     mutate(param_label = paste0(parameter, " (n=", n_measurements, ")"))
   
-
+  if(!all_params) {
+    top_params = top_params |>
+      slice_head(n = 10)
+  }
+  
+  if(return_data) {
+    message("Returning data only")
+    return(top_params)
+  }
+  
   # 
   # # Get top 10 parameters by HQ
   # top_params <- bind_rows(param_hq_list, .id = "param_name") |>  # Direct bind_rows [file:1]

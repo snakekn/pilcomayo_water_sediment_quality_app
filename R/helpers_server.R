@@ -60,10 +60,7 @@ trim_zeros <- function(x) {
 
 # filter to Bolivia
 filter_to_border <- function(df, lon_col, lat_col, border_sf) {
-  message("\nSKIPPING IN DEV TO REDUCE LONG DELAYS, REMOVE THIS BREAK WHEN POSTING TO PRODUCTION")
-  return(df)
-  # Nadav's Note: Sloppy but may help with quicker loading time
-  
+
   # 1. Check column existence
   if (!lon_col %in% names(df)) stop(paste("Longitude column not found:", lon_col))
   if (!lat_col %in% names(df)) stop(paste("Latitude column not found:", lat_col))

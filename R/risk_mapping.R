@@ -63,6 +63,7 @@ create_risk_map <- function(data,
     border_sf = bol_border
   } else if(is.null(border_sf)) { # load from geojson file
     bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+    border_sf = bol_border
   } 
   
   if (is.null(border_sf)) { # still doesn't exist
@@ -74,6 +75,7 @@ create_risk_map <- function(data,
     river_network_sf = river_network
   } else if(is.null(river_network_sf)) { # load from geojson file
     river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+    river_network_sf = river_network
   } 
   
   if (is.null(river_network_sf)) { # still doesn't exist

@@ -3,7 +3,8 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                                  temporal_aggregation = "max",  # RENAMED from method
                                  param_aggregation = NULL,
                                  decay_per_day = NULL,   # NEW: for weighted temporal aggregation 
-                                 all_stations = FALSE) {
+                                 all_stations = FALSE,
+                                 return_data_only = FALSE) {
   cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   # Validate temporal_aggregation parameter
@@ -39,6 +40,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     if(media != "all") {
       df <- data |>
         filter(media == !!media)
+      message("Filtered for media: ", media)
     } else {
       df = data
     }
@@ -334,6 +336,10 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   
   if (!all_stations) { # options are all or 10 baby
     top_stations = top_stations |> slice_head(n = 10)
+  }
+  
+  if(return_data_only) {
+    return(top_stations)
   }
   
   # debugging
