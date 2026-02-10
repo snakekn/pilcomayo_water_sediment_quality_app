@@ -1,5 +1,6 @@
 # sensitivity analysis
 ##### helper functions #####
+#' get rankings (non-parametric) from raw HQ values
 prepare_rankings = function(merged_df, wider = FALSE, c = "station") {
   ranked = merged_df |>
     group_by(method) |>
@@ -14,53 +15,61 @@ prepare_rankings = function(merged_df, wider = FALSE, c = "station") {
   return(ranked) # ranks for each method at each categorical value
 }
 
-parametric_stats = function(ranked_df) {
-  df = ranked_df |>
-    drop_na() |>
-
-  wilcox = pairwise.wilcox.test(
-    x = df$rank,
-    g = df$method,
-    paired=TRUE,
-    exact = FALSE,          # Use approximation (no warning)
-    p.adjust.method = "bonferroni"
-  )
-  print(wilcox)
+# print pretty corplots
+#' corplot_pretty(cor_station_long, title = "Method Sensitivity Analysis: Station Rankings", x = "Method", y="Method"
+corplot_pretty = function(ranking_wide, title = "", subtitle = "", 
+                          x="Method",y="Method",
+                          m1="Temporal Aggregation", m2="HQ Aggregation", return_cor=FALSE) {
   
-  df = df |>
-    pivot_wider(names_from = method, values_from = rank)
+  if(anyNA(ranking_wide)) {
+    cor_df = cor(ranking_wide[,-1],
+                 method="spearman", 
+                 use="pairwise.complete.obs")
+  } else {
+    cor_df = cor(ranking_wide[,-1],
+                 method="spearman")
+                 #use="pairwise.complete.obs") 
+  }
+  cor_df_long = reshape2::melt(cor_df) %>%
+    filter(as.character(Var1) < as.character(Var2))  # Lower triangle only
   
-  friedman = friedman.test(as.matrix(df[,-1]))
-  print(friedman)
+  if(return_cor) return(cor_df_long)
+  
+  ggplot(cor_df_long, aes(x = Var1, y = Var2, fill = value)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(
+      aes(label = round(value,2)),#ifelse(value < 0.7, round(value, 2), "")),  # Only show ρ<0.7
+      size = 2.5, 
+      color = "black"
+    ) +
+    scale_fill_gradient2(low = "red", mid = "white", high = "lightblue",
+                         midpoint = 0, limit = c(-1, 1),
+                         name = "Spearman (ρ)") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+          axis.text.y = element_text(size = 8),
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5, size = 10, color = "gray30")) +
+    labs(title = title,
+         subtitle = sprintf("Method Format: [%s]_[%s]",m1, m2),
+         x = x, 
+         y = y) +
+    coord_fixed()  # Square tiles
 }
 
-manual_wilcox = function(df) { # takes in long format
-  # Robust pairwise Wilcoxon (exact=FALSE handles zeroes/zero-diffs)
-
-  methods <- c("95th Percentile", "Max", "Mean", "Median")  # Adjust to your method names
-  pairs <- combn(methods, 2, simplify=FALSE)
+#' get p-vals for confirmation from correlations
+#' @example 
+view_cor_pval = function(rank_df) {
+  # prepare ranking data
+  corr_matrix <- cor(rank_df[,-1], use = "complete.obs")
+  p_matrix <- ggcorrplot::cor_pmat(rank_df[,-1])
   
-  wilcox_results <- map_dfr(pairs, ~{
-    m1 <- .x[1]; m2 <- .x[2]
-    pair_data <- df %>% 
-      filter(method %in% c(m1,m2)) %>%
-      pivot_wider(names_from=method, values_from=rank) %>%
-      filter(complete.cases(.))
-    
-    n <- nrow(pair_data)
-    if(n < 4) return(tibble(pair=paste(m1,"vs",m2), n_stations=n, W=NA, p_raw=NA))
-    
-    test <- wilcox.test(pair_data[[m1]], pair_data[[m2]], paired=TRUE, exact=FALSE)
-    
-    tibble(pair=paste(m1,"vs",m2), n_stations=n, W=test$statistic, p_raw=test$p.value)
-  })
-  
-  wilcox_results$p_adj <- p.adjust(wilcox_results$p_raw, method="bonferroni")
-  return(wilcox_results %>% arrange(p_adj))
+  ggcorrplot::ggcorrplot(corr_matrix, p.mat = p_matrix, 
+             sig.level = 0.05, insig = "pch")
 }
 
-# get average rho for a specific model, then for all others
-compare_rho = function(df_corrs, model, grouping = FALSE, boxplots=FALSE, horizontal_graph=FALSE) {
+# comprae 
+compare_rho = function(df_corrs, model, grouping = FALSE, boxplots=FALSE, horizontal_graph=FALSE, force_scale=TRUE) {
   if(grouping) {
     df = df_corrs |>
       mutate(
@@ -97,16 +106,20 @@ compare_rho = function(df_corrs, model, grouping = FALSE, boxplots=FALSE, horizo
         x = "",
         y = "Spearman (ρ)",
         title = "Correlation between Method Groups"
-      ) +
-      ylim(-1, 1)
+      )
+    
+    if(force_scale) {
+      g = g +
+        ylim(-1, 1)
+    }
     
     if(horizontal_graph) {
       g = g +
         coord_flip()+
         stat_summary(fun = median, geom = "text", aes(label = round(..y.., 2)), 
-                      hjust = 1.5, vjust=-0.5, 
-                      size = 3.5, fontface = "bold")
-        
+                     hjust = 1.5, vjust=-0.5, 
+                     size = 3.5, fontface = "bold")
+      
     } else {
       g = g +
         stat_summary(fun = median, geom = "text", aes(label = round(..y.., 2)), 
@@ -128,29 +141,92 @@ compare_rho = function(df_corrs, model, grouping = FALSE, boxplots=FALSE, horizo
   return(df)
 }
 
-# print pretty plots
-corplot_pretty = function(cor_df_long, title, subtitle = "", x,y) {
+#' Run analysis when we only want to consider the priority list
+list_priorities = function(rank_df, m1 = "Var1", m2 = "Var2") {
+  # get column names so we can dynamically use them later (easier for user to not deal with)
+  col_name = names(rank_df)[1]
+  method_names = names(rank_df)[-1]
   
-  ggplot(cor_df_long, aes(x = Var1, y = Var2, fill = value)) +
-    geom_tile(color = "white", linewidth = 0.5) +
+  # split methods so we can facet on them
+  top_rankings_df = rank_df |>
+    pivot_longer(cols = -1, 
+                 names_to=c(m1, m2),
+                 names_sep = "_",
+                 values_to="rank") |>
+    group_by(!!sym(col_name))|>
+    filter(any(rank<=5, na.rm=TRUE)) |>
+    ungroup()|>
+    mutate(
+      method = paste0(!!sym(m1), "_",!!sym(m2)),
+      rank_group = case_when(
+        rank == 1 ~ "1",
+        rank == 2 ~ "2",
+        rank == 3 ~ "3",
+        rank == 4 ~ "4",
+        rank == 5 ~ "5",
+        rank > 5 ~ "Not Ranked in Top 5",    # *** Anything above 5 ***
+        is.na(rank) ~ "Not Ranked in Top 5",  # *** Also handle NAs ***
+        TRUE ~ "Not Ranked in Top 5"
+      ),
+      rank_group = factor(rank_group, levels = c("1", "2", "3", "4", "5", "Not Ranked in Top 5"))
+    )|>
+    select(!!sym(m1), !!sym(m2), !!col_name, rank, rank_group, method)
+  
+  order <- top_rankings_df %>%
+    filter(!is.na(rank)) %>%
+    group_by(!!sym(col_name)) %>%
+    summarise(min_rank = min(rank, na.rm=TRUE),
+              num_min = sum(min_rank==rank)) %>%
+    arrange(desc(min_rank), num_min) %>%
+    pull(!!sym(col_name))
+  
+  top_rankings_df = top_rankings_df |>
+    mutate(!!sym(col_name) := factor(!!sym(col_name), levels = order))
+  
+  ggplot(top_rankings_df, aes(x = !!sym(m1), y = !!sym(col_name), fill = rank_group)) +
+    geom_tile(color = "white", linewidth = 1.2) +
     geom_text(
-      aes(label = round(value,2)),#ifelse(value < 0.7, round(value, 2), "")),  # Only show ρ<0.7
-      size = 2.5, 
-      color = "black"
+      aes(label = ifelse(!is.na(rank), rank, "")),
+      size = 5,
+      #fontface = "bold",
+      color = case_when(
+        top_rankings_df$rank <= 2 ~ "white",
+        top_rankings_df$rank >= 4 ~ "gray30",
+        TRUE ~ "gray30"
+      )
     ) +
-    scale_fill_gradient2(low = "red", mid = "white", high = "lightblue",
-                         midpoint = 0, limit = c(-1, 1),
-                         name = "Spearman (ρ)") +
+    facet_wrap(vars(!!sym(m2)), nrow = 1) +
+    scale_fill_manual(
+      values = c(
+        "1" = "#d73027",
+        "2" = "#fc8d59",
+        "3" = "#fee090",
+        "4" = "#ffffbf",
+        "5" = "#d0e5f5",
+        "Not Ranked in Top 5" = "gray85"
+      ),
+      name = "Rank",
+      drop = FALSE
+    ) +
+    # scale_x_discrete(labels = c(unique(!!sym(m2))))+
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
-          axis.text.y = element_text(size = 8),
-          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-          plot.subtitle = element_text(hjust = 0.5, size = 10, color = "gray30")) +
-    labs(title = title,
-         subtitle = "Method Format: [Temporal aggregation]_[HQ aggregation]",
-         x = x, 
-         y = y) +
-    coord_fixed()  # Square tiles
+    theme(
+      axis.text.x = element_text(size = 12, face = "bold"),
+      axis.text.y = element_text(size = 11, face = "bold"),
+      axis.title = element_text(size = 12, face = "bold"),
+      panel.grid = element_blank(),
+      legend.title = element_text(size = 11, face = "bold"),
+      legend.text = element_text(size = 10),
+      plot.title = element_text(hjust = 0.5, size = 15, face = "bold", margin = margin(b = 15)),
+      plot.subtitle = element_text(hjust = 0.5, size = 11, color = "gray40", margin = margin(b = 10)),
+      plot.margin = margin(15, 15, 15, 15)
+    ) +
+    labs(
+      x = m1,
+      y = "",
+      title = sprintf("Top 5 %s Rankings Across Model Methods", str_to_title(col_name)),
+      subtitle = sprintf("Faceted by %s shown at the top, and %s in each facet.", m2, m1)
+    )
 }
 
 ##### sensitivity analysis #####
@@ -168,7 +244,7 @@ parameter_methods = crossing(
 )
 
 # Note: Removing various parameters I know won't make sense to show
-removed_parameters = c("Oxygen Saturation", "COD", "BOD")
+removed_parameters = c("Oxygen Saturation", "COD", "BOD", "alkalinity", "Average Velocity", "Decimal latitude", "Decimal longitude", "Flow", "hardness", "Oxygen", "Partial Pressure", "Temperature", "Resistivity")
 params_df = bol_water_scored |> filter(!parameter %in% removed_parameters)
 
 # run the model using all methods.  
@@ -545,7 +621,6 @@ ggplot(station_ranks_long, aes(x = method, y = station, fill = rank_group)) +
 
 
 ##### station: param #####
-# first revision: doesn't account for interactions.
 param_aggregation = c("mean", "median", "max", "pct95")
 parms = as.data.frame(param_aggregation)
 colnames(parms) = "param_aggregation"
@@ -652,4 +727,219 @@ ggplot(top_rankings_station_hq, aes(x = method, y = station, fill = rank_group))
   )
 
 
+##### Sensitivity on recency that uses most recent, 1-, 2-, or 3- yr window
+recent_range = c(0:5)
+spatial_aggregation = c("mean", "median", "max", "pct95")
+recency_methods = crossing(
+  recent_range = recent_range,
+  spatial_aggregation = spatial_aggregation,
+)
 
+# run the model using all methods.  
+sensitivity_param_recency <- recency_methods %>% pmap_dfr(~plot_top_hq_params(
+  bol_water_scored, 
+  media = "water", 
+  temporal_aggregation = "recent", 
+  spatial_aggregation = ..2,
+  all_params = TRUE,
+  recent_range = ..1,
+  return_data=TRUE),
+  .id="method_id") |>
+  mutate(method = paste(
+    recency_methods$recent_range[as.numeric(method_id)],
+    recency_methods$spatial_aggregation[as.numeric(method_id)],
+    sep = "_"
+  ))|>
+  rename(HQ=hq)|>
+  select(parameter, HQ, method)
+
+# get our rankings
+rankings_param_recency = prepare_rankings(sensitivity_param_recency, wider=TRUE, c="parameter")
+
+# get our corplot
+param_recency_corplot = corplot_pretty(rankings_param_recency, title = "Correlation between Model Methods", subtitle = "", x="Method",y="Method",
+                                       m1 = "Range of Years", m2="HQ Aggregation")
+param_recency_corplot
+
+### view the correlation
+param_recency_cor_pval = view_cor_pval(rankings_param_recency)
+param_recency_cor_pval
+
+### get the top 5 stations we'd recommend based on each method
+priority_params_recency = list_priorities(rankings_param_recency, m1="HQ Aggregation", m2="Range of Years Included")
+priority_params_recency
+
+### compare the medians to the non-medians
+compare_rho(df_corrs = corplot_pretty(rankings_param_recency, return_cor=TRUE), 
+            model = "median", grouping = TRUE, boxplots = TRUE, horizontal_graph = TRUE, force_scale = FALSE)
+
+##### we do sediments now -- parameter #####
+spatial_aggregation = c("mean", "median", "max", "pct95")
+temporal_aggregation = c("recent", "mean", "max", "weighted")
+
+sed_parms = crossing(
+  spatial_aggregation = spatial_aggregation,
+  temporal_aggregation = temporal_aggregation,
+)
+
+# run the model using all methods.  
+sensitivity_sed_param <- sed_parms %>% pmap_dfr(~plot_top_hq_params(
+  bol_sed_scored, 
+  media = "sediment", 
+  temporal_aggregation = ..2, 
+  spatial_aggregation = ..1,
+  all_params = TRUE,
+  return_data=TRUE),
+  .id="method_id") |>
+  mutate(method = paste(
+    sed_parms$spatial_aggregation[as.numeric(method_id)],
+    sed_parms$temporal_aggregation[as.numeric(method_id)],
+    sep = "_"
+  ))|>
+  rename(HQ=hq)|>
+  select(parameter, HQ, method)
+
+# get our rankings
+rankings_param_sed = prepare_rankings(sensitivity_sed_param, wider=TRUE, c="parameter")
+
+# get our corplot
+corplot_param_sed = corplot_pretty(rankings_param_sed, title = "Correlation between Model Methods", subtitle = "", x="Method",y="Method",
+                                       m1 = "HQ Aggregation", m2="Temporal Aggregation")
+corplot_param_sed
+
+### view the correlation
+param_sed_cor_pval = view_cor_pval(rankings_param_sed)
+param_sed_cor_pval
+
+### get the top 5 stations we'd recommend based on each method
+priority_params_sed = list_priorities(rankings_param_sed, m1="HQ Aggregation", m2="Temporal Aggregation")
+priority_params_sed
+
+### compare the medians to the non-medians
+compare_rho(df_corrs = corplot_pretty(rankings_param_sed, return_cor=TRUE), 
+            model = "median", grouping = TRUE, boxplots = TRUE, horizontal_graph = TRUE, force_scale = FALSE)
+
+##### we do sediments now -- station #####
+temporal_aggregation = c("recent", "mean", "max", "weighted")
+param_aggregation = c("mean", "median", "max", "pct95")
+station_methods = crossing(
+  temporal_aggregation = temporal_aggregation,
+  param_aggregation = param_aggregation,
+)
+
+sensitivity_station_sed_all_stations <- station_methods %>% pmap_dfr(~plot_top_hq_stations(
+  data = bol_sed_scored, 
+  media = "sediment", 
+  param = "all", 
+  param_aggregation = ..2, 
+  temporal_aggregation = ..1,
+  all_stations = TRUE,
+  return_data_only=TRUE),
+  .id="method_id") |>
+  mutate(
+    method = paste(
+      station_methods$temporal_aggregation[as.numeric(method_id)],
+      station_methods$param_aggregation[as.numeric(method_id)],
+      sep = "_"
+    )
+  ) |>
+  select(station, HQ, method)
+
+# get our rankings
+rankings_station_sed = prepare_rankings(sensitivity_station_sed, wider=TRUE, c="station")
+
+# get our corplot
+corplot_station_sed = corplot_pretty(rankings_station_sed, title = "Correlation between Model Methods", subtitle = "", x="Method",y="Method",
+                                   m1 = "Temporal Aggregation", m2="HQ Aggregation")
+corplot_station_sed_as # all stations
+corplot_station_sed # just top 10 stations
+
+### view the correlation
+station_sed_cor_pval_as = view_cor_pval(rankings_station_sed_as)
+station_sed_cor_pval_as
+
+### get the top 5 stations we'd recommend based on each method
+priority_station_sed = list_priorities(rankings_station_sed, m1="Temporal Aggregation", m2="HQ Aggregation")
+priority_station_sed
+
+### compare the medians to the non-medians
+compare_rho(df_corrs = corplot_pretty(rankings_station_sed, return_cor=TRUE), 
+            model = "recent", grouping = TRUE, boxplots = TRUE, horizontal_graph = TRUE, force_scale = FALSE)
+
+##### we do sediments now -- recency #####
+recent_range = c(0:5)
+spatial_aggregation = c("mean", "median", "max", "pct95")
+station_methods_recency = crossing(
+  recent_range = recent_range,
+  spatial_aggregation = spatial_aggregation,
+)
+
+sensitivity_param_sed_recency <- station_methods_recency %>% pmap_dfr(~plot_top_hq_params(
+  data = bol_sed_scored, 
+  media_type = "sediment", 
+  spatial_aggregation = ..2, 
+  temporal_aggregation = "recent",
+  recent_range = ..1,
+  all_params = TRUE,
+  return_data=TRUE),
+  .id="method_id") |>
+  mutate(
+    method = paste(
+      station_methods_recency$recent_range[as.numeric(method_id)],
+      station_methods_recency$spatial_aggregation[as.numeric(method_id)],
+      sep = "_"
+    )
+  ) |>
+  rename(HQ = hq) |>
+  select(parameter, HQ, method)
+
+# get our rankings
+rankings_param_sed_r = prepare_rankings(sensitivity_param_sed_recency, wider=TRUE, c="parameter")
+
+# get our corplot
+corplot_param_sed_r = corplot_pretty(rankings_param_sed_r, title = "Correlation between Model Methods", subtitle = "", x="Method",y="Method",
+                                     m1 = "Recent Years to Include", m2="HQ Aggregation")
+corplot_param_sed_r
+
+### view the correlation
+param_sed_r_cor_pval = view_cor_pval(rankings_param_sed_r)
+param_sed_r_cor_pval
+
+### get the top 5 stations we'd recommend based on each method
+priority_param_sed_r = list_priorities(rankings_param_sed_r, m1="Range of Recent Years", m2="HQ Aggregation")
+priority_param_sed_r
+
+### compare the medians to the non-medians
+compare_rho(df_corrs = corplot_pretty(rankings_param_sed_r, return_cor=TRUE), 
+            model = "median", grouping = TRUE, boxplots = TRUE, horizontal_graph = TRUE, force_scale = FALSE)
+
+
+##### View all parameter histograms #####
+bol_water_scored |> 
+  mutate(HQ = HQ+1e-6) |> 
+  ggplot(aes(x=HQ)) + 
+  geom_histogram()+
+  facet_wrap(~parameter)+
+  scale_x_log10()+
+  theme_minimal()+
+  labs(x="Hazard Quotient", y="Count", title="Hazard Distribution for Sampled Parameters")
+
+
+bol_water_scored |> 
+  mutate(HQ = HQ+1e-6) |>
+  group_by(parameter) |>
+  ggplot(aes(x=HQ)) + 
+  geom_histogram()+
+  facet_wrap(~parameter)+
+  scale_x_log10()+
+  theme_minimal()+
+  labs(x="Hazard Quotient", y="Count", title="Hazard Distribution for Sampled Parameters")
+
+#' Nadav's To Do's: 
+#' X Sensitivity analysis on 1,2,3,5 year recency windows (more Q's!)
+#'  - Implement into stations and do it again (did for sediment)
+#' - Write about FIB mapping & future monitoring strategies
+#' - Update data to recent-median
+#' X Conduct SA on sediments data (nice!)
+#' - Discuss binning for contaminant types (HM vs other)
+#' - Read Katerina's content

@@ -7,7 +7,8 @@ plot_top_hq_params <- function(data,
                                spatial_aggregation = "max",
                                decay_per_day = NULL,
                                return_data = FALSE,
-                               all_params = FALSE
+                               all_params = FALSE,
+                               recent_range = 0
                                ) {
   library(plotly)
   
@@ -221,16 +222,32 @@ plot_top_hq_params <- function(data,
     # message(paste("Processing", param, "- Temporal aggregation:", temporal_aggregation))
     
     if (temporal_aggregation == "recent") {
-      # Get most recent measurement for each station
-      station_temporal <- param_df_exceedances |>
-        group_by(station) |>
-        arrange(desc(date)) |>
-        slice(1) |>
-        ungroup() |>
-        select(station, HQ, date) |>
-        rename(hq = HQ)
-      
-      temporal_label <- "Most Recent"
+      # get a range
+      if(recent_range != 0) {
+        station_temporal = param_df_exceedances |>
+          group_by(station) |>
+          summarize(last_year = max(year, na.rm=TRUE),
+                 min_year = last_year - recent_range,
+                 .groups = "drop") |>
+          right_join(param_df_exceedances, by="station")
+          filter(year > min_year) |>
+          select(station, HQ, date) |>
+          rename(hq = HQ)
+        
+        temporal_label = sprintf("Last %d years", recent_range)
+        
+      } else {
+        # Get most recent measurement for each station
+        station_temporal <- param_df_exceedances |>
+          group_by(station) |>
+          arrange(desc(date)) |>
+          slice(1) |>
+          ungroup() |>
+          select(station, HQ, date) |>
+          rename(hq = HQ)
+        
+        temporal_label <- "Most Recent"
+      }
       
     } else if (temporal_aggregation == "weighted") {
       # Weighted average with more recent observations weighted higher
