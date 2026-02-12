@@ -926,9 +926,9 @@ bol_water_scored |>
 
 
 bol_water_scored |> 
-  mutate(HQ = HQ+1e-6) |>
+  mutate(concentration = concentration+1e-6) |>
   group_by(parameter) |>
-  ggplot(aes(x=HQ)) + 
+  ggplot(aes(x=concentration)) + 
   geom_histogram()+
   facet_wrap(~parameter)+
   scale_x_log10()+
@@ -938,8 +938,10 @@ bol_water_scored |>
 #' Nadav's To Do's: 
 #' X Sensitivity analysis on 1,2,3,5 year recency windows (more Q's!)
 #'  - Implement into stations and do it again (did for sediment)
-#' - Write about FIB mapping & future monitoring strategies
-#' - Update data to recent-median
+#' X Write about FIB mapping & future monitoring strategies (look across space: ammonia, BOD, Fecal coliforms)
+#' X Does hardness matter? - add it to conclusion that we should consider, review if any contaminants matter (eg. Zinc)
+#' - Update data to recent-median - XXX - using 5-year 95th %ile 
+#'  - Update station/param code to include the year-window method
 #' X Conduct SA on sediments data (nice!)
-#' - Discuss binning for contaminant types (HM vs other)
+#' - Discuss binning for contaminant types (HM vs other) - metals will be different than others. Focus on HMs for stations to give AMTSK precipitation goals.
 #' - Read Katerina's content

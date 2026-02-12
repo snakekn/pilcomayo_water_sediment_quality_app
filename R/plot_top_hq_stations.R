@@ -4,7 +4,8 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                                  param_aggregation = NULL,
                                  decay_per_day = NULL,   # NEW: for weighted temporal aggregation 
                                  all_stations = FALSE,
-                                 return_data_only = FALSE) {
+                                 return_data_only = FALSE,
+                                 recent_range = 0) {
   cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   # Validate temporal_aggregation parameter
@@ -166,29 +167,6 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                "in", media, "- all HQ values are NA or zero"))
   }
   
-  # PARAMETER AGGREGATION (if specified)
-  # This allows aggregating multiple parameters before temporal aggregation
-  if (!is.null(param_aggregation)) {
-    message(paste("Aggregating across parameters using", param_aggregation, "method..."))
-    
-    df_exceedances <- df_exceedances |>
-      group_by(station, date) |>  # Group by station AND date to preserve temporal info
-      summarise(
-        HQ = switch(param_aggregation,
-                    "mean" = mean(HQ, na.rm = TRUE),
-                    "median" = median(HQ, na.rm = TRUE),
-                    "max" = max(HQ, na.rm = TRUE),
-                    "sum" = sum(HQ, na.rm = TRUE),
-                    "pct95" = quantile(HQ, probs = 0.95, na.rm=TRUE)),
-
-        n_parameters = n(),
-        parameters = paste(unique(parameter), collapse = ", "),
-        .groups = "drop"
-      )
-    
-    message(paste("Aggregated", unique(df_exceedances$n_parameters), "parameters per station-date"))
-  }
-  
   # TEMPORAL AGGREGATION by station using specified method
   message(paste("Temporal aggregation method:", temporal_aggregation))
   
@@ -196,18 +174,34 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     # Get most recent measurement for each station
     message("Getting most recent measurement for each station...")
     
-    station_hq <- df_exceedances |>
-      group_by(station) |>
-      arrange(desc(date)) |>
-      slice(1) |>
-      ungroup() |>
-      mutate(
-        max_date = date,
-        n_measurements = 1
-      ) |>
-      select(station, HQ, max_date, n_measurements)
-    
-    method_label <- "Most Recent"
+    if(recent_range != 0) {
+      station_hq = df_exceedances |>
+        group_by(station) |>
+        summarize(last_year = max(year, na.rm=TRUE),
+                  min_year = last_year - recent_range,
+                  max_date = max(date, na.rm=TRUE),
+                  n_measurements=n(),
+                  .groups = "drop") |>
+        right_join(df_exceedances, by="station") |>
+        filter(year > min_year) |>
+        select(station, parameter, HQ, date, max_date, n_measurements)
+        
+      method_label = sprintf("Last %d year%s", recent_range, if_else(recent_range>1, "s", ""))
+      
+    } else { # do it like we did before
+      station_hq <- df_exceedances |>
+        group_by(station) |>
+        arrange(desc(date)) |>
+        slice(1) |>
+        ungroup() |>
+        mutate(
+          max_date = date,
+          n_measurements = 1
+        ) |>
+        select(station, HQ, max_date, n_measurements)
+      
+      method_label <- "Most Recent"
+    }
     
   } else if (temporal_aggregation == "weighted") {
     # Weighted average with more recent observations weighted higher
@@ -276,8 +270,32 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   
   # View(station_hq)
   
+  # PARAMETER AGGREGATION (if specified)
+  if (!is.null(param_aggregation)) {
+    message(paste("Aggregating across parameters using", param_aggregation, "method..."))
+    
+    station_hq <- station_hq |>
+      group_by(station) |>  # Group by station AND date to preserve temporal info
+      summarise(
+        HQ = switch(param_aggregation,
+                    "mean" = mean(HQ, na.rm = TRUE),
+                    "median" = median(HQ, na.rm = TRUE),
+                    "max" = max(HQ, na.rm = TRUE),
+                    "sum" = sum(HQ, na.rm = TRUE),
+                    "pct95" = quantile(HQ, probs = 0.95, na.rm=TRUE)),
+        
+        n_parameters = n(),
+        n_measurements = sum(n_measurements),
+        parameters = paste(unique(parameter), collapse = ", "),
+        .groups = "drop"
+      )
+    
+    message(paste("Aggregated", unique(df_exceedances$n_parameters), "parameters per station-date"))
+  }
+  
   # Get top 10 stations by HQ
   if(temporal_aggregation != "recent") {
+    
     top_stations <- station_hq |>
       arrange(desc(HQ)) |>
       mutate(
@@ -300,20 +318,20 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
             paste0("Aggregated HQ: ", round(HQ, 3), "<br>")
           } else {
             paste0("HQ: ", round(HQ, 3), "<br>")
-          },
-          if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
+          }
         )
       )
   } else {
+    
     top_stations <- station_hq |>
       arrange(desc(HQ)) |>
       mutate(
         station_label = paste0(station),
-        station_label = factor(station_label, levels = rev(station_label)),
+        station_label = factor(station_label, levels = rev(unique(station_label))),
         exceeds_standard = HQ >= 1,
         hover_text = paste0(
           "Station: ", station, "<br>",
-          if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
+          if (temporal_aggregation %in% c("max", "recent") && recent_range==0) paste0("Date: ", max_date, "<br>"),
           # Show parameter aggregation method if used
           if (!is.null(param_aggregation)) {
             paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
@@ -328,7 +346,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
           } else {
             paste0("HQ: ", round(HQ, 3), "<br>")
           },
-          if (temporal_aggregation != "recent") paste0("Total # observations: ", n_measurements, "<br>")
+          paste0("Total # observations: ", n_measurements, "<br>")
         )
       )
   }

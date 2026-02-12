@@ -229,7 +229,7 @@ plot_top_hq_params <- function(data,
           summarize(last_year = max(year, na.rm=TRUE),
                  min_year = last_year - recent_range,
                  .groups = "drop") |>
-          right_join(param_df_exceedances, by="station")
+          right_join(param_df_exceedances, by="station") |>
           filter(year > min_year) |>
           select(station, HQ, date) |>
           rename(hq = HQ)
@@ -246,7 +246,7 @@ plot_top_hq_params <- function(data,
           select(station, HQ, date) |>
           rename(hq = HQ)
         
-        temporal_label <- "Most Recent"
+        temporal_label <- "Most Recent Date Sampled at Station"
       }
       
     } else if (temporal_aggregation == "weighted") {
@@ -269,7 +269,7 @@ plot_top_hq_params <- function(data,
           .groups = "drop"
         )
       
-      temporal_label <- "Weighted Average"
+      temporal_label <- "Weighted Average Across Years"
       
     } else if (temporal_aggregation == "max") {
       # Maximum HQ across all time points for each station
@@ -283,7 +283,7 @@ plot_top_hq_params <- function(data,
       
       # View(station_temporal) # debugging
       
-      temporal_label <- "Maximum"
+      temporal_label <- "Maximum Across Years"
       
     } else {  # temporal_aggregation == "mean"
 
@@ -296,10 +296,8 @@ plot_top_hq_params <- function(data,
           .groups = "drop"
         )
       
-      temporal_label <- "Average"
+      temporal_label <- "Average Across Years"
     }
-    
-    temporal_label = paste(temporal_label, "Across Years")
     
     # View(station_temporal)
     
