@@ -1027,7 +1027,7 @@ server <- function(input, output, session) {
     #View(param_list)
     
     updateSelectInput(inputId = "station_plot_param",
-                      choices = param_list,
+                      choices = c("All", param_list),
                       selected = "Arsenic")
     
     updateSelectInput(inputId = "observation_plot_param",
@@ -1397,7 +1397,8 @@ server <- function(input, output, session) {
                              media = input$station_plot_media, 
                              param = input$station_plot_param, 
                              fraction = input$station_plot_fraction, 
-                             method = input$station_plot_method)
+                             temporal_aggregation = input$station_plot_method_temporal,
+                             param_aggregation = input$station_plot_method_parameter)
     quiet_plotly(p, tooltip = "text")
     
     # if (input$station_plot_type == "class") {

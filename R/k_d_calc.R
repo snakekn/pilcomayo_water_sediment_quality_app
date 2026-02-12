@@ -7,9 +7,7 @@
 #' 
 #' @return List: `detailed` (station-level), `summary` (parameter stats)
 #' 
-#' @examples
-#' calculate_kd(bol_media_scored, "sediment")
-#' calculate_kd(bol_media_scored, "sediment", "Thallium")
+
 calculate_kd <- function(data, mode = "sediment", parameter = NULL) {
   
   if (mode == "sediment") {
@@ -140,33 +138,33 @@ calculate_kd <- function(data, mode = "sediment", parameter = NULL) {
 #       - Can select suspended water & sediment, or water dissolved & suspended
 #       - Can specify a parameter and get 1 row, or run all and get all parameters
 
-## Start by prepping our data by correcting our units for this analysis
+# Start by prepping our data by correcting our units for this analysis
 standardized_data <- bol_media_scored |>
-  filter(tolower(unit) %in% c("mg/l", "ug/l", "mg/kg", "ug/kg", "%"), 
+  filter(tolower(unit) %in% c("mg/l", "ug/l", "mg/kg", "ug/kg", "%"),
          !(media == "water" & unit == "%")) |>  # Good unit filters
-  filter((media == "water" & fraction == "Suspended") | media == "sediment") |> 
+  filter((media == "water" & fraction == "Suspended") | media == "sediment") |>
   mutate(
     conc = case_match(tolower(unit),
-                      "%" ~ concentration * 1e4,     
-                      "ug/kg" ~ concentration / 1e3, 
-                      "ug/l" ~ concentration / 1e3,  
+                      "%" ~ concentration * 1e4,
+                      "ug/kg" ~ concentration / 1e3,
+                      "ug/l" ~ concentration / 1e3,
                       .default = concentration),
     units = case_match(tolower(unit),
                        "%" ~ "mg/kg",
-                       "ug/kg" ~ "mg/kg", 
+                       "ug/kg" ~ "mg/kg",
                        "ug/l" ~ "mg/l",
                        "mg/l" ~ "mg/l",
                        .default = unit),
-    conc = if_else(conc == 0, 1e-12, conc)  # Fix 0 concentrations to build reporting size -- it was sampled but not detected. 
+    conc = if_else(conc == 0, 1e-12, conc)  # Fix 0 concentrations to build reporting size -- it was sampled but not detected.
   )
 
 # Keep counts for each media
-counts_data <- standardized_data |> 
+counts_data <- standardized_data |>
   count(station, date, parameter, media, name = "n_samples")
 
 # Get the mean concentration for each media
-means_data <- standardized_data |> 
-  group_by(station, date, parameter, media) |> 
+means_data <- standardized_data |>
+  group_by(station, date, parameter, media) |>
   summarise(
     mean_conc = mean(conc, na.rm = TRUE),  # Now standardized mg/L or mg/kg
     unit_check = paste(unique(units), collapse = ", "),  # Standardized units
@@ -174,17 +172,17 @@ means_data <- standardized_data |>
   )
 
 # Combine datasets to get Kd for each station-date-parameter set
-water_kd_data <- means_data |> 
-  left_join(counts_data, by = c("station", "date", "parameter", "media")) |> 
+water_kd_data <- means_data |>
+  left_join(counts_data, by = c("station", "date", "parameter", "media")) |>
   pivot_wider(
-    names_from = media, 
+    names_from = media,
     values_from = c(n_samples, mean_conc, unit_check),
     names_glue = "{media}_{.value}",
     values_fill = list(n_samples = 0, mean_conc = NA, unit_check = NA)
-  ) |> 
-  mutate(kd = sediment_mean_conc / water_mean_conc) |> 
-  filter(!is.na(kd), water_mean_conc > 0, sediment_mean_conc > 0) |> 
-  select(station, date, parameter, 
+  ) |>
+  mutate(kd = sediment_mean_conc / water_mean_conc) |>
+  filter(!is.na(kd), water_mean_conc > 0, sediment_mean_conc > 0) |>
+  select(station, date, parameter,
          starts_with("water_"), starts_with("sediment_"), kd)
 
 # get final Kd values for each parameter
