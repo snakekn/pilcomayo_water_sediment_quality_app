@@ -407,19 +407,19 @@ ui <- fluidPage(
             ),
             radioButtons( # 1/8/2026: changed from param_plot_method
               "station_plot_method_temporal",
-              "Rank by:",
-              choices = c("Average Value" = "average", "Most Extreme Value" = "max") # recent, mean, average, max, weighted
+              "Temporal Aggregation:",
+              choices = c("Most Recent Data" = "recent", "Average Value" = "average", "Most Extreme Value" = "max") # recent, mean, average, max, weighted
             ),
             radioButtons( # 1/8/2026: changed from param_plot_method
-              "station_plot_method_spatial",
-              "Rank by:",
-              choices = c("Average Value" = "average", "Most Extreme Value" = "max") # mean, average, median, max
+              "station_plot_method_parameter",
+              "Parameter Aggregation:",
+              choices = c("Average Value" = "mean", "Most Extreme Value" = "max", "95th Percentile" = "pct95") # mean, average, median, max
             ),
-            radioButtons( # 1/8/2026: changed from param_plot_method
-              "station_plot_method",
-              "OLD METHOD",
-              choices = c("Average Value" = "average", "Most Extreme Value" = "max")
-            ),
+            # radioButtons( # 1/8/2026: changed from param_plot_method
+            #   "station_plot_method",
+            #   "OLD METHOD",
+            #   choices = c("Average Value" = "average", "Most Extreme Value" = "max")
+            # ),
             info_callout(
               "Station Ranking",
               "This plot ranks water sampling stations based on water quality standards from Bolivian law.

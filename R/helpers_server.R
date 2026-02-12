@@ -565,10 +565,10 @@ dataUploadServer <- function(id, base_data, master_data) {
 
 
 # Load spatial data
-# pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
-# bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
-# river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
-# pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp", quiet = TRUE)
+pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp", quiet = TRUE)
 
 # Load census data
 census_potosi <- st_read("data/census/shp/potosi_census_summary_shape.shp", quiet = TRUE)

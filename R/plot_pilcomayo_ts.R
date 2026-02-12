@@ -43,6 +43,22 @@ plot_pilcomayo_ts <- function(
   if (param == "pH") df <- df %>% filter(unit == "u")
 
   df$date <- as.Date(df$date)
+  
+  # Standardize units within the filtered dataset
+  reference_unit <- df$unit[1]
+  
+  df <- df %>%
+    rowwise() %>%
+    mutate(
+      conv_obj = list(compare_units(reference_unit, unit)),
+      concentration = ifelse(
+        conv_obj$convertible, 
+        concentration * conv_obj$conversion_factor, 
+        concentration
+      ),
+      unit = reference_unit  # Update unit to reference unit
+    ) %>%
+    ungroup()
 
   # -------------------------------------------------------
   # 2. LOAD + FILTER STANDARDS
@@ -185,6 +201,11 @@ plot_pilcomayo_ts <- function(
         paste0("HQ: ", HQ, " (", std_info$HQ$std_reg, ": ", std_info$HQ$std_val, std_info$HQ$std_unit, ")"),
         ""
       ),
+      fraction_text = if_else(
+        !is.na(fraction) & fraction != "",
+        paste0("Fraction: ", fraction, "<br>"),
+        ""
+      ),
       sed_text = if (media == "sediment") {
         paste0(
           "Sieve: ", sieve_size %||% "N/A", "<br>",
@@ -196,6 +217,7 @@ plot_pilcomayo_ts <- function(
         "Date: ", format(date, "%Y-%m-%d"), "<br>",
         str_to_title(parameter), ": ", round(concentration, 3), " ", unit, "<br>",
         ifelse(nchar(hq_text) > 0, paste0(hq_text, "<br>"), ""),
+        ifelse(nchar(fraction_text) > 0, fraction_text, ""),
         sed_text
       )
     ) %>% ungroup()
@@ -224,10 +246,8 @@ plot_pilcomayo_ts <- function(
       y = paste0(param, " (", df$unit[1], ")"),
       title = paste0("Time Series of ", param, " at ", station_label, " (", str_to_title(media), ")")
     ) +
-    theme_minimal()
-  
-  # change to log
-  + scale_y_log10(
+    theme_minimal()+ 
+    scale_y_log10(
       breaks = scales::breaks_log(10),
       labels = scales::label_number(accuracy = 1, big.mark = ",")
     )
