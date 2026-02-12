@@ -55,6 +55,19 @@ load_base_data <- function(load = TRUE, loctime = FALSE, save = FALSE) {
     print("DONE")
     
     print("All base data loaded, pivoted, scored, and merged.")
+    
+    print("Loading border shapefiles and clipping scored data to Bolivia...")
+    
+    bol_border <<- st_read("data/geojson/bol_borders.geojson")
+    
+    bol_sed_scored <<- all_sed_scored |>
+      clip_to_bolivia(lat_col = "latitude_decimal", lon_col = "longitude_decimal", bol_border = bol_border)
+    bol_water_scored <<- all_water_scored |>
+      clip_to_bolivia(lat_col = "latitude_decimal", lon_col = "longitude_decimal", bol_border = bol_border)
+    bol_media_scored <<- all_media_scored |>
+      clip_to_bolivia(lat_col = "latitude_decimal", lon_col = "longitude_decimal", bol_border = bol_border)
+    
+    print("Scored data for water, sediment, and all media clipped to Bolivia.")
   }
   
   if (loctime) {
