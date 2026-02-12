@@ -136,7 +136,7 @@ downstream_slope <- function(station) {
     geom_vline(data = stations, aes(xintercept = distance_m/1000),
                linetype = "dashed", color = "black", alpha = 0.4, linewidth = .8) +
     geom_text(data = stations, aes(x = distance_m/1000,
-                                   y = 0.8*(min(elev$smoothed_slope, na.rm = TRUE)),
+                                   y = 0.8*(max(elev$smoothed_slope, na.rm = TRUE)),
                                    label = name),
               angle = 90, vjust = -0.5, hjust = 0, size = 4) +
     scale_y_reverse() +  # This flips the axis
@@ -169,14 +169,29 @@ downstream_slope <- function(station) {
   segment <- st_read(segment_path)
   
   # Map plot
+  library(ggrepel)
+  
+  library(ggrepel)
+  
   map_plot <- ggplot() +
     geom_sf(data = river_network, color = "lightgrey", linewidth = 0.5) +  # full network faded
     geom_sf(data = segment) +
     geom_sf(data = stations_sf_ordered, size = 4, aes(color = smoothed_elev)) +  # station points
     scale_color_continuous(palette = "viridis") +
-    geom_sf_text(data = stations_sf_ordered, aes(label = name),
-                 nudge_x = 0.15, nudge_y = 0.12, size = 3, angle = 20) +
-    labs(title = "Monitoring Station Locations Along River") +
+    geom_text_repel(
+      data = stations_sf_ordered, 
+      aes(label = name, geometry = geometry),
+      stat = "sf_coordinates",
+      size = 3,
+      box.padding = 0.5,      # padding around labels
+      point.padding = 0.3,    # padding around points
+      segment.color = "black", # color of connecting lines
+      segment.size = 0.3,     # thickness of connecting lines
+      min.segment.length = 0, # always draw segment lines
+      max.overlaps = Inf      # allow all labels
+    ) +
+    labs(title = "Monitoring Station Locations Along River",
+         color = "Elevation (m)") +
     theme_minimal()
   
   map_plot
