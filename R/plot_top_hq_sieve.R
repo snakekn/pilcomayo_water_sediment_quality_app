@@ -1,9 +1,9 @@
-# example: plot_top_hq_sieve(all_sed_scored, "Lead", method = "mean")
-plot_top_hq_sieve = function(data, param_selection = "all", method = "max", station_selection="all") {
+# example: plot_top_hq_sieve(all_sed_scored, "Lead", param_aggregation = "mean")
+plot_top_hq_sieve = function(data, param_selection = "all", param_aggregation = "pct95", station_selection="all", temporal_aggregation = "recent", recent_range = 5) {
   # Demonstrate what we're working with
   cat("\n[plot_top_hq_sieve] Params: ")
   params_callout <- list(
-    method = method,
+    param_aggregation = param_aggregation,
     station = station_selection,
     param = param_selection
   )
@@ -35,6 +35,17 @@ plot_top_hq_sieve = function(data, param_selection = "all", method = "max", stat
   # check if we have no exceedances
   if(nrow(data) == 0) {
     stop("No measurements remaining to plot. Please check your filters.")
+  }
+  
+  if(temporal_aggregation == "recent") { 
+    years_range = data |>
+      group_by(station) |>
+      summarize(last_year = max(year, na.rm=TRUE),
+                min_year = last_year - recent_range,
+                .groups="drop")
+    data = years_range |>  
+      right_join(data, by="station") |>
+      filter(year >= min_year)
   }
   
   sieve_options = unique(data$sieve_size)
@@ -72,10 +83,12 @@ plot_top_hq_sieve = function(data, param_selection = "all", method = "max", stat
     group_by(sieve_size) |>
     summarise(mean_value = mean(HQ, na.rm=TRUE),
               max_value = max(HQ, na.rm=TRUE),
+              pct95_value = quantile(HQ, probs=0.95, na.rm=TRUE),
               n_measurements = n(),
               n_stations = n_distinct(station)) |>
-    mutate(value = case_when(method == "max" ~ max_value,
-                             method == "avg" ~ mean_value),
+    mutate(value = case_when(param_aggregation == "max" ~ max_value,
+                             param_aggregation == "avg" ~ mean_value,
+                             param_aggregation == "pct95" ~ pct95_value),
            min_mm = parse_min_mm(sieve_size)) |>
     mutate(
       hover_text = paste0(
@@ -85,8 +98,9 @@ plot_top_hq_sieve = function(data, param_selection = "all", method = "max", stat
       )
     )
   
-  method_label = case_when(method == "max" ~ "Max",
-                           method == "avg" ~ "Mean")
+  param_aggregation_label = case_when(param_aggregation == "max" ~ "Max",
+                           param_aggregation == "avg" ~ "Mean",
+                           param_aggregation == "pct95" ~ "95th Percentile")
   
   p = plot_df |>
     ggplot(aes(x = reorder(sieve_size, min_mm), 
@@ -95,8 +109,8 @@ plot_top_hq_sieve = function(data, param_selection = "all", method = "max", stat
     geom_col(fill = "tan") +
     geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
     coord_flip() + 
-    labs(title = paste0("Sieve Sizes Ranked by ", method_label, " Value: ", param_selection),
-         x = "Sieve Size", y = paste0("Hazard Quotient (", method_label, ")")) +
+    labs(title = paste0("Sieve Sizes Ranked by ", param_aggregation_label, " Value: ", param_selection),
+         x = "Sieve Size", y = paste0("Hazard Quotient (", param_aggregation_label, ")")) +
     theme_minimal()
   
   ply = ggplotly(p, tooltip = "text")

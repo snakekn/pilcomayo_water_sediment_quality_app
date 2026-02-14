@@ -1,12 +1,24 @@
 # example: plot_top_hq_stations(all_media_scored, media = "water", param = "Arsenic", temporal_aggregation = "recent", param_aggregation = "pct95")
-plot_top_hq_stations <- function(data, media, param, fraction = "Total", 
+plot_top_hq_stations <- function(data, media_type, param, fraction = "Total", 
                                  temporal_aggregation = "max",  # RENAMED from method
                                  param_aggregation = NULL,
                                  decay_per_day = NULL,   # NEW: for weighted temporal aggregation 
                                  all_stations = FALSE,
-                                 return_data_only = FALSE,
-                                 recent_range = 0) {
-  cat("\n[plot_top_hq_stations]: Values: ", media, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
+                                 return_data = FALSE,
+                                 recent_range = 0,
+                                 ggplot_output = FALSE) {
+  cat("\n[plot_top_hq_stations]: Values: ", media_type, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
+  
+  hq_classification_sys = list(
+    breaks = c(1,8,17,30,50,130),
+    labels = c("Lowest Priority", "Low Priority", "Medium Priority", 
+               "High Priority", "Extreme Priority"),
+    colors = c("Lowest Priority" = "#2E7D32",   # Dark green
+               "Low Priority" = "#66BB6A",       # Light green
+               "Medium Priority" = "#FDD835",    # Yellow
+               "High Priority" = "#FF9800",      # Orange
+               "Extreme Priority" = "#C62828")   # Dark red
+  )
   
   # Validate temporal_aggregation parameter
   valid_temporal_aggregations <- c("recent", "mean", "average", "max", "weighted", "nemerow")
@@ -38,10 +50,10 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   }
   
     # Filter for media only
-    if(media != "all") {
+    if(media_type != "all") {
       df <- data |>
-        filter(media == !!media)
-      message("Filtered for media: ", media)
+        filter(media == !!media_type)
+      message("Filtered for media: ", media_type)
     } else {
       df = data
     }
@@ -56,15 +68,15 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     
 
   # Filter for media and parameter
-  if (media != "all") { # only filter on media if we're not using them all
-    data = data |> filter(media == !!media) # update data
+  if (media_type != "all") { # only filter on media if we're not using them all
+    data = data |> filter(media == !!media_type) # update data
     cat("\n\nafter filtering for media, nrow(df) = ", nrow(df), "\n")
   }
     
   # Only apply fraction filter for parameters that actually have fractions
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
-  if (media == "water") {
+  if (media_type == "water") {
     # Skip fraction filtering if using "all" or if param is pH
     if (!(length(param) == 1 && tolower(param) == "all") && 
         !(length(param) == 1 && param == "pH") && 
@@ -76,7 +88,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   if(nrow(df) == 0) stop(paste("No data found using the current filters. Please update your filters."))
   
   # Determine if fraction was applied (for title labeling)
-  fraction_applied <- (media == "water" && 
+  fraction_applied <- (media_type == "water" && 
                          !(length(param) == 1 && tolower(param) == "all") &&
                          !(length(param) == 1 && param == "pH") && 
                          any(data$fraction == fraction))
@@ -95,14 +107,14 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     std_source <- "Multiple"
   } else {
     param_stds <- strict_std |>
-      filter(.data$media == !!media,
+      filter(.data$media == !!media_type,
              str_detect(.data$parameter, !!param[1]))  # Use first param for standard lookup
     
     # Check if standard exists
     has_standard <- nrow(param_stds) > 0
     
     if (!has_standard) {
-      warning(paste("No standard found for", param[1], "in", media, "- proceeding with pre-calculated HQ values"))
+      warning(paste("No standard found for", param[1], "in", media_type, "- proceeding with pre-calculated HQ values"))
       std_text <- "Pre-calculated"
       std_source <- "Various"
     } else {
@@ -164,7 +176,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
                ifelse(length(param) == 1 && tolower(param) == "all", 
                       "all parameters", 
                       paste(param, collapse = ", ")), 
-               "in", media, "- all HQ values are NA or zero"))
+               "in", media_type, "- all HQ values are NA or zero"))
   }
   
   # TEMPORAL AGGREGATION by station using specified method
@@ -286,7 +298,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         
         n_parameters = n(),
         n_measurements = sum(n_measurements),
-        parameters = paste(unique(parameter), collapse = ", "),
+        # parameters = paste(unique(parameter), collapse = ", "),
         .groups = "drop"
       )
     
@@ -351,12 +363,19 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       )
   }
   
+  # mutate data so the HQ bin is added
+  top_stations = top_stations |>
+    mutate(hq_class = cut(HQ, 
+                          breaks = hq_classification_sys$breaks,
+                          labels = hq_classification_sys$labels,
+                          include.lowest = TRUE, right = FALSE))
+  
   
   if (!all_stations) { # options are all or 10 baby
     top_stations = top_stations |> slice_head(n = 10)
   }
   
-  if(return_data_only) {
+  if(return_data) {
     return(top_stations)
   }
   
@@ -376,7 +395,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
     )
   } else {
     title_text <- paste(
-      "All Stations Stations by", method_label, "Hazard Quotient:",
+      "All Stations, Stations by", method_label, "Hazard Quotient:",
       if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display
     )
   }
@@ -385,24 +404,26 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
   
   
   # Create bar chart with hover text
-  p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = exceeds_standard, text = hover_text)) +
+  p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = hq_class, text = hover_text)) +
     geom_col() +
     geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
     scale_fill_manual(
-      values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
-      labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
-      name = NULL
+      values = hq_classification_sys$colors,
+      name = "Hazard Class"
+      # values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
+      # labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
+      # name = NULL
     ) +
     coord_flip() +
     labs(
       title = title_text,
-      subtitle = paste0("Media: ", media, "\nStandard: ", std_text, " (", std_source, ")"),
+      subtitle = paste0("Media: ", media_type, "\nStandard: ", std_text, " (", std_source, ")"),
       x = "Station",
       y = paste(if (use_log) {
         paste(method_label, "Hazard Quotient (logarithmic scale)")
       } else {
         paste(method_label, "Hazard Quotient")
-      })
+      }) 
     ) +
     theme_minimal(base_size = 12) +
     theme(
@@ -427,6 +448,10 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
       )
   }
   
+  if (ggplot_output) { # easy copy-paste without plotly
+    return(p)
+  }
+  
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   
@@ -437,7 +462,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         "All Stations Ranked by ", method_label, " Hazard Quotient: ",
         str_to_title(param_aggregation_title), " of ", param_display,
         "<br><sup>",
-        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "Media: ", media_type, " — Standard: ", std_text, " (", std_source, ")",
         "</sup>"
       )
     } else {
@@ -445,7 +470,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         "All Stations Ranked by ", method_label, " Hazard Quotient: ",
         if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
         "<br><sup>",
-        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "Media: ", media_type, " — Standard: ", std_text, " (", std_source, ")",
         "</sup>"
       )
     }
@@ -455,7 +480,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         "Top 10 Stations Ranked by ", method_label, " Hazard Quotient: ",
         str_to_title(param_aggregation_title), " of ", param_display,
         "<br><sup>",
-        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "Media: ", media_type, " — Standard: ", std_text, " (", std_source, ")",
         "</sup>"
       )
     } else {
@@ -463,7 +488,7 @@ plot_top_hq_stations <- function(data, media, param, fraction = "Total",
         "Top 10 Stations Ranked by ", method_label, " Hazard Quotient: ",
         if (fraction_applied) paste(param_display, " (", fraction, ")", sep = "") else param_display,
         "<br><sup>",
-        "Media: ", media, " — Standard: ", std_text, " (", std_source, ")",
+        "Media: ", media_type, " — Standard: ", std_text, " (", std_source, ")",
         "</sup>"
       )
     }
