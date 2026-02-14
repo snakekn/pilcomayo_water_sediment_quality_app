@@ -3,12 +3,13 @@ plot_top_hq_params <- function(data,
                                media_type, 
                                fraction = "all", 
                                station = "all",
-                               temporal_aggregation = "max", 
-                               spatial_aggregation = "max",
+                               temporal_aggregation = "recent", 
+                               spatial_aggregation = "pct95",
                                decay_per_day = NULL,
                                return_data = FALSE,
                                all_params = FALSE,
-                               recent_range = 0
+                               recent_range = 0,
+                               ggplot_output = FALSE
                                ) {
   library(plotly)
   
@@ -567,6 +568,11 @@ plot_top_hq_params <- function(data,
                           "sediment" ~ "Sediment",
                           "water" ~ "Water",
                           .default = "None Selected") 
+  
+  if (ggplot_output) { # easy copy-paste without plotly
+    return(p)
+  }
+  
   # Convert to plotly for interactive hover
   ply <- ggplotly(p, tooltip = "text")
   

@@ -897,7 +897,7 @@ sensitivity_param_sed_recency <- station_methods_recency %>% pmap_dfr(~plot_top_
 rankings_param_sed_r = prepare_rankings(sensitivity_param_sed_recency, wider=TRUE, c="parameter")
 
 # get our corplot
-corplot_param_sed_r = corplot_pretty(rankings_param_sed_r, title = "Correlation between Model Methods", subtitle = "", x="Method",y="Method",
+corplot_param_sed_r = corplot_pretty(rankings_param_sed_r, title = "Correlation between Parameter Priorities for Sediment Data", subtitle = "", x="Method",y="Method",
                                      m1 = "Recent Years to Include", m2="HQ Aggregation")
 corplot_param_sed_r
 
@@ -912,6 +912,80 @@ priority_param_sed_r
 ### compare the medians to the non-medians
 compare_rho(df_corrs = corplot_pretty(rankings_param_sed_r, return_cor=TRUE), 
             model = "median", grouping = TRUE, boxplots = TRUE, horizontal_graph = TRUE, force_scale = FALSE)
+
+
+##### we do water quality now -- parameter recency #####
+recent_range = c(0:5)
+spatial_aggregation = c("mean", "median", "max", "pct95")
+station_methods_recency = crossing(
+  recent_range = recent_range,
+  spatial_aggregation = spatial_aggregation,
+)
+
+sensitivity_param_water_recency <- station_methods_recency %>% pmap_dfr(~plot_top_hq_params(
+  data = bol_water_scored, 
+  media_type = "water", 
+  spatial_aggregation = ..2, 
+  temporal_aggregation = "recent",
+  recent_range = ..1,
+  all_params = TRUE,
+  return_data=TRUE),
+  .id="method_id") |>
+  mutate(
+    method = paste(
+      station_methods_recency$recent_range[as.numeric(method_id)],
+      station_methods_recency$spatial_aggregation[as.numeric(method_id)],
+      sep = "_"
+    )
+  ) |>
+  rename(HQ = hq) |>
+  select(parameter, HQ, method)
+
+# get our rankings
+rankings_param_water_r = prepare_rankings(sensitivity_param_water_recency, wider=TRUE, c="parameter")
+
+# get our corplot
+corplot_param_water_r = corplot_pretty(rankings_param_water_r, title = "Correlation between Parameter Priorities for Water Data", subtitle = "", x="Method",y="Method",
+                                     m1 = "Recent Years to Include", m2="HQ Aggregation")
+corplot_param_water_r
+
+
+##### we do water quality now -- station recency #####
+recent_range = c(0:5)
+spatial_aggregation = c("mean", "median", "max", "pct95")
+station_methods_recency = crossing(
+  recent_range = recent_range,
+  spatial_aggregation = spatial_aggregation,
+)
+
+sensitivity_station_water_recency <- station_methods_recency %>% pmap_dfr(~plot_top_hq_stations(
+  data = bol_water_scored, 
+  media_type = "water", 
+  param = "all",
+  param_aggregation = "pct95", 
+  temporal_aggregation = "recent",
+  recent_range = ..1,
+  all_stations = TRUE,
+  return_data=TRUE),
+  .id="method_id") |>
+  mutate(
+    method = paste(
+      station_methods_recency$recent_range[as.numeric(method_id)],
+      station_methods_recency$spatial_aggregation[as.numeric(method_id)],
+      sep = "_"
+    )
+  ) |>
+  rename(HQ = hq) |>
+  select(station, HQ, method)
+
+# get our rankings
+rankings_station_water_r = prepare_rankings(sensitivity_station_water_recency, wider=TRUE, c="station")
+
+# get our corplot
+rankings_station_water_r = corplot_pretty(rankings_station_water_r, title = "Correlation between Station Priorities for Water Data", subtitle = "", x="Method",y="Method",
+                                       m1 = "Recent Years to Include", m2="HQ Aggregation")
+rankings_station_water_r
+
 
 
 ##### View all parameter histograms #####
@@ -937,11 +1011,12 @@ bol_water_scored |>
 
 #' Nadav's To Do's: 
 #' X Sensitivity analysis on 1,2,3,5 year recency windows (more Q's!)
-#'  - Implement into stations and do it again (did for sediment)
+#'  X Implement into stations and do it again (did for sediment)
 #' X Write about FIB mapping & future monitoring strategies (look across space: ammonia, BOD, Fecal coliforms)
 #' X Does hardness matter? - add it to conclusion that we should consider, review if any contaminants matter (eg. Zinc)
 #' - Update data to recent-median - XXX - using 5-year 95th %ile 
-#'  - Update station/param code to include the year-window method
+#'  X Update station/param code to include the year-window method
 #' X Conduct SA on sediments data (nice!)
 #' - Discuss binning for contaminant types (HM vs other) - metals will be different than others. Focus on HMs for stations to give AMTSK precipitation goals.
 #' - Read Katerina's content
+#' - Review my own writing & figures to ensure they make sense lol
