@@ -33,18 +33,19 @@
 # Main function 
 # example: create_risk_map(all_media_scored, "all", param_aggregation = "pct95")
 create_risk_map <- function(data, 
-                            params,
+                            params = "all",
                             fraction = NULL,
                             date = Sys.Date(),
                             temporal_aggregation = "recent",  # how to aggregate across time for each station-parameter combination
-                            param_aggregation = "mean", # how to aggregate across parameters for each station (after temporal aggregation)
+                            param_aggregation = "pct95", # how to aggregate across parameters for each station (after temporal aggregation)
                             decay_per_day = NULL,      # for weighted method
                             snap_distance = 1000,
                             max_risk_distance = 5000,
                             resolution = 100,
                             crs = "EPSG:4326",
                             border_sf = NULL,
-                            river_network_sf = NULL) {
+                            river_network_sf = NULL,
+                            nyears = 5) {
   
   interpolation_method <- "distance_weighted"
   
@@ -87,7 +88,7 @@ create_risk_map <- function(data,
   message(paste("Temporal aggregation:", temporal_aggregation))
   
   # Filter and prepare data (now with param_aggregation parameter)
-  wq_param <- prepare_water_quality_data(data, params, fraction, date, param_aggregation, temporal_aggregation, decay_per_day)
+  wq_param <- prepare_water_quality_data(data, params, fraction, date, param_aggregation, temporal_aggregation, decay_per_day, nyears)
   
   # Convert to spatial and snap to river - returns BOTH snapped points AND transformed river network
   snap_result <- snap_points_to_river(wq_param, river_network_sf, border_sf, snap_distance)
@@ -390,34 +391,60 @@ plot_risk_map <- function(risk_map_result,
         param_names <- stations_wgs84$parameter_names[[i]]
         
         if (!is.null(param_hqs) && length(param_hqs) > 1) {
+          
+          # Aggregate to one value per unique parameter
+          # Create a dataframe to work with
+          param_df <- data.frame(
+            parameter = param_names,
+            HQ = param_hqs,
+            stringsAsFactors = FALSE
+          )
+          
+          # Aggregate by parameter using the same method as param_aggregation
+          # You'll need to pass param_aggregation through to this point, or use max as default
+          param_aggregated <- param_df %>%
+            group_by(parameter) %>%
+            summarise(
+              HQ = max(HQ, na.rm = TRUE),  # Or use the actual param_aggregation method
+              .groups = "drop"
+            )
+          
+          # Use aggregated values for histogram
+          param_hqs_unique <- param_aggregated$HQ
+          param_names_unique <- param_aggregated$parameter
+          
           breaks <- c(0, 0.5, 1, 2, 5, 10, Inf)
           bin_labels <- c("0-0.5", "0.5-1", "1-2", "2-5", "5-10", "10+")
           bin_colors <- c("#1a9850", "#d9ef8b", "#ffffbf", "#fc8d59", "#d73027", "#67001f")
           
-          bin_counts <- table(cut(param_hqs, breaks = breaks, labels = bin_labels, include.lowest = TRUE))
+          bin_counts <- table(cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE))
           max_count <- max(bin_counts)
-          container_height <- max(60, max_count * 7 + 10)
+          
+          # Fixed height calculations
+          max_bar_height <- 80
+          container_height <- max_bar_height + 30
+          pixels_per_count <- max_bar_height / max_count
           
           hist_html <- paste0(
             "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
-            "<small><b>Parameter Distribution (n=", length(param_hqs), "):</b></small><br>",
+            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
             "<div style='display: flex; align-items: flex-end; height: ", container_height, "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
           )
           
           for (j in seq_along(bin_labels)) {
             count <- as.numeric(bin_counts[j])
-            bin_mask <- cut(param_hqs, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
+            bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
             
             if (count > 0) {
-              params_in_bin <- param_names[bin_mask]
-              hqs_in_bin <- param_hqs[bin_mask]
+              params_in_bin <- param_names_unique[bin_mask]
+              hqs_in_bin <- param_hqs_unique[bin_mask]
               param_details <- paste0(params_in_bin, " (", round(hqs_in_bin, 2), ")", collapse = "&#10;")
               tooltip_text <- paste0(hq_label_short, " by parameter (", bin_labels[j], " HQ):&#10;", param_details)
             } else {
               tooltip_text <- paste0(bin_labels[j], ": no parameters")
             }
             
-            bar_height <- count * 7
+            bar_height <- count * pixels_per_count
             
             hist_html <- paste0(hist_html,
                                 "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
@@ -442,8 +469,8 @@ plot_risk_map <- function(risk_map_result,
                               "<small style='font-size: 8px; color: #666;'>5</small>",
                               "<small style='font-size: 8px; color: #666;'>10+</small>",
                               "</div>",
-                              "<small style='color: #666;'>Min: ", round(min(param_hqs), 2), 
-                              " | Max: ", round(max(param_hqs), 2), "</small>",
+                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2), 
+                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
                               "</div>"
           )
           

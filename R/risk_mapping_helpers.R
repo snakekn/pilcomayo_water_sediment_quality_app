@@ -3,9 +3,10 @@
 # Helper: Prepare water quality data - WITH TEMPORAL AGGREGATION
 # example: prepare_water_quality_data(all_media_scored, unique(all_media_scored$parameter), fraction = NULL, date = 2024)
 prepare_water_quality_data <- function(data, params, fraction, date, 
-                                       param_aggregation = "mean",
+                                       param_aggregation = "pct95",
                                        temporal_aggregation = "recent",  # "recent", "mean", or "weighted"
-                                       decay_per_day = NULL) {
+                                       decay_per_day = NULL,
+                                       nyears = 5) {
   message("Replacing HQ < 1 with HQ = 0")
   
   data <- data |>
@@ -138,33 +139,58 @@ prepare_water_quality_data <- function(data, params, fraction, date,
   message(paste("Temporal aggregation method:", temporal_aggregation))
   
   if (temporal_aggregation == "recent") {
-    message("Getting most recent measurement for each station-parameter combination...")
     
-    # First, find the most recent date for each station-parameter combo (across ALL sieve sizes)
-    most_recent_dates <- wq_param %>%
-      group_by(station, parameter) %>%
-      summarise(max_date = max(date, na.rm = TRUE), .groups = "drop")
-    
-    # Then filter to only those recent dates and aggregate
-    group_vars <- c("station", "parameter")
-    if ("fraction" %in% names(wq_param)) {
-      group_vars <- c(group_vars, "fraction")
-      message("Note: Grouping by fraction")
+    if (is.null(nyears)) {
+      # ORIGINAL BEHAVIOR: Most recent single measurement
+      message("Getting most recent measurement for each station-parameter combination...")
+      
+      most_recent_dates <- wq_param %>%
+        group_by(station, parameter) %>%
+        summarise(max_date = max(date, na.rm = TRUE), .groups = "drop")
+      
+      group_vars <- c("station", "parameter")
+      if ("fraction" %in% names(wq_param)) {
+        group_vars <- c(group_vars, "fraction")
+        message("Note: Grouping by fraction")
+      }
+      if ("sieve_size" %in% names(wq_param)) {
+        group_vars <- c(group_vars, "sieve_size")
+        message("Note: Multiple sieve sizes detected")
+      }
+      
+      wq_temporal <- wq_param %>%
+        left_join(most_recent_dates, by = c("station", "parameter")) %>%
+        filter(date == max_date) %>%
+        group_by(across(all_of(group_vars))) %>%
+        slice(1) %>%
+        ungroup() %>%
+        select(-max_date)
+      
+      message(paste("Date range:", min(wq_temporal$date), "-", max(wq_temporal$date)))
+      
+    } else {
+      # NEW BEHAVIOR: All data from last n years
+      message(paste("Getting all data from last", nyears, "years for each station-parameter combination..."))
+      
+      # Find the most recent date in the filtered dataset
+      max_date_in_data <- max(wq_param$date, na.rm = TRUE)
+      
+      # Calculate cutoff date (nyears before the most recent date)
+      cutoff_date <- max_date_in_data - (nyears * 365.25)  # Account for leap years
+      
+      message(paste("Date range for analysis:", cutoff_date, "to", max_date_in_data))
+      
+      # Filter to only include data from last nyears
+      wq_temporal <- wq_param %>%
+        filter(date >= cutoff_date)
+      
+      if (nrow(wq_temporal) == 0) {
+        stop(paste("No data found in the last", nyears, "years"))
+      }
+      
+      message(paste("Found", nrow(wq_temporal), "measurements in the last", nyears, "years"))
     }
-    if ("sieve_size" %in% names(wq_param)) {
-      group_vars <- c(group_vars, "sieve_size")
-      message("Note: Multiple sieve sizes detected")
-    }
     
-    wq_temporal <- wq_param %>%
-      left_join(most_recent_dates, by = c("station", "parameter")) %>%
-      filter(date == max_date) %>%
-      group_by(across(all_of(group_vars))) %>%
-      slice(1) %>%  # In case there are duplicates on the same date
-      ungroup() %>%
-      select(-max_date)
-    
-    message(paste("Date range:", min(wq_temporal$date), "-", max(wq_temporal$date)))
   } else if (temporal_aggregation == "mean") {
     message("Averaging all measurements across time for each station-parameter combination...")
     
