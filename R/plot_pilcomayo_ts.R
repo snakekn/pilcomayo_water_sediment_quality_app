@@ -10,6 +10,7 @@ plot_pilcomayo_ts <- function(
   message("Param: ", param, " | Media: ", media, " | Station: ", station,
           " | Mode: ", standard_mode)
 
+  library(ggiraph) # me being a bit lazy here...
   # -------------------------------------------------------
   # DEFINE MEDIA LABEL (FIX FOR YOUR ERROR)
   # -------------------------------------------------------
@@ -234,7 +235,7 @@ plot_pilcomayo_ts <- function(
       color = "black",
       linewidth = 0.8
     ) +
-    geom_point_interactive(
+    ggiraph::geom_point_interactive(
       data = df,
       aes(x = date, y = concentration, alpha = alpha_value, tooltip = hover_text),
       color = "black",
@@ -275,7 +276,7 @@ plot_pilcomayo_ts <- function(
         stringsAsFactors = FALSE
       )
 
-      p <- p + geom_line_interactive(
+      p <- p + ggiraph::geom_line_interactive(
         data = std_df,
         aes(x = date, y = std_value, tooltip = hover_label, data_id = hover_label),
         color = "red",
@@ -288,7 +289,7 @@ plot_pilcomayo_ts <- function(
   # -------------------------------------------------------
   # 9. RETURN: PLOT + NO-STANDARDS OVERLAY
   # -------------------------------------------------------
-  girafe(
+  ggiraph::girafe(
     ggobj = p,
     options = list(
       opts_hover(css = "stroke:orange;stroke-width:2px;"),

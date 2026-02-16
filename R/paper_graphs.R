@@ -1,11 +1,27 @@
 #### review quantiles using station HQs ####
-silver_stations_water = plot_top_hq_stations(bol_media_scored, 
+all_station_hq_water = plot_top_hq_stations(bol_media_scored, 
                                              media_type = "water", 
-                                             param = "Silver", 
+                                             param = "all", 
                                              temporal_aggregation = "recent", 
                                              param_aggregation = "pct95",
                                              ggplot_output = FALSE,
-                                             recent_range = 5)
+                                             recent_range = 5,
+                                             return_data=TRUE,
+                                             all_stations=TRUE)
+
+all_station_hq_sed = plot_top_hq_stations(bol_media_scored, 
+                                            media_type = "sediment", 
+                                            param = "all", 
+                                            temporal_aggregation = "recent", 
+                                            param_aggregation = "pct95",
+                                            ggplot_output = FALSE,
+                                            recent_range = 5,
+                                            return_data=TRUE,
+                                            all_stations=TRUE)
+
+
+quantile(all_station_hq_water$HQ, probs = seq(0,1,length.out=5), na.rm=TRUE)
+quantile(all_station_hq_sed$HQ, probs = seq(0,1,length.out=5), na.rm=TRUE)
 
 #### top lists ####
 ### Chemicals of highest concern - water
@@ -36,6 +52,17 @@ p2 = plot_top_hq_params(bol_sed_scored,
                         ggplot_output=TRUE)
 p2
 ####silver####
+### station boxplot for silver
+silver_stations_water_bp = plot_top_hq_stations(bol_media_scored, 
+                                             media_type = "water", 
+                                             param = "Silver", 
+                                             temporal_aggregation = "recent", 
+                                             param_aggregation = "pct95",
+                                             ggplot_output = FALSE,
+                                             recent_range = 5,
+                                             graph_type = "boxplot")
+silver_stations_water_bp
+
 ### Stations with highest silver - water (no sed HQ data here)
 silver_stations_water = plot_top_hq_stations(bol_media_scored, 
                      media_type = "water", 

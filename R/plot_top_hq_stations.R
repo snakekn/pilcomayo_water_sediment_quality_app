@@ -6,11 +6,12 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
                                  all_stations = FALSE,
                                  return_data = FALSE,
                                  recent_range = 0,
-                                 ggplot_output = FALSE) {
+                                 ggplot_output = FALSE,
+                                 graph_type = "ranking") {
   cat("\n[plot_top_hq_stations]: Values: ", media_type, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   hq_classification_sys = list(
-    breaks = c(1,8,17,30,50,130),
+    breaks = c(8,14,26,35,47,128),
     labels = c("Lowest Priority", "Low Priority", "Medium Priority", 
                "High Priority", "Extreme Priority"),
     colors = c("Lowest Priority" = "#2E7D32",   # Dark green
@@ -163,8 +164,11 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   # Filter to only exceedances
   cat("\nBefore filtering for hq, nrow(df) = ", nrow(df), "\n")
 
-  df_exceedances <- df |>
-    filter(!is.na(HQ), HQ > 1) # remove where HQ is acceptable
+  # Note: Since we're using pct95, we don't need to remove these -- no need to get rid of non-exceedances.
+  # original concern was that we'd sum HQs using HQ<1 to get a HQ>1 which makes little sense. Pct95 removes that concern.
+  # if all HQ<1 -> HQ=0, wouldn't change rankings (shouldn't change pct95, unless it's calculated instead of selected).
+  df_exceedances <- df
+    # filter(!is.na(HQ), HQ > 1) # remove where HQ is acceptable
 
   cat("\nAfter filtering for hq>1, nrow(df) = ", nrow(df), "\n")
   
@@ -187,21 +191,30 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     message("Getting most recent measurement for each station...")
     
     if(recent_range != 0) {
-      station_hq = df_exceedances |>
-        group_by(station) |>
-        summarize(last_year = max(year, na.rm=TRUE),
-                  min_year = last_year - recent_range,
-                  max_date = max(date, na.rm=TRUE),
-                  n_measurements=n(),
-                  .groups = "drop") |>
-        right_join(df_exceedances, by="station") |>
-        filter(year > min_year) |>
-        select(station, parameter, HQ, date, max_date, n_measurements)
+      
+      temporally_filtered_df = temporal_filtering(df_exceedances, nyears=recent_range) |>
+        mutate(n_measurements = nrow(df_exceedances)) |>
+        select(station, parameter, HQ, date, n_measurements)
+
+      # 
+      # station_hq = df_exceedances |>
+      #   group_by(station) |>
+      #   summarize(last_year = max(year, na.rm=TRUE),
+      #             min_year = last_year - recent_range,
+      #             max_date = max(date, na.rm=TRUE),
+      #             n_measurements=n(),
+      #             .groups = "drop") |>
+      #   right_join(df_exceedances, by="station") |>
+      #   filter(year > min_year) |>
+      #   select(station, parameter, HQ, date, max_date, n_measurements, min_year)
+      # 
+      # print(summary(station_hq$min_year))
+      # print(summary(station_hq$max_date))
         
       method_label = sprintf("Last %d year%s", recent_range, if_else(recent_range>1, "s", ""))
       
     } else { # do it like we did before
-      station_hq <- df_exceedances |>
+      temporally_filtered_df <- df_exceedances |>
         group_by(station) |>
         arrange(desc(date)) |>
         slice(1) |>
@@ -228,7 +241,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
       message("Using default decay: 0.001 per day")
     }
     
-    station_hq <- df_exceedances |>
+    temporally_filtered_df <- df_exceedances |>
       group_by(station) |>
       mutate(
         days_ago = as.numeric(target_date - date),
@@ -247,7 +260,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     
   } else if (temporal_aggregation == "max") {
     # Maximum HQ across all time points
-    station_hq <- df_exceedances |>
+    temporally_filtered_df <- df_exceedances |>
       group_by(station) |>
       summarise(
         max_date = date[which.max(HQ)],  # Get date BEFORE HQ is aggregated
@@ -259,7 +272,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     
   } else if (temporal_aggregation == "mean") {  # temporal_aggregation == "mean"
     # Mean HQ across all time points
-    station_hq <- df_exceedances |>
+    temporally_filtered_df <- df_exceedances |>
       group_by(station) |>
       summarise(
         max_date = date[which.max(HQ)],  # Get date of max even for mean method
@@ -269,7 +282,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
       )
     method_label <- "Average"
   } else if (temporal_aggregation == "nemerow") {
-    station_hq <- df_exceedances |>
+    temporally_filtered_df <- df_exceedances |>
       group_by(station) |>
       summarise(
         max_date = date[which.max(HQ)],  # Get date of max even for mean method
@@ -286,7 +299,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   if (!is.null(param_aggregation)) {
     message(paste("Aggregating across parameters using", param_aggregation, "method..."))
     
-    station_hq <- station_hq |>
+    station_hq <- temporally_filtered_df |>
       group_by(station) |>  # Group by station AND date to preserve temporal info
       summarise(
         HQ = switch(param_aggregation,
@@ -303,6 +316,8 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
       )
     
     message(paste("Aggregated", unique(df_exceedances$n_parameters), "parameters per station-date"))
+  } else {
+    station_hq = temporally_filtered_df # just to get the names right
   }
   
   # Get top 10 stations by HQ
@@ -316,7 +331,6 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
         exceeds_standard = HQ >= 1,
         hover_text = paste0(
           "Station: ", station, "<br>",
-          if (temporal_aggregation %in% c("max", "recent")) paste0("Date: ", max_date, "<br>"),
           # Show parameter aggregation method if used
           if (!is.null(param_aggregation)) {
             paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
@@ -343,7 +357,6 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
         exceeds_standard = HQ >= 1,
         hover_text = paste0(
           "Station: ", station, "<br>",
-          if (temporal_aggregation %in% c("max", "recent") && recent_range==0) paste0("Date: ", max_date, "<br>"),
           # Show parameter aggregation method if used
           if (!is.null(param_aggregation)) {
             paste0("Parameter aggregation: ", str_to_title(param_aggregation), "<br>")
@@ -361,6 +374,13 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
           paste0("Total # observations: ", n_measurements, "<br>")
         )
       )
+    
+    temporally_filtered_df = temporally_filtered_df |>
+      group_by(station) |>
+      summarize(sample_count=n(), .groups = "drop") |>
+      right_join(temporally_filtered_df, by="station") |>
+      mutate(station_label = sprintf("%s (n=%d)", station, sample_count)) |>
+      select(-sample_count)
   }
   
   # mutate data so the HQ bin is added
@@ -402,43 +422,118 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   
   use_log = (ceiling(log10(max(top_stations$HQ))) - floor(log10(min(top_stations$HQ)))) >= 2
   
+  if(graph_type == "boxplot") {
+    top_station_names <- top_stations %>% 
+      arrange(desc(HQ)) %>%  # HQ in top_stations IS the 95th percentile
+      pull(station)
+    
+    station_labels_ordered <- top_stations %>%
+      arrange(desc(HQ)) %>%
+      pull(station_label)
+    
+    # Reorder factor levels
+    top_stations <- top_stations %>%
+      mutate(station_label = factor(station_label, levels = station_labels_ordered))
+
+    # force tf_df to do the same
+    temporally_filtered_df <- temporally_filtered_df %>%
+      filter(station %in% top_station_names) %>%
+      mutate(station_label = factor(station_label, levels = station_labels_ordered),
+             hq_class = cut(HQ, 
+                            breaks = hq_classification_sys$breaks,
+                            labels = hq_classification_sys$labels,
+                            include.lowest = TRUE, right = FALSE))
+      
+      # Calculate 95th percentiles for plotting
+    # percentile_95 <- top_stations %>%
+    #   group_by(station_label) %>%
+    #   summarise(p95 = quantile(HQ, 0.95, na.rm = TRUE))
+    
+    # Create boxplot
+    p <- ggplot(temporally_filtered_df, 
+                 aes(x = station_label, y = HQ)) +
+      geom_boxplot(
+        # aes(fill = after_stat(ifelse(..ymax.. > 1, "Exceeds", "Below"))),
+        outlier.shape = 16,
+        outlier.size = 1.5,
+        linewidth = 0.7,
+        fatten=4,
+        outlier.alpha = 0.5,
+        fill="lightblue"
+      ) +
+      geom_point(
+        data = top_stations,
+        aes(x = station_label, y = HQ, fill=hq_class),
+        shape = 23,  # diamond shape
+        size = 3,
+        color = "darkred",
+        stroke = 1
+      ) +
+      scale_fill_manual(
+        values = hq_classification_sys$colors,
+        name = "Hazard Class")+
+      geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
+      coord_flip() +
+      labs(
+        title = title_text,
+        subtitle = paste0("Media: ", media_type, ". Standard: ", std_text, " (", std_source, 
+                          "). Point at = 95th percentile"),
+        x = "Station",
+        y = paste(if (use_log) {
+          paste(method_label, "Hazard Quotient (logarithmic scale)")
+        } else {
+          paste(method_label, "Hazard Quotient")
+        })
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+        legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 10, color = "gray30"),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1)
+      )
   
-  # Create bar chart with hover text
-  p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = hq_class, text = hover_text)) +
-    geom_col() +
-    geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
-    scale_fill_manual(
-      values = hq_classification_sys$colors,
-      name = "Hazard Class"
-      # values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
-      # labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
-      # name = NULL
-    ) +
-    coord_flip() +
-    labs(
-      title = title_text,
-      subtitle = paste0("Media: ", media_type, "\nStandard: ", std_text, " (", std_source, ")"),
-      x = "Station",
-      y = paste(if (use_log) {
-        paste(method_label, "Hazard Quotient (logarithmic scale)")
-      } else {
-        paste(method_label, "Hazard Quotient")
-      }) 
-    ) +
-    theme_minimal(base_size = 12) +
-    theme(
-      legend.position = "bottom",
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 10, color = "gray30"),
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor = element_blank()
-    )
+  } else {
+  
+    # Create bar chart with hover text
+    p <- ggplot(top_stations, aes(x = station_label, y = HQ, fill = hq_class, text = hover_text)) +
+      geom_col() +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
+      scale_fill_manual(
+        values = hq_classification_sys$colors,
+        name = "Hazard Class"
+        # values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
+        # labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
+        # name = NULL
+      ) +
+      coord_flip() +
+      labs(
+        title = title_text,
+        subtitle = paste0("Media: ", media_type, "\nStandard: ", std_text, " (", std_source, ")"),
+        x = "Station",
+        y = paste(if (use_log) {
+          paste(method_label, "Hazard Quotient (logarithmic scale)")
+        } else {
+          paste(method_label, "Hazard Quotient")
+        }) 
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+        legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 10, color = "gray30"),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank()
+      )
+  }
   
   if (use_log) {
     p <- p +
       scale_y_log10(
-        breaks = scales::breaks_log(10),
-        labels = scales::label_number(accuracy = 1, big.mark = ",")
+        breaks = 10^(-2:5),
+        labels = scales::label_number(accuracy = 0.01, big.mark = ",")
       )
     
   } else {

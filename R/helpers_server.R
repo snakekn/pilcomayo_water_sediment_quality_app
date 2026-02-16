@@ -1548,7 +1548,7 @@ parse_unit <- function(u) {
 
 # ---- core comparator ----
 # compares sample_unit -> standard_unit
-# returns a list: convertible (T/F), conversion_factor (multiply sample value by this -> standard), message, parsed_sample, parsed_standard
+# returns a list: convertible (T/F), conversion_factor (multiply sample value by this -> standard unit), message, parsed_sample, parsed_standard
 compare_units <- function(sample_unit, standard_unit) {
   s <- parse_unit(sample_unit)
   t <- parse_unit(standard_unit)

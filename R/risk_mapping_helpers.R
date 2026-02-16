@@ -272,7 +272,7 @@ prepare_water_quality_data <- function(data, params, fraction, date,
     wq_temporal <- wq_temporal %>%
       group_by(across(all_of(sieve_group_vars))) %>%
       summarise(
-        HQ = max(HQ, na.rm = TRUE),
+        HQ = max(HQ, na.rm = TRUE), # note: using max for sieve data, rather than 95th percentile?
         date = max(date),
         longitude_decimal = first(longitude_decimal),
         latitude_decimal = first(latitude_decimal),

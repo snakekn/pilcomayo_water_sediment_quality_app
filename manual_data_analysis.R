@@ -54,7 +54,9 @@ get_table_5 = function(data, param) {
               pct_over = round(n_over/n*100,0),
               hq_max = round(max(HQ, na.rm=TRUE),0),
               station_max = station[which.max(HQ)],
-              mean_conc = round(mean(conc_norm, na.rm=TRUE),1),
+              pct10 = quantile(HQ, probs=0.1, na.rm=TRUE),
+              median_conc = round(median(conc_norm, na.rm=TRUE),1),
+              pct95 = quantile(HQ, probs=0.95, na.rm=TRUE),
               max_conc = round(max(conc_norm, na.rm=TRUE),1)) |>
     kableExtra::kable() |> kableExtra::kable_styling()
   
@@ -74,7 +76,9 @@ get_table_8 = function(data, param) {
               pct_over = round(n_over/n*100,0),
               hq_max = round(max(HQ, na.rm=TRUE),0),
               station_max = station[which.max(HQ)],
-              mean = round(mean(conc_norm, na.rm=TRUE),1),
+              pct10 = quantile(HQ, probs=0.10, na.rm=TRUE),
+              median = round(median(conc_norm, na.rm=TRUE),1),
+              pct95 = quantile(HQ, probs=0.95, na.rm=TRUE),
               unit = "",
               std = unique(std_info))
   
@@ -192,7 +196,41 @@ by_station = prep |>
               unit = "",
               std = unique(std_info))
   
-  res = bind_rows(table, recent)
-  View(res)
-  return(res)
-}
+
+## get silver TS
+silver_ts = plot_pilcomayo_ts (
+    data = bol_water_scored,
+    media = "water",
+    param = "Silver",
+    station = "all",
+    fraction = "any",
+    standard_mode = "all"
+  )
+
+
+## get stations outside bolivia, workaround
+bol_stations = bol_water_scored |>
+  select(station) |>
+  unique() |>
+  pull()
+
+outer_stations = all_water_scored |>
+  filter(!station %in% bol_stations) |>
+  select(station) |>
+  unique() |>
+  pull()
+
+# get per-station HQ vals outside bolivia
+non_bol_water_scored = all_water_scored |>
+  filter(station %in% outer_stations, !is.na(HQ)) |>
+  group_by(station, parameter) |>
+  summarize(n=n(),
+            pct_above_limit = sum(HQ>1, na.rm=TRUE) / n(),
+            min = min(HQ, na.rm=TRUE),
+            pct10 = quantile(HQ, probs=.1, na.rm=TRUE),
+            median = median(HQ, na.rm=TRUE),
+            pct90 = quantile(HQ, probs=.9, na.rm=TRUE),
+            max = max(HQ, na.rm=TRUE),
+            .groups="drop")
+non_bol_water_scored |> View()
+non_bol_water_scored |> filter(pct_above_limit == 1) |> nrow() / nrow(non_bol_water_scored)
