@@ -100,3 +100,15 @@ REVERSE_PARAMS <- c("Oxygen Saturation (%)","Dissolved Oxygen (mg/l O2)","pH","R
 
 CLASS_MAP <- c("Class A"=0,"Class B"=1,"Class C"=2,"Class D"=3,"Unclassified"=4)
 USGS_MAP  <- c("Below TEL"=0,"Above TEL"=1,"Above PEL"=2)
+
+# Station HQ bins
+HQ_STATION_BINS = list(
+  breaks = c(8,14,26,35,47,128),
+  labels = c("Lowest Priority", "Low Priority", "Medium Priority", 
+             "High Priority", "Extreme Priority"),
+  colors = c("Lowest Priority" = "#2E7D32",   # Dark green
+             "Low Priority" = "#66BB6A",       # Light green
+             "Medium Priority" = "#FDD835",    # Yellow
+             "High Priority" = "#FF9800",      # Orange
+             "Extreme Priority" = "#C62828")   # Dark red
+)
