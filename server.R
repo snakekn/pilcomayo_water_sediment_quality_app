@@ -808,7 +808,8 @@ server <- function(input, output, session) {
       addProviderTiles(providers$CartoDB.Positron,    group = "Light") %>%
       addProviderTiles(providers$Esri.WorldTopoMap,   group = "Topo") %>%
       addProviderTiles(providers$Esri.WorldImagery,   group = "Satellite") %>%
-      addMapPane("rasterPane", zIndex = 410) %>% # create raster pane so that rasters always draw on top of basemap
+      addMapPane("rasterPane1", zIndex = 410) %>% # create raster pane so that rasters always draw on top of basemap
+      addMapPane("rasterPane2", zIndex = 415) %>% # 2nd raster pane so risk rasters go on top of pop density
       addMapPane("polygonPane", zIndex = 405) %>% # polygons go below rasters
       addMapPane("polylinePane", zIndex = 420) %>% # polylines on top of polygons
       addMapPane("pointPane", zIndex = 425) %>% # points on top of everything
@@ -976,7 +977,7 @@ server <- function(input, output, session) {
     leafletProxy("risk_map") |>
       addRasterImage(r, colors = pal, opacity = 0.8, 
                      layerId = "water_hazard", group = "water_hazard",
-                     options = leafletOptions(pane = "rasterPane")) # assign to the raster pane defined when creating the leaflet map
+                     options = leafletOptions(pane = "rasterPane2")) # assign to the raster pane defined when creating the leaflet map
   })
   
   observeEvent(sediment_raster(), {
@@ -986,7 +987,7 @@ server <- function(input, output, session) {
     leafletProxy("risk_map") |>
       addRasterImage(r, colors = pal, opacity = 0.8, 
                      layerId = "sed_hazard", group = "sed_hazard",
-                     options = leafletOptions(pane = "rasterPane")) # assign to the raster pane defined when creating the leaflet map
+                     options = leafletOptions(pane = "rasterPane2")) # assign to the raster pane defined when creating the leaflet map
   })
   
   observe({
@@ -3821,7 +3822,7 @@ sediment_raster <- eventReactive(input$create_sediment, {
         addPolylines(
           data    = river_network,
           color   = "darkcyan",
-          weight  = 0.8,
+          weight  = 1.5,
           opacity = 1,
           group   = "river_network",
           options = pathOptions(pane = "polylinePane")
@@ -3829,7 +3830,7 @@ sediment_raster <- eventReactive(input$create_sediment, {
         addPolylines(
           data    = pilco_line,
           color   = "darkblue",
-          weight  = 1.5,
+          weight  = 3,
           opacity = 1,
           group   = "river_network",
           options = pathOptions(pane = "polylinePane")
@@ -4294,7 +4295,7 @@ observeEvent(water_stations_data(), {
         addPolygons(
           data        = eji_data,
           fillColor   = ~pal(eji),
-          fillOpacity = 0.3,
+          fillOpacity = 0.5,
           color       = "white",
           weight      = 0.5,
           opacity     = 0.8,
@@ -4338,7 +4339,7 @@ observeEvent(water_stations_data(), {
           colors  = pal,
           opacity = 0.9,
           group   = "pop_density",
-          options = leafletOptions(pane = "rasterPane")
+          options = leafletOptions(pane = "rasterPane1")
         )
     } else {
       leafletProxy("risk_map") %>%
