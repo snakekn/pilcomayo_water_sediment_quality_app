@@ -1,64 +1,137 @@
 # Define UI
 ui <- fluidPage(
-  tags$head(tags$style(
-    HTML("
-    /* Existing selector box styling */
-    #scope-selector { margin: 8px 12px; padding: 8px; border-radius: 6px; background:#f8f9fa; display:inline-block; }
-    
-    /* NEW: Risk Map Interactive Squares */
-    #risk-sidebar .composite-score {
-      text-align: center; font-size: 22px; font-weight: bold; 
-      margin-bottom: 20px; padding: 12px; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    #risk-sidebar .risk-squares {
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    
-    #risk-sidebar .risk-square-container {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-    }
-    
-    #risk-sidebar .risk-square {
-      width: 100%;
-      height: 28px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: bold;
-      color: white;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
+  tags$head(tags$style(HTML("
+  /* ── Existing: Scope Selector ─────────────────────────────────── */
+  #scope-selector {
+    margin: 8px 12px; padding: 8px; border-radius: 6px;
+    background: #f8f9fa; display: inline-block;
+  }
 
-    
-    #risk-sidebar .risk1 { background: linear-gradient(135deg, #ff6b6b, #ee5a52); }
-    #risk-sidebar .risk2 { background: linear-gradient(135deg, #feca57, #ff9ff3); }
-    #risk-sidebar .risk3 { background: linear-gradient(135deg, #48dbfb, #0abde3); }
-    #risk-sidebar .risk4 { background: linear-gradient(135deg, #54a0ff, #2e86de); }
-    #risk-sidebar .risk5 { background: linear-gradient(135deg, #5f27cd, #341f97); }
-    
-    #risk-sidebar .risk-label {
-      font-size: 11px; color: #333; font-weight: 500; 
-      text-align: center; margin-top: 4px;
-    }
-    
-    #risk-coords {
-      margin-top: 15px; padding: 12px; background: white; 
-      border-radius: 6px; border-left: 4px solid #667eea; font-size: 14px;
-    }
-    
-    @media (max-width: 768px) {
-      #risk-sidebar .risk-square { width: 60px; height: 60px; font-size: 16px; }
-    }
-  ")
-  )),
+  /* ── Existing: Risk Map Interactive Squares ───────────────────── */
+  #risk-sidebar .composite-score {
+    text-align: center; font-size: 22px; font-weight: bold;
+    margin-bottom: 20px; padding: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  #risk-sidebar .risk-squares {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  #risk-sidebar .risk-square-container {
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+
+  #risk-sidebar .risk-square {
+    width: 100%; height: 28px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: bold; color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+
+  #risk-sidebar .risk1 { background: linear-gradient(135deg, #ff6b6b, #ee5a52); }
+  #risk-sidebar .risk2 { background: linear-gradient(135deg, #feca57, #ff9ff3); }
+  #risk-sidebar .risk3 { background: linear-gradient(135deg, #48dbfb, #0abde3); }
+  #risk-sidebar .risk4 { background: linear-gradient(135deg, #54a0ff, #2e86de); }
+  #risk-sidebar .risk5 { background: linear-gradient(135deg, #5f27cd, #341f97); }
+
+  #risk-sidebar .risk-label {
+    font-size: 11px; color: #333; font-weight: 500;
+    text-align: center; margin-top: 4px;
+  }
+
+  #risk-coords {
+    margin-top: 15px; padding: 12px; background: white;
+    border-radius: 6px; border-left: 4px solid #667eea; font-size: 14px;
+  }
+
+  @media (max-width: 768px) {
+    #risk-sidebar .risk-square { width: 60px; height: 60px; font-size: 16px; }
+  }
+
+  /* ── New: Layer Block Containers ──────────────────────────────── */
+  .layer-block {
+    border: 1px solid #e0e0e0; border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 8px; background: #fafafa;
+  }
+
+  .layer-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .layer-header .form-group { margin-bottom: 0; }
+
+  .toggle-chevron {
+    color: #666; font-size: 13px; padding: 0; line-height: 1;
+  }
+
+  /* ── New: Layer Parameter Panel ───────────────────────────────── */
+  .layer-params {
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px dashed #ddd;
+  }
+
+  .layer-params .form-group { margin-bottom: 8px; }
+
+  .layer-params label { font-size: 12px; color: #555; }
+
+  /* ── New: Create Layer Button ─────────────────────────────────── */
+  .btn-block { width: 100%; margin-top: 6px; }
+
+  .btn-create {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; border: none; border-radius: 4px;
+    padding: 6px 12px; font-size: 13px; font-weight: 500;
+    width: 100%; margin-top: 6px; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: opacity 0.15s ease;
+  }
+
+  .btn-create:hover { opacity: 0.88; color: white; }
+
+  /* ── New: Section Headers ─────────────────────────────────────── */
+  .layer-section-header {
+    font-size: 13px; font-weight: 600; color: #444;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 12px 0 6px 0; padding-bottom: 4px;
+    border-bottom: 2px solid #667eea;
+  }
+  
+  /* ── Map Panel: Sticky map, scrollable sidebar ────────────────── */
+  html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.container-fluid {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.tab-content {
+  height: calc(100vh - 84px); /* 42px = height of navbar tabs */
+  overflow: hidden;
+}
+  
+  .well {
+    height: 100vh;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+  }
+  
+  .col-sm-8 {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  
+  #risk_map {
+    height: 100vh !important;
+  }
+"))),
   
   tabsetPanel(
     id = "main_tab",
@@ -646,6 +719,21 @@ ui <- fluidPage(
         )
       ) # close sidebarLayout 
     ), # Close PCA tabPanel
+    
+    
+    
+    
+    
+    ################## RISK MAPPING ############################################
+    
+    ################# RISK MAPPING ##############################################
+    
+    ################ RISK MAPPING #################################################
+    
+    
+    
+    
+    
     tabPanel(
       "Risk Scores Map",
       sidebarLayout(
@@ -661,20 +749,207 @@ ui <- fluidPage(
           
           conditionalPanel(
             condition = "output.map_data_ready",
-            checkboxInput("risk_hq", "Environmental Hazards", value = TRUE),
-            checkboxInput("risk_vul", "Vulnerability from Census Data", value = TRUE),
-            checkboxInput("risk_air", "Air Quality Hazards from Mining Sites", value = TRUE),
-            checkboxInput("risk_mining", "Hazards from Nearby Mining Sites", value = TRUE),
-            checkboxInput("risk_pop", "Population Centers", value = TRUE),
+            
+            h3(strong("Map Layers")),
+            
+            # ── Water Risk ────────────────────────────────────────────────
+            h5(strong("Water Pollution Risk"), style = "margin-bottom: 6px; color: #1C3EB8;"),
+
+            # Water Sampling Stations
+            div(class = "layer-block",
+                checkboxInput("risk_water_stations", "Sampling Stations (Water)", value = FALSE),
+                conditionalPanel(
+                  condition = "input.risk_water_stations == true",
+                  actionButton("create_water_stations", "Create Layer",
+                               class = "btn-create",
+                               icon = icon("layer-group")),
+                  checkboxInput("show_water_stations_inputs", "Modify Inputs", value = FALSE),
+                  conditionalPanel(
+                    condition = "input.show_water_stations_inputs == true",
+                    div(class = "layer-params",
+                        uiOutput("water_stations_params_ui"),
+                        helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
+                        selectInput("water_stations_temp_ag", "Temporal Aggregation:",
+                                    choices = c(
+                                      "Recent" = "recent",
+                                      "Average" = "mean"
+                                    )),
+                        helpText("How to handle parameters that were repeatedly sampled at the same location across time. Select 'Recent' to ignore older data. Select 'Average' to take the average across time for each station-parameter combination."),
+                        conditionalPanel(
+                          condition = "input.water_stations_temp_ag == 'recent'",
+                          numericInput("water_stations_nyears", "Years of Data to Include:",
+                                       value = 5, min = 1, max = 20, step = 1),
+                          helpText(HTML("Leave blank to use only the single most recent sample per station.
+                Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
+                <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time — for example, 'Max' will return the single highest HQ value observed across all parameters and all sampling events within the specified time window.</i>"))
+                        ),
+                        selectInput("water_stations_param_ag", "Final Aggregation:",
+                                    choices = c(
+                                      "Average" = "mean",
+                                      "Max" = "max",
+                                      "95th Percentile" = "pct95"
+                                    ),
+                                    selected = "pct95"),
+                        helpText("How to aggregate hazard scores after temporal aggregation. Each station will be scored using either the average value, maximum value, or 95th percentile across values at that location."),
+                        selectInput("water_stations_fraction", "Fraction:",
+                                    choices = c("All", "Dissolved", "Suspended")),
+                        helpText("Select a fraction if you are only interested in dissolved or suspended concentrations. Otherwise, select 'All'.")
+                    )
+                  )
+                )
+            ),
+            # Water Risk Interpolation
+            div(class = "layer-block",
+                checkboxInput("risk_water", "Interpolated Risk (Water)", value = FALSE),
+                conditionalPanel(
+                  condition = "input.risk_water == true",
+                  actionButton("create_water", "Create Layer",
+                               class = "btn-create",
+                               icon = icon("layer-group")),
+                  checkboxInput("show_water_inputs", "Modify Inputs", value = FALSE),
+                  conditionalPanel(
+                    condition = "input.show_water_inputs == true",
+                    div(class = "layer-params",
+                        uiOutput("water_params_ui"),
+                        helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
+                        selectInput("water_temp_ag", "Temporal Aggregation:",
+                                    choices = c(
+                                      "Recent" = "recent",
+                                      "Average" = "mean"
+                                    )),
+                        helpText("How to handle parameters that were repeatedly sampled at the same location across time. Select 'Recent' to ignore older data. Select 'Average' to take the average across time for each station-parameter combination."),
+                        conditionalPanel(
+                          condition = "input.water_temp_ag == 'recent'",
+                          numericInput("water_nyears", "Years of Data to Include:",
+                                       value = 5, min = 1, max = 20, step = 1),
+                          helpText(HTML("Leave blank to use only the single most recent sample per station.
+              Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
+              <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time — for example, 'Max' will return the single highest HQ value observed across all parameters and all sampling events within the specified time window.</i>")
+                                   )),
+                        selectInput("water_param_ag", "Final Aggregation:",
+                                    choices = c(
+                                      "Average" = "mean",
+                                      "Max" = "max",
+                                      "95th Percentile" = "pct95"
+                                    ),
+                                    selected = "pct95"),
+                        helpText("How to aggregate hazard scores after temporal aggregation. Each station will be scored using either the average value, maximum value, or 95th percentile across values at that location."),
+                        selectInput("water_fraction", "Fraction:",
+                                    choices = c("All", "Dissolved", "Suspended")),
+                        helpText("Select a fraction if you are only interested in dissolved or suspended concentrations. Otherwise, select 'All'.")
+                    )
+                  )
+                )
+            ),
+            
+            # ── Sediment Risk ────────────────────────────────────────────────
+            h5(strong("Sediment Pollution Risk"), style = "margin-bottom: 6px; color: #1C8C27;"),
+            # Sediment Sampling Stations
+            div(class = "layer-block",
+                checkboxInput("risk_sed_stations", "Sampling Stations (Sediment)", value = FALSE),
+                conditionalPanel(
+                  condition = "input.risk_sed_stations == true",
+                  actionButton("create_sed_stations", "Create Layer",
+                               class = "btn-create",
+                               icon = icon("layer-group")),
+                  checkboxInput("show_sed_stations_inputs", "Modify Inputs", value = FALSE),
+                  conditionalPanel(
+                    condition = "input.show_sed_stations_inputs == true",
+                    div(class = "layer-params",
+                        uiOutput("sed_stations_params_ui"),
+                        helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
+                        selectInput("sed_stations_temp_ag", "Temporal Aggregation:",
+                                    choices = c(
+                                      "Recent" = "recent",
+                                      "Average" = "mean"
+                                    )),
+                        helpText("How to handle parameters that were repeatedly sampled at the same location across time. Select 'Recent' to ignore older data. Select 'Average' to take the average across time for each station-parameter combination."),
+                        conditionalPanel(
+                          condition = "input.sed_stations_temp_ag == 'recent'",
+                          numericInput("sed_stations_nyears", "Years of Data to Include:",
+                                       value = 5, min = 1, max = 20, step = 1),
+                          helpText(HTML("Leave blank to use only the single most recent sample per station.
+                Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
+                <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time — for example, 'Max' will return the single highest HQ value observed across all parameters and all sampling events within the specified time window.</i>"))
+                        ),
+                        selectInput("sed_stations_param_ag", "Final Aggregation:",
+                                    choices = c(
+                                      "Average" = "mean",
+                                      "Max" = "max",
+                                      "95th Percentile" = "pct95"
+                                    ),
+                                    selected = "pct95"),
+                        helpText("How to aggregate hazard scores after temporal aggregation. Each station will be scored using either the average value, maximum value, or 95th percentile across values at that location.")
+                    )
+                  )
+                )
+            ),
+            # Sediment Risk Interpolation
+            div(class = "layer-block",
+                checkboxInput("risk_sediment", "Interpolated Risk (Sediment)", value = FALSE),
+                conditionalPanel(
+                  condition = "input.risk_sediment == true",
+                  actionButton("create_sediment", "Create Layer",
+                               class = "btn-create",
+                               icon = icon("layer-group")),
+                  checkboxInput("show_sed_inputs", "Modify Inputs", value = FALSE),
+                  conditionalPanel(
+                    condition = "input.show_sed_inputs == true",
+                    div(class = "layer-params",
+                        uiOutput("sed_params_ui"),
+                        helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
+                        selectInput("sed_temp_ag", "Temporal Aggregation:",
+                                    choices = c(
+                                      "Recent" = "recent",
+                                      "Average" = "mean"
+                                    )),
+                        helpText("How to handle parameters that were repeatedly sampled at the same location across time. Select 'Recent' to ignore older data. Select 'Average' to take the average across time for each station-parameter combination."),
+                        conditionalPanel(
+                          condition = "input.sed_temp_ag == 'recent'",
+                          numericInput("sed_nyears", "Years of Data to Include:",
+                                       value = 5, min = 1, max = 20, step = 1),
+                          helpText(HTML("Leave blank to use only the single most recent sample per station.
+                Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
+                <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time — for example, 'Max' will return the single highest HQ value observed across all parameters and all sampling events within the specified time window.</i>"))
+                        ),
+                        selectInput("sed_param_ag", "Final Aggregation:",
+                                    choices = c(
+                                      "Average" = "mean",
+                                      "Max" = "max",
+                                      "95th Percentile" = "pct95"
+                                    ),
+                                    selected = "pct95"),
+                        helpText("How to aggregate hazard scores after temporal aggregation. Each station will be scored using either the average value, maximum value, or 95th percentile across values at that location.")
+                    )
+                  )
+                )
+            ),
+            
+            
+            h5(strong("Population Vulnerability"), style = "margin-bottom: 6px; color: #721FAB;"),
+            # EJI Vulnerability (polygon, preloaded)
+            checkboxInput("risk_eji", "EJI Scored Municipalities", value = FALSE),
+            
+            # Population Density (raster, preloaded)
+            checkboxInput("risk_pop_density", "Square Root of Population Density", value = FALSE),
             
             hr(),
             
-            # Interactive Risk Squares Section
-            uiOutput("risk_sidebar"),            
+            # ── OTHER ─────────────────────────────────────────────────
+            h5(strong("Other"), style = "margin-bottom: 6px;"),
+            checkboxInput("risk_mines",      "Mine Locations",        value = FALSE),
+            checkboxInput("risk_tailings",   "Tailings Sites",        value = FALSE),
+            checkboxInput("risk_settlements","Settlements",           value = FALSE),
+            checkboxInput("risk_river",      "River Network",         value = FALSE),
+            checkboxInput("risk_air",        "Air Hazard",            value = FALSE),
+            
+            hr(),
+            
+            # Click-to-inspect callout
+            uiOutput("risk_sidebar"),
             info_callout("Risk Map",
-                         "Click anywhere on the map to see detailed risk values for each layer. 
-                     The 5 colored squares show individual risk scores (0-100), with the 
-                     composite score at the top representing total risk. Higher values = higher risk.")
+                         "Click anywhere on the map to see detailed risk values for each layer.
+                      Higher values = higher risk.")
           )
         ),
         mainPanel(

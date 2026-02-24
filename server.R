@@ -804,26 +804,36 @@ server <- function(input, output, session) {
   
   # render the output map
   output$risk_map <- renderLeaflet({
-    leaflet() |> 
-      addTiles() |>
-      setView(lng = -65.3, lat = -19.0, zoom = 7)
+    leaflet() %>%
+      addProviderTiles(providers$CartoDB.Positron,    group = "Light") %>%
+      addProviderTiles(providers$Esri.WorldTopoMap,   group = "Topo") %>%
+      addProviderTiles(providers$Esri.WorldImagery,   group = "Satellite") %>%
+      addMapPane("rasterPane", zIndex = 410) %>% # create raster pane so that rasters always draw on top of basemap
+      addMapPane("polygonPane", zIndex = 405) %>% # polygons go below rasters
+      addMapPane("polylinePane", zIndex = 420) %>% # polylines on top of polygons
+      addMapPane("pointPane", zIndex = 425) %>% # points on top of everything
+      addLayersControl(
+        baseGroups = c("Light", "Topo", "Satellite"),
+        options = layersControlOptions(collapsed = TRUE)
+      ) %>%
+      setView(lat=-20.5, lng=-65.3, zoom=7.2)
   })
   
   observe({
-    req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
+    req(input$main_tab == "Risk Scores Map")
     
-    r = risk_raster()
-    if(is.null(r)) { # no layers selected
-      stop("No layers selected. Please select at least 1 layer to map risk on the region.")
-    }
-    req(!is.null(r), !is.null(r$merged))
-
-    proxy = leafletProxy("risk_map", data = r$merged) |> clearImages()
+    r <- risk_raster()
     
-    # note: this may throw a projection error, which means you need to reinstall terra
+    # Silently do nothing if no layers selected — don't stop(), just return
+    if (is.null(r) || is.null(r$merged)) return()
+    
+    proxy <- leafletProxy("risk_map") |> clearImages()
+    
     pal <- colorNumeric("viridis", terra::values(r$merged), na.color = "transparent")
-    proxy %>%
-      addRasterImage(r$merged, colors = pal, opacity = 0.7, layerId = "risk_merged", project = FALSE) # will need to project later
+    
+    proxy |>
+      addRasterImage(r$merged, colors = pal, opacity = 0.7, 
+                     layerId = "risk_merged", project = FALSE)
   })
   
   observe({
@@ -957,6 +967,45 @@ server <- function(input, output, session) {
     })
   })
   
+  # ── Risk map: create-layer buttons ────────────────────────────
+  
+  observeEvent(water_raster(), {
+    r <- water_raster()
+    req(r)
+    pal <- colorNumeric("RdYlBu", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
+    leafletProxy("risk_map") |>
+      addRasterImage(r, colors = pal, opacity = 0.8, 
+                     layerId = "water_hazard", group = "water_hazard",
+                     options = leafletOptions(pane = "rasterPane")) # assign to the raster pane defined when creating the leaflet map
+  })
+  
+  observeEvent(sediment_raster(), {
+    r <- sediment_raster()
+    req(r)
+    pal <- colorNumeric("RdYlGn", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
+    leafletProxy("risk_map") |>
+      addRasterImage(r, colors = pal, opacity = 0.8, 
+                     layerId = "sed_hazard", group = "sed_hazard",
+                     options = leafletOptions(pane = "rasterPane")) # assign to the raster pane defined when creating the leaflet map
+  })
+  
+  observe({
+    req(!is.null(water_raster()))
+    if (isTRUE(input$risk_water)) {
+      leafletProxy("risk_map") |> showGroup("water_hazard")
+    } else {
+      leafletProxy("risk_map") |> hideGroup("water_hazard")
+    }
+  })
+  
+  observe({
+    req(!is.null(sediment_raster()))
+    if (isTRUE(input$risk_sediment)) {
+      leafletProxy("risk_map") |> showGroup("sed_hazard")
+    } else {
+      leafletProxy("risk_map") |> hideGroup("sed_hazard")
+    }
+  })
   
   output$risk_sidebar <- renderUI({
     init_vals <- rep("-", 5)
@@ -2921,24 +2970,118 @@ server <- function(input, output, session) {
   })
   
   # for updatin the water parameter select option
+  # Server
   observe({
     req(master_data$water_scored)
     req(nrow(master_data$water_scored) > 0)
     
-    water_params <- unique(master_data$water_scored$parameter)
-    water_params <- water_params[!is.na(water_params)]
+    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
     
-    # Filter out non-chemical parameters (adjust as needed)
-    excluded <- c("pH", "Conductivity", "Temperature", "Dissolved Oxygen", 
-                  "Oxygen Saturation", "Turbidity", "Flow", "Average Velocity")
-    water_params <- setdiff(water_params, excluded)
-    water_params <- sort(water_params)
+    choices <- c(
+      "All Parameters" = "all",
+      "All Metals" = "metals",
+      "All Nutrients" = "nutrients",
+      setNames(water_params, water_params)
+    )
     
-    cat("Water parameters:", paste(water_params, collapse = ", "), "\n")
+    updateSelectizeInput(session, "water_params",
+                         choices = choices,
+                         selected = "all",
+                         server = TRUE
+    )
+  })
+  
+  observeEvent(input$water_params, {
+    selected <- input$water_params
     
-    updateSelectInput(session, "water_metal", 
-                      choices = water_params,
-                      selected = if(length(water_params) > 0) water_params[1] else NULL)
+    # If nothing selected, revert to "all"
+    if (length(selected) == 0) {
+      updateSelectizeInput(session, "water_params", selected = "all")
+      return()
+    }
+    
+    # Preset options that are mutually exclusive with everything else
+    presets <- c("all", "metals", "nutrients")
+    
+    selected_presets <- intersect(selected, presets)
+    selected_individual <- setdiff(selected, presets)
+    
+    # If user just added a preset, clear everything else and keep only that preset
+    if (length(selected_presets) > 0 && length(selected_individual) > 0) {
+      # Figure out which preset was most recently added
+      # by checking what's new — keep only presets, drop individuals
+      updateSelectizeInput(session, "water_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+    
+    # If multiple presets selected, keep only the most recent one
+    if (length(selected_presets) > 1) {
+      updateSelectizeInput(session, "water_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+  })
+  
+  # Populate parameter choices for water and sediment risk map creation
+  output$water_params_ui <- renderUI({
+    req(master_data$water_scored)
+    req(nrow(master_data$water_scored) > 0)
+    
+    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
+    
+    choices <- c(
+      "All Parameters" = "all",
+      "All Metals" = "metals", 
+      "All Nutrients" = "nutrients",
+      setNames(water_params, water_params)
+    )
+    
+    selectizeInput("water_params", "Parameter(s):",
+                   choices = choices,
+                   selected = "all",
+                   multiple = TRUE,
+                   options = list(
+                     optgroups = list(
+                       list(value = "presets", label = "— Presets —"),
+                       list(value = "individual", label = "— Individual Parameters —")
+                     ),
+                     optgroupField = "group",
+                     options = c(
+                       list(list(value = "all",       label = "All Parameters", group = "presets"),
+                            list(value = "metals",    label = "All Metals",     group = "presets"),
+                            list(value = "nutrients", label = "All Nutrients",  group = "presets")),
+                       lapply(water_params, function(p) list(value = p, label = p, group = "individual"))
+                     )
+                   ))
+  })
+  
+  output$sed_params_ui <- renderUI({
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)
+    
+    sed_params <- sort(unique(na.omit(master_data$sed_scored$parameter)))
+    
+    choices <- c(
+      "All Parameters" = "all",
+      "All Metals" = "metals",
+      setNames(sed_params, sed_params)
+    )
+    
+    selectizeInput("sed_params", "Parameter(s):",
+                   choices = choices,
+                   selected = "all",
+                   multiple = TRUE,
+                   options = list(
+                     optgroups = list(
+                       list(value = "presets", label = "— Presets —"),
+                       list(value = "individual", label = "— Individual Parameters —")
+                     ),
+                     optgroupField = "group",
+                     options = c(
+                       list(list(value = "all",       label = "All Parameters", group = "presets"),
+                            list(value = "metals",    label = "All Metals",     group = "presets")),
+                       lapply(sed_params, function(p) list(value = p, label = p, group = "individual"))
+                     )
+                   ))
   })
   
   # Filtered data based on all inputs
@@ -3603,4 +3746,625 @@ server <- function(input, output, session) {
   output$stds_all <- renderDT({
     stds
   })
+  
+  # Water hazard layer
+  water_raster <- eventReactive(input$create_water, {
+    
+    params   <- if (is.null(input$water_params))   "all"    else input$water_params
+    temp_ag  <- if (is.null(input$water_temp_ag))  "recent" else input$water_temp_ag
+    param_ag <- if (is.null(input$water_param_ag)) "pct95"  else input$water_param_ag
+    nyears   <- if (is.null(input$water_nyears) || is.na(input$water_nyears)) 5 else input$water_nyears
+    fraction <- if (is.null(input$water_fraction) || input$water_fraction == "All") NULL else input$water_fraction
+    
+    withProgress(message = "Creating water hazard layer...", {
+      result <- create_risk_map(
+        data                 = master_data$water_scored,
+        params               = params,
+        param_aggregation    = param_ag,
+        temporal_aggregation = temp_ag,
+        nyears               = nyears,
+        fraction             = fraction
+      )
+    })
+    
+    result$risk_raster
+  })
+
+  
+  # Sediment hazard layer
+sediment_raster <- eventReactive(input$create_sediment, {
+  
+  params   <- if (is.null(input$sed_params))   "all"    else input$sed_params
+  temp_ag  <- if (is.null(input$sed_temp_ag))  "recent" else input$sed_temp_ag
+  param_ag <- if (is.null(input$sed_param_ag)) "pct95"  else input$sed_param_ag
+  nyears   <- if (is.null(input$sed_nyears) || is.na(input$sed_nyears)) 5 else input$sed_nyears
+  
+  withProgress(message = "Creating sediment hazard layer...", {
+    result <- create_risk_map(
+      data                 = master_data$sed_scored,
+      params               = params,
+      param_aggregation    = param_ag,
+      temporal_aggregation = temp_ag,
+      nyears               = nyears,
+      fraction             = NULL
+    )
+  })
+  
+  result$risk_raster
+})
+  
+  # In server.R - populate water_params choices
+  observe({
+    req(master_data$water_scored)
+    req(nrow(master_data$water_scored) > 0)
+    
+    water_params <- unique(master_data$water_scored$parameter)
+    water_params <- water_params[!is.na(water_params)]
+    water_params <- sort(water_params)
+    
+    updateSelectInput(session, "water_params",
+                      choices = c("All Parameters" = "all", water_params),
+                      selected = "all")
+  })
+  
+  observe({
+    if (isTRUE(input$risk_river)) {
+      if (!exists("river_network")) {
+        river_network <<- st_read("data/shp/River_Network.shp")
+      }
+      if (!exists("pilco_line")) {
+        pilco_line <<- st_read("data/geojson/pilco_line.geojson")
+      }
+      
+      leafletProxy("risk_map") |>
+        clearGroup("river_network") |>
+        addPolylines(
+          data    = river_network,
+          color   = "darkcyan",
+          weight  = 0.8,
+          opacity = 1,
+          group   = "river_network",
+          options = pathOptions(pane = "polylinePane")
+        ) |>
+        addPolylines(
+          data    = pilco_line,
+          color   = "darkblue",
+          weight  = 1.5,
+          opacity = 1,
+          group   = "river_network",
+          options = pathOptions(pane = "polylinePane")
+        )
+    } else {
+      leafletProxy("risk_map") |>
+        clearGroup("river_network")
+    }
+  })
+  
+  # Populate parameter dropdown
+  output$water_stations_params_ui <- renderUI({
+    req(master_data$water_scored)
+    req(nrow(master_data$water_scored) > 0)
+    
+    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
+    
+    selectizeInput("water_stations_params", "Parameter(s):",
+                   choices = c(
+                     "All Parameters" = "all",
+                     "All Metals"     = "metals",
+                     "All Nutrients"  = "nutrients",
+                     setNames(water_params, water_params)
+                   ),
+                   selected = "all",
+                   multiple = TRUE,
+                   options = list(
+                     optgroups = list(
+                       list(value = "presets",    label = "— Presets —"),
+                       list(value = "individual", label = "— Individual Parameters —")
+                     ),
+                     optgroupField = "group",
+                     options = c(
+                       list(list(value = "all",       label = "All Parameters", group = "presets"),
+                            list(value = "metals",    label = "All Metals",     group = "presets"),
+                            list(value = "nutrients", label = "All Nutrients",  group = "presets")),
+                       lapply(water_params, function(p) list(value = p, label = p, group = "individual"))
+                     )
+                   ))
+  })
+  
+  # Mutual exclusivity
+  observeEvent(input$water_stations_params, {
+    selected <- input$water_stations_params
+    
+    if (length(selected) == 0) {
+      updateSelectizeInput(session, "water_stations_params", selected = "all")
+      return()
+    }
+    
+    presets <- c("all", "metals", "nutrients")
+    selected_presets   <- intersect(selected, presets)
+    selected_individual <- setdiff(selected, presets)
+    
+    if (length(selected_presets) > 0 && length(selected_individual) > 0) {
+      updateSelectizeInput(session, "water_stations_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+    
+    if (length(selected_presets) > 1) {
+      updateSelectizeInput(session, "water_stations_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+  })
+  
+  water_stations_data <- eventReactive(input$create_water_stations, {
+    
+    params   <- if (is.null(input$water_stations_params))   "all"    else input$water_stations_params
+    temp_ag  <- if (is.null(input$water_stations_temp_ag))  "recent" else input$water_stations_temp_ag
+    param_ag <- if (is.null(input$water_stations_param_ag)) "pct95"  else input$water_stations_param_ag
+    nyears   <- if (is.null(input$water_stations_nyears) || is.na(input$water_stations_nyears)) 5 else input$water_stations_nyears
+    fraction <- if (is.null(input$water_stations_fraction) || input$water_stations_fraction == "All") NULL else input$water_stations_fraction
+    
+    withProgress(message = "Creating water station points...", {
+      prepare_water_quality_data(
+        data                 = master_data$water_scored,
+        params               = params,
+        param_aggregation    = param_ag,
+        temporal_aggregation = temp_ag,
+        nyears               = nyears,
+        fraction             = fraction,
+        date                 = Sys.Date()
+      )
+    })
+  })
+  
+  # Add to map on creation
+observeEvent(water_stations_data(), {
+  df <- water_stations_data()
+  req(df, nrow(df) > 0, "HQ" %in% names(df))
+  
+  hq_vals <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
+  
+  pal <- colorNumeric(
+    palette  = "RdYlBu",
+    domain   = hq_vals,
+    reverse  = TRUE,
+    na.color = "grey"
+  )
+  
+  bin_colors <- c("#2c7bb6", "#abd9e9", "#ffffbf", "#fc8d59", "#d73027", "#67001f")
+  
+  df$popup_text <- sapply(1:nrow(df), function(i) {
+    hq      <- df$HQ[i]
+    station <- df$station[i]
+    date    <- df$date[i]
+    
+    if (input$water_stations_temp_ag == "recent") {
+      date_display <- paste0("<b>Date:</b> ", date)
+    } else {
+      min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
+      date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+    }
+    
+    popup <- paste0(
+      "<b>Station:</b> ", station, "<br>",
+      "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+      date_display
+    )
+    
+    if ("parameter_hqs" %in% names(df) && "parameter_names" %in% names(df)) {
+      param_hqs   <- df$parameter_hqs[[i]]
+      param_names <- df$parameter_names[[i]]
+      
+      if (!is.null(param_hqs) && length(param_hqs) > 1) {
+        
+        param_df <- data.frame(
+          parameter = param_names,
+          HQ        = param_hqs,
+          stringsAsFactors = FALSE
+        )
+        
+        param_aggregated <- param_df %>%
+          group_by(parameter) %>%
+          summarise(HQ = max(HQ, na.rm = TRUE), .groups = "drop")
+        
+        param_hqs_unique   <- param_aggregated$HQ
+        param_names_unique <- param_aggregated$parameter
+        
+        breaks     <- c(0, 0.5, 1, 2, 5, 10, Inf)
+        bin_labels <- c("0-0.5", "0.5-1", "1-2", "2-5", "5-10", "10+")
+        
+        bin_counts       <- table(cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE))
+        max_count        <- max(bin_counts)
+        max_bar_height   <- 80
+        container_height <- max_bar_height + 30
+        pixels_per_count <- max_bar_height / max_count
+        
+        hist_html <- paste0(
+          "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
+          "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+          "<div style='display: flex; align-items: flex-end; height: ", container_height,
+          "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
+        )
+        
+        for (j in seq_along(bin_labels)) {
+          count    <- as.numeric(bin_counts[j])
+          bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
+          
+          if (count > 0) {
+            params_in_bin <- param_names_unique[bin_mask]
+            hqs_in_bin    <- param_hqs_unique[bin_mask]
+            param_details <- paste0(params_in_bin, " (", round(hqs_in_bin, 2), ")", collapse = "&#10;")
+            tooltip_text  <- paste0("HQ by parameter (", bin_labels[j], " HQ):&#10;", param_details)
+          } else {
+            tooltip_text <- paste0(bin_labels[j], ": no parameters")
+          }
+          
+          bar_height <- count * pixels_per_count
+          
+          hist_html <- paste0(hist_html,
+            "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
+            "<div style='width: 100%; background-color: ", bin_colors[j],
+            "; height: ", bar_height, "px;' ",
+            "title='", tooltip_text, "'></div>",
+            "<small style='font-size: 9px; margin-top: 2px; font-weight: bold;'>", count, "</small>",
+            "</div>"
+          )
+        }
+        
+        hist_html <- paste0(hist_html,
+          "</div>",
+          "<div style='display: flex; justify-content: space-between;'>",
+          "<small style='font-size: 8px; color: #666;'>0</small>",
+          "<small style='font-size: 8px; color: #666;'>0.5</small>",
+          "<small style='font-size: 8px; color: #666;'>1</small>",
+          "<small style='font-size: 8px; color: #666;'>2</small>",
+          "<small style='font-size: 8px; color: #666;'>5</small>",
+          "<small style='font-size: 8px; color: #666;'>10+</small>",
+          "</div>",
+          "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
+          " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+          "</div>"
+        )
+        
+        popup <- paste0(popup, hist_html)
+      }
+    }
+    
+    return(popup)
+  })
+  
+  leafletProxy("risk_map") |>
+    clearGroup("water_stations") |>
+    addCircleMarkers(
+      data        = df,
+      lng         = ~longitude_decimal,
+      lat         = ~latitude_decimal,
+      color       = "black",
+      weight      = 1.5,
+      fillColor   = ~pal(HQ),
+      fillOpacity = 1,
+      radius      = 8,
+      group       = "water_stations",
+      popup       = ~popup_text,
+      options     = pathOptions(pane = "pointPane")
+    )
+})
+  
+  # Toggle visibility
+  observe({
+    if (isTRUE(input$risk_water_stations)) {
+      leafletProxy("risk_map") |> showGroup("water_stations")
+    } else {
+      leafletProxy("risk_map") |> hideGroup("water_stations")
+    }
+  })
+  
+  # Populate parameter dropdown
+  output$sed_stations_params_ui <- renderUI({
+    req(master_data$sed_scored)
+    req(nrow(master_data$sed_scored) > 0)
+    
+    sed_params <- sort(unique(na.omit(master_data$sed_scored$parameter)))
+    sed_params <- sed_params[!grepl("^\\d", sed_params)]
+    
+    selectizeInput("sed_stations_params", "Parameter(s):",
+                   choices = c(
+                     "All Parameters" = "all",
+                     "All Metals"     = "metals",
+                     setNames(sed_params, sed_params)
+                   ),
+                   selected = "all",
+                   multiple = TRUE,
+                   options = list(
+                     optgroups = list(
+                       list(value = "presets",    label = "— Presets —"),
+                       list(value = "individual", label = "— Individual Parameters —")
+                     ),
+                     optgroupField = "group",
+                     options = c(
+                       list(list(value = "all",    label = "All Parameters", group = "presets"),
+                            list(value = "metals", label = "All Metals",     group = "presets")),
+                       lapply(sed_params, function(p) list(value = p, label = p, group = "individual"))
+                     )
+                   ))
+  })
+  
+  # Mutual exclusivity
+  observeEvent(input$sed_stations_params, {
+    selected <- input$sed_stations_params
+    
+    if (length(selected) == 0) {
+      updateSelectizeInput(session, "sed_stations_params", selected = "all")
+      return()
+    }
+    
+    presets <- c("all", "metals")
+    selected_presets    <- intersect(selected, presets)
+    selected_individual <- setdiff(selected, presets)
+    
+    if (length(selected_presets) > 0 && length(selected_individual) > 0) {
+      updateSelectizeInput(session, "sed_stations_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+    
+    if (length(selected_presets) > 1) {
+      updateSelectizeInput(session, "sed_stations_params", selected = selected_presets[length(selected_presets)])
+      return()
+    }
+  })
+  
+  sed_stations_data <- eventReactive(input$create_sed_stations, {
+    
+    params   <- if (is.null(input$sed_stations_params))   "all"    else input$sed_stations_params
+    temp_ag  <- if (is.null(input$sed_stations_temp_ag))  "recent" else input$sed_stations_temp_ag
+    param_ag <- if (is.null(input$sed_stations_param_ag)) "pct95"  else input$sed_stations_param_ag
+    nyears   <- if (is.null(input$sed_stations_nyears) || is.na(input$sed_stations_nyears)) 5 else input$sed_stations_nyears
+    
+    withProgress(message = "Creating sediment station points...", {
+      prepare_water_quality_data(
+        data                 = master_data$sed_scored,
+        params               = params,
+        param_aggregation    = param_ag,
+        temporal_aggregation = temp_ag,
+        nyears               = nyears,
+        fraction             = NULL,
+        date                 = Sys.Date()
+      )
+    })
+  })
+  
+  # Add to map on creation
+  observeEvent(sed_stations_data(), {
+    df <- sed_stations_data()
+    req(df, nrow(df) > 0, "HQ" %in% names(df))
+    
+    hq_vals <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
+    
+    pal <- colorNumeric(
+      palette  = "RdYlGn",
+      domain   = hq_vals,
+      reverse  = TRUE,
+      na.color = "grey"
+    )
+    
+    bin_colors <- c("#1a9850", "#d9ef8b", "#ffffbf", "#fc8d59", "#d73027", "#67001f")
+    
+    df$popup_text <- sapply(1:nrow(df), function(i) {
+      hq      <- df$HQ[i]
+      station <- df$station[i]
+      date    <- df$date[i]
+      
+      if (input$sed_stations_temp_ag == "recent") {
+        date_display <- paste0("<b>Date:</b> ", date)
+      } else {
+        min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
+        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+      }
+      
+      popup <- paste0(
+        "<b>Station:</b> ", station, "<br>",
+        "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+        date_display
+      )
+      
+      if ("parameter_hqs" %in% names(df) && "parameter_names" %in% names(df)) {
+        param_hqs   <- df$parameter_hqs[[i]]
+        param_names <- df$parameter_names[[i]]
+        
+        if (!is.null(param_hqs) && length(param_hqs) > 1) {
+          
+          param_df <- data.frame(
+            parameter = param_names,
+            HQ        = param_hqs,
+            stringsAsFactors = FALSE
+          )
+          
+          param_aggregated <- param_df %>%
+            group_by(parameter) %>%
+            summarise(HQ = max(HQ, na.rm = TRUE), .groups = "drop")
+          
+          param_hqs_unique   <- param_aggregated$HQ
+          param_names_unique <- param_aggregated$parameter
+          
+          breaks     <- c(0, 0.5, 1, 2, 5, 10, Inf)
+          bin_labels <- c("0-0.5", "0.5-1", "1-2", "2-5", "5-10", "10+")
+          
+          bin_counts       <- table(cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE))
+          max_count        <- max(bin_counts)
+          max_bar_height   <- 80
+          container_height <- max_bar_height + 30
+          pixels_per_count <- max_bar_height / max_count
+          
+          hist_html <- paste0(
+            "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
+            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+            "<div style='display: flex; align-items: flex-end; height: ", container_height,
+            "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
+          )
+          
+          for (j in seq_along(bin_labels)) {
+            count    <- as.numeric(bin_counts[j])
+            bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
+            
+            if (count > 0) {
+              params_in_bin <- param_names_unique[bin_mask]
+              hqs_in_bin    <- param_hqs_unique[bin_mask]
+              param_details <- paste0(params_in_bin, " (", round(hqs_in_bin, 2), ")", collapse = "&#10;")
+              tooltip_text  <- paste0("HQ by parameter (", bin_labels[j], " HQ):&#10;", param_details)
+            } else {
+              tooltip_text <- paste0(bin_labels[j], ": no parameters")
+            }
+            
+            bar_height <- count * pixels_per_count
+            
+            hist_html <- paste0(hist_html,
+                                "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
+                                "<div style='width: 100%; background-color: ", bin_colors[j],
+                                "; height: ", bar_height, "px;' ",
+                                "title='", tooltip_text, "'></div>",
+                                "<small style='font-size: 9px; margin-top: 2px; font-weight: bold;'>", count, "</small>",
+                                "</div>"
+            )
+          }
+          
+          hist_html <- paste0(hist_html,
+                              "</div>",
+                              "<div style='display: flex; justify-content: space-between;'>",
+                              "<small style='font-size: 8px; color: #666;'>0</small>",
+                              "<small style='font-size: 8px; color: #666;'>0.5</small>",
+                              "<small style='font-size: 8px; color: #666;'>1</small>",
+                              "<small style='font-size: 8px; color: #666;'>2</small>",
+                              "<small style='font-size: 8px; color: #666;'>5</small>",
+                              "<small style='font-size: 8px; color: #666;'>10+</small>",
+                              "</div>",
+                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
+                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+                              "</div>"
+          )
+          
+          popup <- paste0(popup, hist_html)
+        }
+      }
+      
+      return(popup)
+    })
+    
+    leafletProxy("risk_map") |>
+      clearGroup("sed_stations") |>
+      addCircleMarkers(
+        data        = df,
+        lng         = ~longitude_decimal,
+        lat         = ~latitude_decimal,
+        color       = "black",
+        weight      = 1.5,
+        fillColor   = ~pal(HQ),
+        fillOpacity = 1,
+        radius      = 8,
+        group       = "sed_stations",
+        popup       = ~popup_text,
+        options     = pathOptions(pane = "pointPane")
+      )
+  })
+  
+  # Toggle visibility
+  observe({
+    if (isTRUE(input$risk_sed_stations)) {
+      leafletProxy("risk_map") |> showGroup("sed_stations")
+    } else {
+      leafletProxy("risk_map") |> hideGroup("sed_stations")
+    }
+  })
+  
+  observe({
+    if (isTRUE(input$risk_eji)) {
+      if (!exists("eji_data")) {
+        withProgress(message = "Loading EJI data...", {
+          eji_data <<- st_read("data/census/shp/Bolivia_Mun_EJI_Shape_updated.shp", quiet = TRUE) %>%
+            st_transform(4326)
+        })
+      }
+      
+      pal <- colorNumeric(
+        palette  = "Purples",
+        domain   = eji_data$eji,
+        na.color = "transparent"
+      )
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("eji") %>%
+        addPolygons(
+          data        = eji_data,
+          fillColor   = ~pal(eji),
+          fillOpacity = 0.3,
+          color       = "white",
+          weight      = 0.5,
+          opacity     = 0.8,
+          group       = "eji",
+          options     = pathOptions(pane = "polygonPane"),
+          label       = ~paste0("Municipality: ", adm3_name, "<br>EJI Score: ", round(eji, 3)) %>% lapply(htmltools::HTML)
+        )
+    } else {
+      leafletProxy("risk_map") %>%
+        clearGroup("eji")
+    }
+  })
+  
+  pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp")
+  
+  # Population Raster
+  observe({
+    if (isTRUE(input$risk_pop_density)) {
+        withProgress(message = "Loading population density...", {
+          pop_raster <<- rast("data/population_raster/pop_2024.tif") %>%
+            project("EPSG:4326") %>%
+            crop(pilco_basin) %>%
+            mask(pilco_basin) %>%
+            sqrt()
+        })
+      
+      
+      pop_vals <- values(pop_raster)
+      pop_vals <- pop_vals[!is.na(pop_vals) & pop_vals > 0]
+      
+      pal <- colorNumeric(
+        palette  = "magma",
+        domain   = pop_vals,
+        na.color = "transparent"
+      )
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("pop_density") %>%
+        addRasterImage(
+          pop_raster,
+          colors  = pal,
+          opacity = 0.9,
+          group   = "pop_density",
+          options = leafletOptions(pane = "rasterPane")
+        )
+    } else {
+      leafletProxy("risk_map") %>%
+        clearGroup("pop_density")
+    }
+  })
+ 
+  # Jackson TO DO:
+  # 1. Finish adding other layers (mines, settlements, tailings, etc.)
+  #   - option to score settlements?
+  #   - somehow include upstream mining exposure? (definitely a maybe)
+  # 2. Bin risk raster outputs
+  #   - options to use different binning methods? (default = quantiles from scored stations)
+  #   - UI?
+  # 3. Rasterise and bin EJI polygons
+  #   - options to use different binning methods? (default = quantiles from polygons)
+  #   - UI?
+  # 4. Bin pop density 
+  #   - options for different binning methods?
+  #   - options for different normalizations? (default = square root)
+  #   - UI?
+  # 5. Combine all 4 layers to create final Prioritization Layer
+  #   - options to include/exclude water, sediment, EJI, an pop layers?
+  #   - UI?
+  # 6. Cross-reference with layers created for our report to make sure it all lines up
+   
 }
+
+
