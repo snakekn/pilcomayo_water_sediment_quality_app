@@ -23,6 +23,7 @@ library(ggiraph)
 library(shinyjs)
 library(shinyBS)
 library(ggrepel)
+library(stringr)
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)

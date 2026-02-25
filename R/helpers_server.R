@@ -1696,3 +1696,66 @@ compare_units_summary <- function(sample_unit, standard_unit) {
             res$message, sample_unit, standard_unit)
   }
 }
+
+legend_color_bar <- function(palette, title, min_val, max_val, bins = NULL) {
+  if (!is.null(bins)) {
+    # discrete bins
+    colors <- palette(bins)
+    labels <- as.character(bins)
+    swatches <- paste0(
+      mapply(function(col, lab) {
+        paste0('<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">',
+               '<div style="width:20px;height:14px;background:', col, ';border-radius:2px;flex-shrink:0;"></div>',
+               '<span style="font-size:11px;">', lab, '</span></div>')
+      }, colors, labels),
+      collapse = ""
+    )
+    paste0('<div style="margin-bottom:8px;">',
+           '<div style="font-weight:bold;font-size:12px;margin-bottom:4px;">', title, '</div>',
+           swatches, '</div>')
+  } else {
+    # continuous gradient
+    paste0(
+      '<div style="margin-bottom:8px;">',
+      '<div style="font-weight:bold;font-size:12px;margin-bottom:4px;">', title, '</div>',
+      '<div style="display:flex;align-items:center;gap:6px;">',
+      '<span style="font-size:10px;">', round(min_val, 1), '</span>',
+      '<div style="width:80px;height:12px;background:linear-gradient(to right,',
+      paste(palette(seq(min_val, max_val, length.out = 6)), collapse = ","),
+      ');border-radius:2px;"></div>',
+      '<span style="font-size:10px;">', round(max_val, 1), '</span>',
+      '</div></div>'
+    )
+  }
+}
+
+legend_categorical <- function(title, colors, labels) {
+  swatches <- paste0(
+    mapply(function(col, lab) {
+      paste0('<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">',
+             '<div style="width:14px;height:14px;background:', col, 
+             ';border-radius:2px;flex-shrink:0;"></div>',
+             '<span style="font-size:11px;">', lab, '</span></div>')
+    }, colors, labels),
+    collapse = ""
+  )
+  paste0('<div style="margin-bottom:8px;">',
+         '<div style="font-weight:bold;font-size:12px;margin-bottom:4px;">', title, '</div>',
+         swatches, '</div>')
+}
+
+legend_wrapper <- function(html) {
+  paste0(
+    '<div id="map-legend" style="',
+    'background:white;padding:10px 12px;border-radius:6px;',
+    'box-shadow:0 1px 5px rgba(0,0,0,0.3);',
+    'max-height:400px;overflow-y:auto;',
+    'min-width:160px;max-width:200px;',
+    'margin-bottom:30px;">',
+    '<div style="font-weight:bold;font-size:13px;border-bottom:1px solid #ddd;',
+    'margin-bottom:8px;padding-bottom:4px;">Legend</div>',
+    html,
+    '</div>'
+  )
+}
+

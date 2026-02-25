@@ -32,6 +32,7 @@ server <- function(input, output, session) {
     master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.rds")) readRDS("data/processed/all_media_locyear.rds") else { print("no all_media_locyear.rds"); tibble() }
     master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.rds")) readRDS("data/processed/all_media_loctime.rds") else { print("no all_media_loctime.rds"); tibble() }
     
+    
     cat("\n========================================\n")
     cat("MASTER DATA LOADED\n")
     cat("========================================\n")
@@ -751,14 +752,17 @@ server <- function(input, output, session) {
   # prepare the raster layers we'll utilize
   
   
+  
+  # Jackson's Notes: commenting this out for now (seems like it was not being used)
+  
   # Risk layer definitions (add before your existing riskraster reactive)
-  risk_layer_info <- list(
-    list(id = 1, name = "Environmental\nHazards", checkbox = "risk_hq", class = "risk1"),
-    list(id = 2, name = "Vulnerability", checkbox = "risk_vul", class = "risk2"),
-    list(id = 3, name = "Air Quality", checkbox = "risk_air", class = "risk3"),
-    list(id = 4, name = "Mining Sites", checkbox = "risk_mining", class = "risk4"),
-    list(id = 5, name = "Population", checkbox = "risk_pop", class = "risk5")
-  )
+  # risk_layer_info <- list(
+  #   list(id = 1, name = "Environmental\nHazards", checkbox = "risk_hq", class = "risk1"),
+  #   list(id = 2, name = "Vulnerability", checkbox = "risk_vul", class = "risk2"),
+  #   list(id = 3, name = "Air Quality", checkbox = "risk_air", class = "risk3"),
+  #   list(id = 4, name = "Mining Sites", checkbox = "risk_mining", class = "risk4"),
+  #   list(id = 5, name = "Population", checkbox = "risk_pop", class = "risk5")
+  # )
   risk_raster = reactive({
     req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
     
@@ -802,17 +806,18 @@ server <- function(input, output, session) {
     return(rlist)
   })
   
-  # render the output map
+  # render the output map and specify drawing order
   output$risk_map <- renderLeaflet({
     leaflet() %>%
       addProviderTiles(providers$CartoDB.Positron,    group = "Light") %>%
       addProviderTiles(providers$Esri.WorldTopoMap,   group = "Topo") %>%
       addProviderTiles(providers$Esri.WorldImagery,   group = "Satellite") %>%
-      addMapPane("rasterPane1", zIndex = 410) %>% # create raster pane so that rasters always draw on top of basemap
-      addMapPane("rasterPane2", zIndex = 415) %>% # 2nd raster pane so risk rasters go on top of pop density
-      addMapPane("polygonPane", zIndex = 405) %>% # polygons go below rasters
-      addMapPane("polylinePane", zIndex = 420) %>% # polylines on top of polygons
-      addMapPane("pointPane", zIndex = 425) %>% # points on top of everything
+      addMapPane("polygonPane", zIndex = 405) %>% # EJI polygons go below rasters but above basemap
+      addMapPane("rasterPane1", zIndex = 410) %>% #  pop raster goes above EJI
+      addMapPane("rasterPane2", zIndex = 415) %>% # risk rasters go above pop density
+      addMapPane("polygonPane2", zIndex = 420) %>% # tailings are above rasters
+      addMapPane("polylinePane", zIndex = 425) %>% # polylines on top of polygons and rasters
+      addMapPane("pointPane", zIndex = 430) %>% # points on top of everything
       addLayersControl(
         baseGroups = c("Light", "Topo", "Satellite"),
         options = layersControlOptions(collapsed = TRUE)
@@ -969,44 +974,7 @@ server <- function(input, output, session) {
   })
   
   # ── Risk map: create-layer buttons ────────────────────────────
-  
-  observeEvent(water_raster(), {
-    r <- water_raster()
-    req(r)
-    pal <- colorNumeric("RdYlBu", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
-    leafletProxy("risk_map") |>
-      addRasterImage(r, colors = pal, opacity = 0.8, 
-                     layerId = "water_hazard", group = "water_hazard",
-                     options = leafletOptions(pane = "rasterPane2")) # assign to the raster pane defined when creating the leaflet map
-  })
-  
-  observeEvent(sediment_raster(), {
-    r <- sediment_raster()
-    req(r)
-    pal <- colorNumeric("RdYlGn", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
-    leafletProxy("risk_map") |>
-      addRasterImage(r, colors = pal, opacity = 0.8, 
-                     layerId = "sed_hazard", group = "sed_hazard",
-                     options = leafletOptions(pane = "rasterPane2")) # assign to the raster pane defined when creating the leaflet map
-  })
-  
-  observe({
-    req(!is.null(water_raster()))
-    if (isTRUE(input$risk_water)) {
-      leafletProxy("risk_map") |> showGroup("water_hazard")
-    } else {
-      leafletProxy("risk_map") |> hideGroup("water_hazard")
-    }
-  })
-  
-  observe({
-    req(!is.null(sediment_raster()))
-    if (isTRUE(input$risk_sediment)) {
-      leafletProxy("risk_map") |> showGroup("sed_hazard")
-    } else {
-      leafletProxy("risk_map") |> hideGroup("sed_hazard")
-    }
-  })
+
   
   output$risk_sidebar <- renderUI({
     init_vals <- rep("-", 5)
@@ -3747,52 +3715,8 @@ server <- function(input, output, session) {
   output$stds_all <- renderDT({
     stds
   })
-  
-  # Water hazard layer
-  water_raster <- eventReactive(input$create_water, {
-    
-    params   <- if (is.null(input$water_params))   "all"    else input$water_params
-    temp_ag  <- if (is.null(input$water_temp_ag))  "recent" else input$water_temp_ag
-    param_ag <- if (is.null(input$water_param_ag)) "pct95"  else input$water_param_ag
-    nyears   <- if (is.null(input$water_nyears) || is.na(input$water_nyears)) 5 else input$water_nyears
-    fraction <- if (is.null(input$water_fraction) || input$water_fraction == "All") NULL else input$water_fraction
-    
-    withProgress(message = "Creating water hazard layer...", {
-      result <- create_risk_map(
-        data                 = master_data$water_scored,
-        params               = params,
-        param_aggregation    = param_ag,
-        temporal_aggregation = temp_ag,
-        nyears               = nyears,
-        fraction             = fraction
-      )
-    })
-    
-    result$risk_raster
-  })
 
-  
-  # Sediment hazard layer
-sediment_raster <- eventReactive(input$create_sediment, {
-  
-  params   <- if (is.null(input$sed_params))   "all"    else input$sed_params
-  temp_ag  <- if (is.null(input$sed_temp_ag))  "recent" else input$sed_temp_ag
-  param_ag <- if (is.null(input$sed_param_ag)) "pct95"  else input$sed_param_ag
-  nyears   <- if (is.null(input$sed_nyears) || is.na(input$sed_nyears)) 5 else input$sed_nyears
-  
-  withProgress(message = "Creating sediment hazard layer...", {
-    result <- create_risk_map(
-      data                 = master_data$sed_scored,
-      params               = params,
-      param_aggregation    = param_ag,
-      temporal_aggregation = temp_ag,
-      nyears               = nyears,
-      fraction             = NULL
-    )
-  })
-  
-  result$risk_raster
-})
+
   
   # In server.R - populate water_params choices
   observe({
@@ -3841,68 +3765,32 @@ sediment_raster <- eventReactive(input$create_sediment, {
     }
   })
   
-  # Populate parameter dropdown
-  output$water_stations_params_ui <- renderUI({
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
-    
-    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
-    
-    selectizeInput("water_stations_params", "Parameter(s):",
-                   choices = c(
-                     "All Parameters" = "all",
-                     "All Metals"     = "metals",
-                     "All Nutrients"  = "nutrients",
-                     setNames(water_params, water_params)
-                   ),
-                   selected = "all",
-                   multiple = TRUE,
-                   options = list(
-                     optgroups = list(
-                       list(value = "presets",    label = "— Presets —"),
-                       list(value = "individual", label = "— Individual Parameters —")
-                     ),
-                     optgroupField = "group",
-                     options = c(
-                       list(list(value = "all",       label = "All Parameters", group = "presets"),
-                            list(value = "metals",    label = "All Metals",     group = "presets"),
-                            list(value = "nutrients", label = "All Nutrients",  group = "presets")),
-                       lapply(water_params, function(p) list(value = p, label = p, group = "individual"))
-                     )
-                   ))
-  })
-  
-  # Mutual exclusivity
-  observeEvent(input$water_stations_params, {
-    selected <- input$water_stations_params
-    
-    if (length(selected) == 0) {
-      updateSelectizeInput(session, "water_stations_params", selected = "all")
-      return()
-    }
-    
-    presets <- c("all", "metals", "nutrients")
-    selected_presets   <- intersect(selected, presets)
-    selected_individual <- setdiff(selected, presets)
-    
-    if (length(selected_presets) > 0 && length(selected_individual) > 0) {
-      updateSelectizeInput(session, "water_stations_params", selected = selected_presets[length(selected_presets)])
-      return()
-    }
-    
-    if (length(selected_presets) > 1) {
-      updateSelectizeInput(session, "water_stations_params", selected = selected_presets[length(selected_presets)])
-      return()
+  observe({
+    if (isTRUE(input$risk_basin)) {
+      
+      leafletProxy("risk_map") |>
+        clearGroup("borders") |>
+        addPolygons(
+          data    = pilco_basin,
+          color   = "black",
+          weight  = 1.5,
+          opacity = 1,
+          fillOpacity = 0,
+          group   = "borders",
+          options = pathOptions(pane = "polygonPane")
+        ) 
+    } else {
+      leafletProxy("risk_map") |>
+        clearGroup("borders")
     }
   })
   
-  water_stations_data <- eventReactive(input$create_water_stations, {
-    
-    params   <- if (is.null(input$water_stations_params))   "all"    else input$water_stations_params
-    temp_ag  <- if (is.null(input$water_stations_temp_ag))  "recent" else input$water_stations_temp_ag
-    param_ag <- if (is.null(input$water_stations_param_ag)) "pct95"  else input$water_stations_param_ag
-    nyears   <- if (is.null(input$water_stations_nyears) || is.na(input$water_stations_nyears)) 5 else input$water_stations_nyears
-    fraction <- if (is.null(input$water_stations_fraction) || input$water_stations_fraction == "All") NULL else input$water_stations_fraction
+  water_stations_data <- eventReactive(input$score_water, {
+    params   <- if (is.null(input$water_params))   "all"    else input$water_params
+    temp_ag  <- if (is.null(input$water_temp_ag))  "recent" else input$water_temp_ag
+    param_ag <- if (is.null(input$water_param_ag)) "pct95"  else input$water_param_ag
+    nyears   <- if (is.null(input$water_nyears) || is.na(input$water_nyears)) 5 else input$water_nyears
+    fraction <- if (is.null(input$water_fraction) || input$water_fraction == "All") NULL else input$water_fraction
     
     withProgress(message = "Creating water station points...", {
       prepare_water_quality_data(
@@ -3916,6 +3804,49 @@ sediment_raster <- eventReactive(input$create_sediment, {
       )
     })
   })
+  
+  water_bin_breaks <- reactiveVal(NULL)
+  sed_bin_breaks   <- reactiveVal(NULL)
+  eji_bin_breaks <- reactiveVal(NULL)
+  pop_bin_breaks <- reactiveVal(NULL)
+  
+  bin_raster <- function(r, breaks) {
+    vals <- terra::values(r, na.rm = TRUE)
+    
+    # extend breaks to cover full raster range
+    breaks[1] <- min(breaks[1], min(vals))
+    breaks[length(breaks)] <- max(breaks[length(breaks)], max(vals))
+    
+    rcl <- cbind(
+      from    = breaks[-length(breaks)],
+      to      = breaks[-1],
+      becomes = seq_along(breaks[-1])
+    )
+    
+    result <- terra::classify(r, rcl = rcl, include.lowest = TRUE, right = TRUE)
+    
+    valid_bins <- seq_along(breaks[-1])
+    result_vals <- terra::values(result)
+    result_vals[!is.na(result_vals) & !result_vals %in% valid_bins] <- NA
+    terra::values(result) <- result_vals
+    
+    result
+  }
+  
+  # water station palette helper
+  water_station_pal <- function(hq_vals, binned = FALSE, n = 5, breaks = NULL) {
+    if (binned && !is.null(breaks)) {
+      bins <- cut(hq_vals, breaks = breaks, labels = FALSE, include.lowest = TRUE)
+      n_bins <- length(breaks) - 1
+      colorFactor(
+        rev(RColorBrewer::brewer.pal(min(n_bins, 9), "RdYlBu")),
+        domain = as.character(seq_len(n_bins))
+      )
+    } else {
+      colorNumeric("RdYlBu", domain = hq_vals, reverse = TRUE, na.color = "grey")
+    }
+  }
+  
   
   # Add to map on creation
 observeEvent(water_stations_data(), {
@@ -3938,7 +3869,7 @@ observeEvent(water_stations_data(), {
     station <- df$station[i]
     date    <- df$date[i]
     
-    if (input$water_stations_temp_ag == "recent") {
+    if (input$water_temp_ag == "recent") {
       date_display <- paste0("<b>Date:</b> ", date)
     } else {
       min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
@@ -4033,6 +3964,26 @@ observeEvent(water_stations_data(), {
     return(popup)
   })
   
+  water_stations_df(df)
+  
+  # compute colors based on current bin state
+  is_binned <- isTRUE(input$bin_water) && input$apply_water_bins > 0
+  hq_vals   <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
+  
+  if (is_binned) {
+    r <- water_raster_display()
+    breaks <- attr(r, "breaks")  # we'll store breaks on the raster — see below
+    bin_vals <- as.character(cut(df$HQ, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+    pal <- colorFactor(
+      rev(RColorBrewer::brewer.pal(min(input$water_nbins, 9), "RdYlBu")),
+      domain = as.character(seq_len(input$water_nbins))
+    )
+    fill_colors <- pal(bin_vals)
+  } else {
+    pal <- colorNumeric("RdYlBu", domain = hq_vals, reverse = TRUE, na.color = "grey")
+    fill_colors <- pal(df$HQ)
+  }
+  
   leafletProxy("risk_map") |>
     clearGroup("water_stations") |>
     addCircleMarkers(
@@ -4041,7 +3992,7 @@ observeEvent(water_stations_data(), {
       lat         = ~latitude_decimal,
       color       = "black",
       weight      = 1.5,
-      fillColor   = ~pal(HQ),
+      fillColor   = fill_colors,
       fillOpacity = 1,
       radius      = 8,
       group       = "water_stations",
@@ -4059,66 +4010,11 @@ observeEvent(water_stations_data(), {
     }
   })
   
-  # Populate parameter dropdown
-  output$sed_stations_params_ui <- renderUI({
-    req(master_data$sed_scored)
-    req(nrow(master_data$sed_scored) > 0)
-    
-    sed_params <- sort(unique(na.omit(master_data$sed_scored$parameter)))
-    sed_params <- sed_params[!grepl("^\\d", sed_params)]
-    
-    selectizeInput("sed_stations_params", "Parameter(s):",
-                   choices = c(
-                     "All Parameters" = "all",
-                     "All Metals"     = "metals",
-                     setNames(sed_params, sed_params)
-                   ),
-                   selected = "all",
-                   multiple = TRUE,
-                   options = list(
-                     optgroups = list(
-                       list(value = "presets",    label = "— Presets —"),
-                       list(value = "individual", label = "— Individual Parameters —")
-                     ),
-                     optgroupField = "group",
-                     options = c(
-                       list(list(value = "all",    label = "All Parameters", group = "presets"),
-                            list(value = "metals", label = "All Metals",     group = "presets")),
-                       lapply(sed_params, function(p) list(value = p, label = p, group = "individual"))
-                     )
-                   ))
-  })
-  
-  # Mutual exclusivity
-  observeEvent(input$sed_stations_params, {
-    selected <- input$sed_stations_params
-    
-    if (length(selected) == 0) {
-      updateSelectizeInput(session, "sed_stations_params", selected = "all")
-      return()
-    }
-    
-    presets <- c("all", "metals")
-    selected_presets    <- intersect(selected, presets)
-    selected_individual <- setdiff(selected, presets)
-    
-    if (length(selected_presets) > 0 && length(selected_individual) > 0) {
-      updateSelectizeInput(session, "sed_stations_params", selected = selected_presets[length(selected_presets)])
-      return()
-    }
-    
-    if (length(selected_presets) > 1) {
-      updateSelectizeInput(session, "sed_stations_params", selected = selected_presets[length(selected_presets)])
-      return()
-    }
-  })
-  
-  sed_stations_data <- eventReactive(input$create_sed_stations, {
-    
-    params   <- if (is.null(input$sed_stations_params))   "all"    else input$sed_stations_params
-    temp_ag  <- if (is.null(input$sed_stations_temp_ag))  "recent" else input$sed_stations_temp_ag
-    param_ag <- if (is.null(input$sed_stations_param_ag)) "pct95"  else input$sed_stations_param_ag
-    nyears   <- if (is.null(input$sed_stations_nyears) || is.na(input$sed_stations_nyears)) 5 else input$sed_stations_nyears
+  sed_stations_data <- eventReactive(input$score_sediment, {
+    params   <- if (is.null(input$sed_params))   "all"    else input$sed_params
+    temp_ag  <- if (is.null(input$sed_temp_ag))  "recent" else input$sed_temp_ag
+    param_ag <- if (is.null(input$sed_param_ag)) "pct95"  else input$sed_param_ag
+    nyears   <- if (is.null(input$sed_nyears) || is.na(input$sed_nyears)) 5 else input$sed_nyears
     
     withProgress(message = "Creating sediment station points...", {
       prepare_water_quality_data(
@@ -4154,7 +4050,7 @@ observeEvent(water_stations_data(), {
       station <- df$station[i]
       date    <- df$date[i]
       
-      if (input$sed_stations_temp_ag == "recent") {
+      if (input$sed_temp_ag == "recent") {
         date_display <- paste0("<b>Date:</b> ", date)
       } else {
         min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
@@ -4249,6 +4145,8 @@ observeEvent(water_stations_data(), {
       return(popup)
     })
     
+    sed_stations_df(df)
+    
     leafletProxy("risk_map") |>
       clearGroup("sed_stations") |>
       addCircleMarkers(
@@ -4284,17 +4182,28 @@ observeEvent(water_stations_data(), {
         })
       }
       
-      pal <- colorNumeric(
-        palette  = "Purples",
-        domain   = eji_data$eji,
-        na.color = "transparent"
-      )
+      is_binned <- isTRUE(input$bin_eji) && !is.null(input$apply_eji_bins) && input$apply_eji_bins > 0 && !is.null(eji_bin_breaks())
+      
+      if (is_binned) {
+        breaks    <- eji_bin_breaks()
+        n         <- length(breaks) - 1
+        bin_vals  <- as.character(cut(eji_data$eji, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+        pal       <- colorFactor(
+          RColorBrewer::brewer.pal(min(n, 9), "Purples"),
+          domain   = as.character(seq_len(n)),
+          na.color = "transparent"
+        )
+        fill_colors <- pal(bin_vals)
+      } else {
+        pal         <- colorNumeric("Purples", domain = eji_data$eji, na.color = "transparent")
+        fill_colors <- pal(eji_data$eji)
+      }
       
       leafletProxy("risk_map") %>%
         clearGroup("eji") %>%
         addPolygons(
           data        = eji_data,
-          fillColor   = ~pal(eji),
+          fillColor   = fill_colors,
           fillOpacity = 0.5,
           color       = "white",
           weight      = 0.5,
@@ -4304,16 +4213,38 @@ observeEvent(water_stations_data(), {
           label       = ~paste0("Municipality: ", adm3_name, "<br>EJI Score: ", round(eji, 3)) %>% lapply(htmltools::HTML)
         )
     } else {
-      leafletProxy("risk_map") %>%
-        clearGroup("eji")
+      leafletProxy("risk_map") %>% clearGroup("eji")
     }
   })
   
-  pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp")
+  
+  # EJI Binning observer
+  observeEvent(input$apply_eji_bins, {
+    req(exists("eji_data"))
+    
+    n      <- if (is.null(input$eji_nbins) || is.na(input$eji_nbins)) 5 else input$eji_nbins
+    method <- if (is.null(input$eji_bin_method)) "quantile" else input$eji_bin_method
+    
+    hq_vals <- eji_data$eji[!is.na(eji_data$eji)]
+    
+    breaks <- switch(method,
+                     quantile       = unique(quantile(hq_vals, probs = seq(0, 1, length.out = n + 1), na.rm = TRUE)),
+                     equal_interval = seq(min(hq_vals), max(hq_vals), length.out = n + 1)
+    )
+    breaks[1] <- min(breaks[1], min(hq_vals))
+    breaks[length(breaks)] <- max(breaks[length(breaks)], max(hq_vals))
+    
+    eji_bin_breaks(breaks)
+  })
+  
+  observeEvent(input$bin_eji, {
+    if (!isTRUE(input$bin_eji)) eji_bin_breaks(NULL)
+  })
   
   # Population Raster
   observe({
     if (isTRUE(input$risk_pop_density)) {
+      if (!exists("pop_raster")) {
         withProgress(message = "Loading population density...", {
           pop_raster <<- rast("data/population_raster/pop_2024.tif") %>%
             project("EPSG:4326") %>%
@@ -4321,31 +4252,76 @@ observeEvent(water_stations_data(), {
             mask(pilco_basin) %>%
             sqrt()
         })
+      }
       
+      pop_vals <- terra::values(pop_raster, na.rm = TRUE)
+      pop_vals <- pop_vals[pop_vals > 0]
       
-      pop_vals <- values(pop_raster)
-      pop_vals <- pop_vals[!is.na(pop_vals) & pop_vals > 0]
+      is_binned <- isTRUE(input$bin_pop) && !is.null(input$apply_pop_bins) && input$apply_pop_bins > 0 && !is.null(pop_bin_breaks())
       
-      pal <- colorNumeric(
-        palette  = "magma",
-        domain   = pop_vals,
-        na.color = "transparent"
-      )
-      
-      leafletProxy("risk_map") %>%
-        clearGroup("pop_density") %>%
-        addRasterImage(
-          pop_raster,
-          colors  = pal,
-          opacity = 0.9,
-          group   = "pop_density",
-          options = leafletOptions(pane = "rasterPane1")
-        )
+      if (is_binned) {
+        breaks <- pop_bin_breaks()
+        leafletProxy("risk_map") %>%
+          clearGroup("pop_density") %>%
+          addRasterImage(
+            bin_raster(pop_raster, breaks),
+            colors = viridisLite::magma(length(breaks) - 1),
+            opacity = 0.9,
+            group   = "pop_density",
+            options = leafletOptions(pane = "rasterPane1")
+          )
+      } else {
+        pal <- colorNumeric("magma", domain = pop_vals, na.color = "transparent")
+        leafletProxy("risk_map") %>%
+          clearGroup("pop_density") %>%
+          addRasterImage(
+            pop_raster,
+            colors  = pal,
+            opacity = 0.9,
+            group   = "pop_density",
+            options = leafletOptions(pane = "rasterPane1")
+          )
+      }
     } else {
-      leafletProxy("risk_map") %>%
-        clearGroup("pop_density")
+      leafletProxy("risk_map") %>% clearGroup("pop_density")
     }
   })
+  
+  # Pop density binning observer
+  observeEvent(input$apply_pop_bins, {
+    req(exists("pop_raster"))
+    
+    n      <- if (is.null(input$pop_nbins) || is.na(input$pop_nbins)) 5 else input$pop_nbins
+    method <- if (is.null(input$pop_bin_method)) "equal_area" else input$pop_bin_method
+    
+    if (method == "equal_area") {
+      hq_source <- terra::values(pop_raster, na.rm = TRUE)
+      hq_source <- hq_source[hq_source > 0]
+    } else {
+      hq_source <- terra::values(pop_raster, na.rm = TRUE)
+      hq_source <- hq_source[hq_source > 0]
+    }
+    
+    breaks <- switch(method,
+                     equal_interval = seq(min(hq_source), max(hq_source), length.out = n + 1),
+                     equal_area     = {
+                       sorted_vals <- sort(hq_source)
+                       n_cells     <- length(sorted_vals)
+                       indices     <- round(seq(0, n_cells, length.out = n + 1))
+                       unique(sorted_vals[pmax(indices, 1)])
+                     }
+    )
+    breaks[1] <- min(breaks[1], min(hq_source))
+    breaks[length(breaks)] <- max(breaks[length(breaks)], max(hq_source))
+    
+    pop_bin_breaks(breaks)
+  })
+  
+  observeEvent(input$bin_pop, {
+    if (!isTRUE(input$bin_pop)) pop_bin_breaks(NULL)
+  })
+  
+
  
   # Jackson TO DO:
   # 1. Finish adding other layers (mines, settlements, tailings, etc.)
@@ -4365,7 +4341,618 @@ observeEvent(water_stations_data(), {
   #   - options to include/exclude water, sediment, EJI, an pop layers?
   #   - UI?
   # 6. Cross-reference with layers created for our report to make sure it all lines up
-   
-}
+  
+  # ── Reactive data ─────────────────────────────────────────────
+  unique_mines_data <- reactive({
+    req(input$risk_mines)
+    
+    if (!exists("unique_mines")) {
+      withProgress(message = "Loading mining activity data...", {
+        unique_mines <<- read_csv("data/mining_exposure/unique_mines.csv") %>%
+          st_as_sf(coords = c("lon", "lat"), crs = 4326)
+      })
+    }
+    
+    if (isTRUE(input$clip_mines)) st_filter(unique_mines, pilco_basin) else unique_mines
+  })
+  
+  settlements_data <- reactive({
+    req(input$risk_settlements)
+    
+    if (!exists("settlements")) {
+      withProgress(message = "Loading settlement data...", {
+        settlements <<- st_read("data/settlements/poblaciones.shp") |>
+          st_transform(crs = 4326)
+      })
+    }
+    
+    if (isTRUE(input$clip_settlements)) st_filter(settlements, pilco_basin) else settlements
+  })
+  
+  tailings_data <- reactive({
+    req(input$risk_tailings)
+    
+    if (!exists("tailings")) {
+      withProgress(message = "Loading tailings data...", {
+        tailings <<- st_read("data/air_quality/tailings/tailing_minefac.shp") |>
+          st_transform(crs = 4326) |>
+          st_zm(drop = TRUE, what = "ZM")
+      })
+    }
+    
+    tailings
+  })
+  
+  # ── Observers ─────────────────────────────────────────────────
+  
+  # Add Mines
+  observe({
+    if (isTRUE(input$risk_mines)) {
+      data <- unique_mines_data()
+      
+      data$popup_text <- paste0("Mine Name: ", data$mine_name_clean,
+                                "<br>Minerals: ", data$minerals,
+                                "<br>Source: ", data$source)
+      
+      icons <- awesomeIcons(
+        icon = "mountain",
+        library = "fa",
+        markerColor = "orange",
+        iconColor = "white"
+      )
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("mines") %>%
+        addAwesomeMarkers(
+          data = data,
+          icon = icons,
+          group = "mines",
+          popup = ~popup_text,
+          clusterOptions = markerClusterOptions(
+            iconCreateFunction = JS("
+      function(cluster) {
+        return new L.DivIcon({
+          html: '<div style=\"background-color: #F69730; opacity: 0.5; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;\">' + cluster.getChildCount() + '</div>',
+          className: '',
+          iconSize: [35, 35]
+        });
+      }
+    ")
+          )
+        )
+    } else {
+      leafletProxy("risk_map") %>%
+        clearGroup("mines")
+    }
+  })
+  
+  # Add Settlements 
+  observe({
+    if (isTRUE(input$risk_settlements)) {
+      data <- settlements_data()
+      
+      data$popup_text <- paste0("Settlement Name: ", data$nombre_c_2,
+                                "<br>Population: ", data$poblacion_)
+      
+      icons <- awesomeIcons(
+        icon = "home",
+        library = "fa",
+        markerColor = "blue",
+        iconColor = "white"
+      )
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("settlements") %>%
+        addAwesomeMarkers(
+          data = data,
+          icon = icons,
+          group = "settlements",
+          popup = ~popup_text,
+          clusterOptions = markerClusterOptions(
+            iconCreateFunction = JS("
+      function(cluster) {
+        return new L.DivIcon({
+          html: '<div style=\"background-color: #38AADD; opacity: 0.5; border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;\">' + cluster.getChildCount() + '</div>',
+          className: '',
+          iconSize: [35, 35]
+        });
+      }
+    ")
+          )
+        )
+    } else {
+      leafletProxy("risk_map") %>%
+        clearGroup("settlements")
+    }
+  })
+  
+  # Add Tailings
+  observe({
+    if (isTRUE(input$risk_tailings)) {
+      data <- tailings_data()
+      
+      data$popup_text <- paste0("Type: ", str_to_title(gsub("_", " ", data$Category_F)))
+      
+      tailing_pal <- colorFactor(
+        palette = c(
+          "tailing"       = "#E41A1C",
+          "reception"     = "#377EB8",
+          "storage"       = "#FF7F00",
+          "refinery"      = "#984EA3",
+          "heap"          = "#A65628",
+          "mine_facility" = "#4DAF4A"
+        ),
+        domain = c("tailing", "reception", "storage", "refinery", "heap", "mine_facility")
+      )
+      
+      leafletProxy("risk_map") |>
+        clearGroup("tailings") |>
+        addPolygons(
+          data = data,
+          group = "tailings",
+          popup = ~popup_text,
+          fillColor = ~tailing_pal(Category_F),
+          fillOpacity = 0.7,
+          color = "black",
+          weight = 1,
+          options = pathOptions(pane = "polygonPane2")
+        )
+    } else {
+      leafletProxy("risk_map") |> clearGroup("tailings")
+    }
+  })
+  
+  # Water hazard layer creation
+  water_risk_result <- eventReactive(input$create_water, {
+    params   <- if (is.null(input$water_params))   "all"    else input$water_params
+    temp_ag  <- if (is.null(input$water_temp_ag))  "recent" else input$water_temp_ag
+    param_ag <- if (is.null(input$water_param_ag)) "pct95"  else input$water_param_ag
+    nyears   <- if (is.null(input$water_nyears) || is.na(input$water_nyears)) 5 else input$water_nyears
+    fraction <- if (is.null(input$water_fraction) || input$water_fraction == "All") NULL else input$water_fraction
+    
+    withProgress(message = "Creating water hazard layer...", {
+      create_risk_map(
+        data                 = master_data$water_scored,
+        params               = params,
+        param_aggregation    = param_ag,
+        temporal_aggregation = temp_ag,
+        nyears               = nyears,
+        fraction             = fraction
+      )
+    })
+  })
+  
+  water_raster         <- reactive({ water_risk_result()$risk_raster })
+  water_station_scores <- reactive({ water_risk_result()$snapped_points$HQ })
+  
+  # Sediment hazard layer creation
+  sediment_risk_result <- eventReactive(input$create_sediment, {
+    params   <- if (is.null(input$sed_params))   "all"    else input$sed_params
+    temp_ag  <- if (is.null(input$sed_temp_ag))  "recent" else input$sed_temp_ag
+    param_ag <- if (is.null(input$sed_param_ag)) "pct95"  else input$sed_param_ag
+    nyears   <- if (is.null(input$sed_nyears) || is.na(input$sed_nyears)) 5 else input$sed_nyears
+    
+    withProgress(message = "Creating sediment hazard layer...", {
+      create_risk_map(
+        data                 = master_data$sed_scored,
+        params               = params,
+        param_aggregation    = param_ag,
+        temporal_aggregation = temp_ag,
+        nyears               = nyears,
+        fraction             = NULL
+      )
+    })
+  })
+  
+  sediment_raster         <- reactive({ sediment_risk_result()$risk_raster })
+  sediment_station_scores <- reactive({ sediment_risk_result()$snapped_points$HQ })
+  
+  
+  # Water Raster Display
+  water_raster_display <- eventReactive(
+    c(input$apply_water_bins, input$bin_water, water_raster()), {
+      r <- water_raster()
+      req(r)
+      if (!isTRUE(input$bin_water)) return(r)
+      if (input$apply_water_bins == 0) return(r)
+      isolate({
+        breaks <- water_bin_breaks()
+        req(breaks)
+        withProgress(message = "Binning water hazard layer...", {
+          bin_raster(r, breaks)
+        })
+      })
+    }, ignoreNULL = TRUE)
+  
+  # Render observer — only fires when raster or bin state changes
+  observeEvent(water_raster_display(), {
+    r <- water_raster_display()
+    req(r)
+    if (isTRUE(input$bin_water) && input$apply_water_bins == 0) return()
+    
+    is_binned <- length(unique(terra::values(r, na.rm = TRUE))) <= 20
+    pal <- if (is_binned) {
+      n <- length(unique(terra::values(r, na.rm = TRUE)))
+      colorFactor(
+        rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")),
+        domain = as.character(sort(unique(terra::values(r, na.rm = TRUE)))),
+        na.color = "transparent"
+      )
+    } else {
+      colorNumeric("RdYlBu", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
+    }
+    
+    id <- showNotification("Rendering water hazard layer...", duration = NULL, closeButton = FALSE, type = "message")
+    on.exit(removeNotification(id))
+    
+    leafletProxy("risk_map") |>
+      addRasterImage(r, colors = pal, opacity = 0.8,
+                     layerId = "water_hazard", group = "water_hazard",
+                     options = leafletOptions(pane = "rasterPane2"))
+  }, ignoreInit = FALSE)
+  
+  # Show/hide observer — only fires when checkbox changes, no re-render
+  observeEvent(input$risk_water, {
+    if (!isTRUE(input$risk_water)) {
+      leafletProxy("risk_map") |> hideGroup("water_hazard")
+    } else {
+      leafletProxy("risk_map") |> showGroup("water_hazard")
+    }
+  }, ignoreInit = TRUE)
+
+  sediment_raster_display <- eventReactive(
+    c(input$apply_sed_bins, input$bin_sediment, sediment_raster()), {
+      r <- sediment_raster()
+      req(r)
+      if (!isTRUE(input$bin_sediment)) return(r)
+      if (input$apply_sed_bins == 0) return(r)
+      isolate({
+        breaks <- sed_bin_breaks()
+        req(breaks)
+        withProgress(message = "Binning sediment hazard layer...", {
+          bin_raster(r, breaks)
+        })
+      })
+    }, ignoreNULL = TRUE)
+  
+  # Render observer sediment
+  observeEvent(sediment_raster_display(), {
+    r <- sediment_raster_display()
+    req(r)
+    if (isTRUE(input$bin_sediment) && input$apply_sed_bins == 0) return()
+    
+    is_binned <- length(unique(terra::values(r, na.rm = TRUE))) <= 20
+    pal <- if (is_binned) {
+      n <- length(unique(terra::values(r, na.rm = TRUE)))
+      colorFactor(
+        rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")),
+        domain = as.character(sort(unique(terra::values(r, na.rm = TRUE)))),
+        na.color = "transparent"
+      )
+    } else {
+      colorNumeric("RdYlGn", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
+    }
+    
+    id <- showNotification("Rendering sediment hazard layer...", duration = NULL, closeButton = FALSE, type = "message")
+    on.exit(removeNotification(id))
+    
+    leafletProxy("risk_map") |>
+      addRasterImage(r, colors = pal, opacity = 0.8,
+                     layerId = "sed_hazard", group = "sed_hazard",
+                     options = leafletOptions(pane = "rasterPane2"))
+  }, ignoreInit = FALSE)
+  
+  # Show/hide observer sediment
+  observeEvent(input$risk_sediment, {
+    if (!isTRUE(input$risk_sediment)) {
+      leafletProxy("risk_map") |> hideGroup("sed_hazard")
+    } else {
+      leafletProxy("risk_map") |> showGroup("sed_hazard")
+    }
+  }, ignoreInit = TRUE)
+  
+  observeEvent(c(input$apply_water_bins, input$bin_water), {
+    cat("=== water recoloring observer fired ===\n")
+    cat("is_binned:", isTRUE(input$bin_water) && input$apply_water_bins > 0, "\n")
+    
+    df <- water_stations_df()
+    req(df, nrow(df) > 0)
+    
+    hq_vals <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
+    is_binned <- isTRUE(input$bin_water) && input$apply_water_bins > 0
+    
+    if (is_binned) {
+      n      <- if (is.null(input$water_nbins) || is.na(input$water_nbins)) 5 else input$water_nbins
+      method <- if (is.null(input$water_bin_method)) "quantile" else input$water_bin_method
+      cat("n:", n, "method:", method, "\n")
+      
+      if (method == "equal_area") {
+        r <- tryCatch(water_raster(), error = function(e) NULL)
+        if (is.null(r)) {
+          showNotification(
+            "Please create the risk raster first to use Equal Area binning.",
+            type = "warning", duration = 4
+          )
+          return()
+        }
+        hq_source <- terra::values(r, na.rm = TRUE)
+      } else {
+        hq_source <- tryCatch(
+          if (!is.null(water_station_scores())) water_station_scores() else hq_vals,
+          error = function(e) hq_vals
+        )
+      }
+      cat("hq_source length:", length(hq_source), "\n")
+      
+      breaks <- switch(method,
+                       quantile       = unique(quantile(hq_source, probs = seq(0, 1, length.out = n + 1), na.rm = TRUE)),
+                       equal_interval = seq(min(hq_vals), max(hq_vals), length.out = n + 1),
+                       equal_area     = unique(quantile(hq_source, probs = seq(0, 1, length.out = n + 1), na.rm = TRUE))
+      )
+      if (method == "equal_area") {
+        cat("total cells:", length(hq_source), "\n")
+        cat("unique values:", length(unique(hq_source)), "\n")
+        cat("breaks:", breaks, "\n")
+        cat("number of breaks:", length(breaks), "\n")
+        print(table(cut(hq_source, breaks = breaks, include.lowest = TRUE)))
+      }
+      
+      breaks[1] <- min(breaks[1], min(hq_vals))
+      breaks[length(breaks)] <- max(breaks[length(breaks)], max(hq_vals))
+      
+      water_bin_breaks(breaks)
+      cat("water_bin_breaks stored\n")
+      
+      n        <- length(breaks) - 1
+      bin_vals <- as.character(cut(df$HQ, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+      cat("bin_vals:", head(bin_vals), "\n")
+      cat("any NA bin_vals:", any(is.na(bin_vals)), "\n")
+      
+      pal <- colorFactor(
+        rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")),
+        domain = as.character(seq_len(n))
+      )
+      fill_colors <- pal(bin_vals)
+      cat("fill_colors computed\n")
+    } else {
+      pal         <- colorNumeric("RdYlBu", domain = hq_vals, reverse = TRUE, na.color = "grey")
+      fill_colors <- pal(df$HQ)
+    }
+    
+    cat("adding circle markers\n")
+    leafletProxy("risk_map") |>
+      clearGroup("water_stations") |>
+      addCircleMarkers(
+        data        = df,
+        lng         = ~longitude_decimal,
+        lat         = ~latitude_decimal,
+        color       = "black",
+        weight      = 1.5,
+        fillColor   = fill_colors,
+        fillOpacity = 1,
+        radius      = 8,
+        group       = "water_stations",
+        popup       = df$popup_text,
+        options     = pathOptions(pane = "pointPane")
+      )
+    cat("=== recoloring done ===\n")
+  }, ignoreInit = TRUE)
+  
+  observeEvent(c(input$apply_sed_bins, input$bin_sediment), {
+    df <- sed_stations_df()
+    req(df, nrow(df) > 0)
+    
+    hq_vals   <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
+    is_binned <- isTRUE(input$bin_sediment) && input$apply_sed_bins > 0
+    
+    if (is_binned) {
+      n      <- if (is.null(input$sed_nbins) || is.na(input$sed_nbins)) 5 else input$sed_nbins
+      method <- if (is.null(input$sed_bin_method)) "quantile" else input$sed_bin_method
+      
+      if (method == "equal_area") {
+        r <- tryCatch(sediment_raster(), error = function(e) NULL)
+        if (is.null(r)) {
+          showNotification(
+            "Please create the risk raster first to use Equal Area binning.",
+            type = "warning", duration = 4
+          )
+          return()
+        }
+        hq_source <- terra::values(r, na.rm = TRUE)
+      } else {
+        hq_source <- tryCatch(
+          if (!is.null(sediment_station_scores())) sediment_station_scores() else hq_vals,
+          error = function(e) hq_vals
+        )
+      }
+      
+      breaks <- switch(method,
+                       quantile       = unique(quantile(hq_source, probs = seq(0, 1, length.out = n + 1), na.rm = TRUE)),
+                       equal_interval = seq(min(hq_vals), max(hq_vals), length.out = n + 1),
+                       equal_area     = unique(quantile(hq_source, probs = seq(0, 1, length.out = n + 1), na.rm = TRUE))
+      )
+      
+      breaks[1] <- min(breaks[1], min(hq_vals))
+      breaks[length(breaks)] <- max(breaks[length(breaks)], max(hq_vals))
+      
+      sed_bin_breaks(breaks)
+      
+      n        <- length(breaks) - 1
+      bin_vals <- as.character(cut(df$HQ, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+      pal      <- colorFactor(
+        rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")),
+        domain = as.character(seq_len(n))
+      )
+      fill_colors <- pal(bin_vals)
+    } else {
+      pal         <- colorNumeric("RdYlGn", domain = hq_vals, reverse = TRUE, na.color = "grey")
+      fill_colors <- pal(df$HQ)
+    }
+    
+    leafletProxy("risk_map") |>
+      clearGroup("sed_stations") |>
+      addCircleMarkers(
+        data        = df,
+        lng         = ~longitude_decimal,
+        lat         = ~latitude_decimal,
+        color       = "black",
+        weight      = 1.5,
+        fillColor   = fill_colors,
+        fillOpacity = 1,
+        radius      = 8,
+        group       = "sed_stations",
+        popup       = df$popup_text,
+        options     = pathOptions(pane = "pointPane")
+      )
+  }, ignoreInit = TRUE)
+  
+  observeEvent(input$bin_water, {
+    if (!isTRUE(input$bin_water)) water_bin_breaks(NULL)
+  })
+  
+  observeEvent(input$bin_sediment, {
+    if (!isTRUE(input$bin_sediment)) sed_bin_breaks(NULL)
+  })
+  
+  
+  ######## LEGEND ###########
+  
+  water_scored_stations <- reactiveVal(NULL)
+  sed_scored_stations <- reactiveVal(NULL)
+  water_stations_df <- reactiveVal(NULL)
+  sed_stations_df   <- reactiveVal(NULL)
+  
+  water_hq_range <- reactive({
+    pts <- water_scored_stations()
+    req(pts)
+    range(pts$HQ, na.rm = TRUE)
+  })
+  
+  sed_hq_range <- reactive({
+    pts <- sed_scored_stations()
+    req(pts)
+    range(pts$HQ, na.rm = TRUE)
+  })
+  
+  observe({
+    leafletProxy("risk_map") |> removeControl("map_legend")
+    
+    html <- ""
+    
+    # Water (stations or raster)
+    if (isTRUE(input$risk_water) || isTRUE(input$risk_water_stations)) {
+      is_binned <- isTRUE(input$bin_water) && !is.null(input$apply_water_bins) && input$apply_water_bins > 0
+      if (is_binned) {
+        breaks <- water_bin_breaks()
+        if (!is.null(breaks)) {
+          n    <- length(breaks) - 1
+          bins <- as.character(seq_len(n))
+          pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")), domain = bins)
+          html <- paste0(html, legend_color_bar(pal, "Water Score (binned)", NULL, NULL, bins = bins))
+        } else {
+          pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
+          html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+        }
+      } else {
+        pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
+        html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+      }
+    }
+    
+    # Sediment (stations or raster)
+    if (isTRUE(input$risk_sediment) || isTRUE(input$risk_sed_stations)) {
+      is_binned <- isTRUE(input$bin_sediment) && !is.null(input$apply_sed_bins) && input$apply_sed_bins > 0
+      if (is_binned) {
+        breaks <- sed_bin_breaks()
+        if (!is.null(breaks)) {
+          n    <- length(breaks) - 1
+          bins <- as.character(seq_len(n))
+          pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")), domain = bins)
+          html <- paste0(html, legend_color_bar(pal, "Sediment Score (binned)", NULL, NULL, bins = bins))
+        } else {
+          pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
+          html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+        }
+      } else {
+        pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
+        html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+      }
+    }
+    
+    # EJI
+    if (isTRUE(input$risk_eji)) {
+      if (exists("eji_data")) {
+        is_binned <- isTRUE(input$bin_eji) && !is.null(eji_bin_breaks())
+        if (is_binned) {
+          breaks <- eji_bin_breaks()
+          n      <- length(breaks) - 1
+          bins   <- as.character(seq_len(n))
+          pal    <- colorFactor(RColorBrewer::brewer.pal(min(n, 9), "Purples"), domain = bins)
+          html   <- paste0(html, legend_color_bar(pal, "EJI Score (binned)", NULL, NULL, bins = bins))
+        } else {
+          eji_min <- min(eji_data$eji, na.rm = TRUE)
+          eji_max <- max(eji_data$eji, na.rm = TRUE)
+          pal     <- colorNumeric("Purples", domain = c(eji_min, eji_max))
+          html    <- paste0(html, legend_color_bar(pal, "EJI Score", eji_min, eji_max))
+        }
+      }
+    }
+    
+    # Population density
+    if (isTRUE(input$risk_pop_density)) {
+      if (exists("pop_raster")) {
+        pop_vals <- terra::values(pop_raster, na.rm = TRUE)
+        pop_vals <- pop_vals[pop_vals > 0]
+        is_binned <- isTRUE(input$bin_pop) && !is.null(pop_bin_breaks())
+        if (is_binned) {
+          breaks <- pop_bin_breaks()
+          n      <- length(breaks) - 1
+          bins   <- as.character(seq_len(n))
+          pal <- colorFactor(viridisLite::magma(min(n, 9)), domain = bins)
+          html   <- paste0(html, legend_color_bar(pal, "Population Density (binned)", NULL, NULL, bins = bins))
+        } else {
+          pal  <- colorNumeric("magma", domain = pop_vals, na.color = "transparent")
+          html <- paste0(html, legend_color_bar(pal, "Population Density (√pop/km²)", min(pop_vals), max(pop_vals)))
+        }
+      }
+    }
+    
+    # Tailings
+    if (isTRUE(input$risk_tailings)) {
+      html <- paste0(html, legend_categorical(
+        "Tailings/Facilities",
+        colors = c("#E41A1C", "#377EB8", "#FF7F00", "#984EA3", "#A65628", "#4DAF4A"),
+        labels = c("Tailing", "Reception", "Storage", "Refinery", "Heap", "Mine Facility")
+      ))
+    }
+    
+    if (nchar(html) > 0) {
+      leafletProxy("risk_map") |>
+        addControl(html = legend_wrapper(html), position = "bottomleft", layerId = "map_legend")
+    }
+  })
+  
+  
+  # When station layer is created
+  observeEvent(water_stations_data(), {
+    water_scored_stations(water_stations_data())
+  })
+  
+  # When risk raster is created
+  observeEvent(water_risk_result(), {
+    water_scored_stations(water_risk_result()$snapped_points)
+  })
+  
+  observeEvent(sed_stations_data(), {
+    sed_scored_stations(sed_stations_data())
+  })
+  
+  observeEvent(sediment_risk_result(), {
+    sed_scored_stations(sediment_risk_result()$snapped_points)
+  })
+  
+
+  
+} # End Server
 
 
