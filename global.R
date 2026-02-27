@@ -24,6 +24,8 @@ library(shinyjs)
 library(shinyBS)
 library(ggrepel)
 library(stringr)
+library(gstat)
+
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)

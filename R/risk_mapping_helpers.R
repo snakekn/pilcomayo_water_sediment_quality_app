@@ -696,12 +696,12 @@ find_next_downstream_station <- function(current_station, current_seg, all_stati
 create_gradient_risk_raster <- function(river_network_sf, snapped_points, station_pairs, 
                                         resolution, max_risk_distance) {
   
-  library(terra)
-  
   message("Creating gradient-based risk raster...")
   
-  # Sample points densely along river with interpolated HQ values
-  sample_points <- sample_gradient_points(river_network_sf, station_pairs, resolution)
+  internal_res  <- min(resolution, 500)
+  sample_points <- sample_gradient_points(river_network_sf, station_pairs, internal_res)
+  
+  sample_points$HQ <- as.numeric(sample_points$HQ)
   
   # Create raster extent
   bbox <- st_bbox(river_network_sf)
@@ -710,35 +710,48 @@ create_gradient_risk_raster <- function(river_network_sf, snapped_points, statio
   bbox[3] <- bbox[3] + max_risk_distance
   bbox[4] <- bbox[4] + max_risk_distance
   
-  ext <- terra::ext(bbox[1], bbox[3], bbox[2], bbox[4])
-  risk_raster <- terra::rast(ext, resolution = resolution, crs = st_crs(river_network_sf)$wkt)
+  ext        <- terra::ext(bbox[1], bbox[3], bbox[2], bbox[4])
+  fine_raster <- terra::rast(ext, resolution = internal_res, 
+                             crs = st_crs(river_network_sf)$wkt)
   
-  # Rasterize sample points
-  if (nrow(sample_points) > 0) {
-    river_raster <- terra::rasterize(vect(sample_points), risk_raster, 
-                              field = "HQ", fun = "mean", background = NA)
-  } else {
-    river_raster <- risk_raster
-    values(river_raster) <- NA
+  # Convert raster cells to prediction grid
+  # Convert raster cells to prediction grid
+  coords  <- terra::crds(fine_raster, na.rm = FALSE)
+  grid_sf <- sf::st_as_sf(
+    as.data.frame(coords),
+    coords = c("x", "y"),
+    crs    = st_crs(river_network_sf)
+  )
+  
+  # IDW interpolation from sample points
+  idw_model <- gstat::gstat(
+    formula = HQ ~ 1,
+    data    = sample_points,
+    nmax    = 10,
+    maxdist = max_risk_distance,
+    set     = list(idp = 2)  # inverse distance power
+  )
+  
+  message("Running IDW interpolation...")
+  idw_result <- predict(idw_model, grid_sf)
+  
+  # Put predictions back into raster
+  fine_raster$HQ <- idw_result$var1.pred
+  river_hq_extended <- fine_raster[["HQ"]]
+  
+  # Mask to buffer around sample points (only interpolated segments)
+  points_buffer     <- sf::st_buffer(sf::st_union(sample_points), dist = max_risk_distance)
+  river_hq_extended <- terra::mask(river_hq_extended, terra::vect(points_buffer))
+  
+  # Aggregate to output resolution if different from internal
+  if (resolution > internal_res) {
+    fact              <- round(resolution / internal_res)
+    river_hq_extended <- terra::aggregate(river_hq_extended, fact = fact, 
+                                          fun = "mean", na.rm = TRUE)
   }
-  
-  # Apply distance decay
-  river_binary <- !is.na(river_raster)
-  distance_raster <- distance(river_binary)
-  decay_factor <- 1 - (distance_raster / max_risk_distance)
-  decay_factor <- clamp(decay_factor, lower = 0, upper = 1)
-  
-  # Interpolate outward from river
-  river_hq_extended <- focal(river_raster, w = 3, fun = "mean", na.policy = "only", na.rm = TRUE)
-  for (i in 1:10) {
-    river_hq_extended <- focal(river_hq_extended, w = 5, fun = "mean", na.policy = "only", na.rm = TRUE)
-  }
-  
-  risk_score <- river_hq_extended * decay_factor
-  risk_score[distance_raster > max_risk_distance] <- 0
   
   return(list(
-    risk_raster = risk_score,
+    risk_raster = river_hq_extended,
     river_network = river_network_sf,
     segment_hq = NULL
   ))

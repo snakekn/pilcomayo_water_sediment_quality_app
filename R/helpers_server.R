@@ -1699,20 +1699,29 @@ compare_units_summary <- function(sample_unit, standard_unit) {
 
 legend_color_bar <- function(palette, title, min_val, max_val, bins = NULL) {
   if (!is.null(bins)) {
-    # discrete bins
-    colors <- palette(bins)
-    labels <- as.character(bins)
-    swatches <- paste0(
-      mapply(function(col, lab) {
-        paste0('<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">',
-               '<div style="width:20px;height:14px;background:', col, ';border-radius:2px;flex-shrink:0;"></div>',
-               '<span style="font-size:11px;">', lab, '</span></div>')
-      }, colors, labels),
-      collapse = ""
+    # discrete bins — horizontal gradient bar with min/max labels
+    colors  <- palette(bins)
+    n       <- length(colors)
+    # build a stepped gradient using hard stops
+    stops <- paste0(
+      mapply(function(col, i) {
+        pct_start <- round((i - 1) / n * 100)
+        pct_end   <- round(i / n * 100)
+        paste0(col, " ", pct_start, "%, ", col, " ", pct_end, "%")
+      }, colors, seq_along(colors)),
+      collapse = ", "
     )
-    paste0('<div style="margin-bottom:8px;">',
-           '<div style="font-weight:bold;font-size:12px;margin-bottom:4px;">', title, '</div>',
-           swatches, '</div>')
+    paste0(
+      '<div style="margin-bottom:8px;">',
+      '<div style="font-weight:bold;font-size:12px;margin-bottom:4px;">', title, '</div>',
+      '<div style="display:flex;align-items:center;gap:6px;">',
+      '<span style="font-size:10px;">', bins[1], '</span>',
+      '<div style="width:80px;height:12px;background:linear-gradient(to right,',
+      stops,
+      ');border-radius:2px;"></div>',
+      '<span style="font-size:10px;">', bins[n], '</span>',
+      '</div></div>'
+    )
   } else {
     # continuous gradient
     paste0(
@@ -1757,5 +1766,26 @@ legend_wrapper <- function(html) {
     html,
     '</div>'
   )
+}
+
+# Helper: reproject and resample a raster to match a target template
+standardize_raster <- function(r, template, fill_nas = FALSE) {
+  if (!terra::same.crs(r, template)) {
+    r <- terra::project(r, terra::crs(template), method = "near")
+  }
+  if (!isTRUE(all.equal(terra::res(r), terra::res(template))) ||
+      !isTRUE(all.equal(as.vector(terra::ext(r)), as.vector(terra::ext(template))))) {
+    r <- terra::resample(r, template, method = "near")
+  }
+  if (fill_nas) {
+    repeat {
+      na_before <- sum(is.na(terra::values(r)))
+      if (na_before == 0) break
+      r <- terra::focal(r, w = 3, fun = "modal", na.policy = "only", na.rm = TRUE)
+      na_after <- sum(is.na(terra::values(r)))
+      if (na_after == na_before) break
+    }
+  }
+  r
 }
 

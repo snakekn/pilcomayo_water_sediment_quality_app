@@ -788,7 +788,11 @@ ui <- fluidPage(
           conditionalPanel(
             condition = "output.map_data_ready",
             
-            h3(strong("Map Layers")),
+            tags$details(
+              tags$summary(
+                h3(strong("Input & Display Layers"))
+              ),
+            
             p(HTML("<i>* Items marked with an asterisk may take time to load or render. Please be patient after clicking.</i>"),
               style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
             
@@ -807,8 +811,8 @@ ui <- fluidPage(
                   hr(style = "margin: 8px 0;"),
                   
                   # Interpolated Risk row
-                  checkboxInput("risk_water", "Interpolated Risk*", value = FALSE),
-                  actionButton("create_water", "Create Raster Layer",
+                  checkboxInput("risk_water", "Interpolated Risk", value = FALSE),
+                  actionButton("create_water", "Create Raster Layer*",
                                class = "btn-create", icon = icon("layer-group")),
                   
                   hr(style = "margin: 8px 0;"),
@@ -816,7 +820,7 @@ ui <- fluidPage(
                   # Modify Inputs + Apply Binning row
                   div(style = "display: flex; align-items: center; justify-content: space-between;",
                       checkboxInput("show_water_inputs", "Modify Inputs", value = FALSE),
-                      materialSwitch("bin_water", "Apply Binning*", value = FALSE, status = "primary", inline = TRUE)
+                      materialSwitch("bin_water", "Bin", value = FALSE, status = "primary", inline = TRUE)
                   ),
                   
                   # Binning options — shown when bin switch is on AND raster checkbox is on
@@ -829,7 +833,7 @@ ui <- fluidPage(
                                                 "Equal Area"        = "equal_area",
                                                 "Equal Interval"    = "equal_interval"),
                                     selected = "quantile"),
-                        actionButton("apply_water_bins", "Apply Bins", class = "btn-create", icon = icon("th"))
+                        actionButton("apply_water_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
                     )
                   ),
                   
@@ -854,6 +858,12 @@ ui <- fluidPage(
                                     choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
                                     selected = "pct95"),
                         helpText("How to aggregate hazard scores after temporal aggregation."),
+                        numericInput("water_resolution", "Raster Resolution (m):",
+                                     value = 1000, min = 100, max = 10000, step = 100),
+                        helpText("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller values) may increase processing times."),
+                        numericInput("water_max_distance", "Max Risk Distance (m):",
+                                     value = 2000, min = 1000, max = 50000, step = 1000),
+                        helpText("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times."),
                         selectInput("water_fraction", "Fraction:",
                                     choices = c("All", "Dissolved", "Suspended")),
                         helpText("Select a fraction if you are only interested in dissolved or suspended concentrations.")
@@ -879,8 +889,8 @@ ui <- fluidPage(
                   hr(style = "margin: 8px 0;"),
                   
                   # Interpolated Risk row
-                  checkboxInput("risk_sediment", "Interpolated Risk*", value = FALSE),
-                  actionButton("create_sediment", "Create Raster Layer",
+                  checkboxInput("risk_sediment", "Interpolated Risk", value = FALSE),
+                  actionButton("create_sediment", "Create Raster Layer*",
                                class = "btn-create", icon = icon("layer-group")),
                   
                   hr(style = "margin: 8px 0;"),
@@ -888,7 +898,7 @@ ui <- fluidPage(
                   # Modify Inputs + Apply Binning row
                   div(style = "display: flex; align-items: center; justify-content: space-between;",
                       checkboxInput("show_sed_inputs", "Modify Inputs", value = FALSE),
-                      materialSwitch("bin_sediment", "Apply Binning", value = FALSE, status = "primary", inline = TRUE)
+                      materialSwitch("bin_sediment", "Bin", value = FALSE, status = "primary", inline = TRUE)
                   ),
                   
                   # Binning options — shown when bin switch is on AND raster checkbox is on
@@ -901,7 +911,7 @@ ui <- fluidPage(
                                                 "Equal Area"        = "equal_area",
                                                 "Equal Interval"    = "equal_interval"),
                                     selected = "quantile"),
-                        actionButton("apply_sed_bins", "Apply Bins", class = "btn-create", icon = icon("th"))
+                        actionButton("apply_sed_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
                     )
                   ),
                   
@@ -925,7 +935,13 @@ ui <- fluidPage(
                         selectInput("sed_param_ag", "Final Aggregation:",
                                     choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
                                     selected = "pct95"),
-                        helpText("How to aggregate hazard scores after temporal aggregation.")
+                        helpText("How to aggregate hazard scores after temporal aggregation."),
+                        numericInput("sed_resolution", "Raster Resolution (m):",
+                                     value = 1000, min = 100, max = 10000, step = 100),
+                        helpText("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller input values) may result in longer processing times."),
+                        numericInput("sed_max_distance", "Max Risk Distance (m):",
+                                     value = 2000, min = 1000, max = 50000, step = 1000),
+                        helpText("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.")
                     )
                   )
               )
@@ -953,7 +969,7 @@ ui <- fluidPage(
                                     choices = c("Quantiles"      = "quantile",
                                                 "Equal Interval" = "equal_interval"),
                                     selected = "quantile"),
-                        actionButton("apply_eji_bins", "Apply Bins", class = "btn-create", icon = icon("th"))
+                        actionButton("apply_eji_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
                     )
                   ),
                   
@@ -969,9 +985,10 @@ ui <- fluidPage(
                     div(class = "layer-params",
                         numericInput("pop_nbins", "# of Bins:", value = 5, min = 2, max = 9, step = 1),
                         selectInput("pop_bin_method", "Binning Method:",
-                                    choices = c("Equal Area"     = "equal_area",
-                                                "Equal Interval" = "equal_interval"),
-                                    selected = "quantile"),
+                                    choices = c("Equal Interval" = "equal_interval",
+                                                "Equal Area"     = "equal_area",
+                                                "Natural Breaks" = "jenks"),
+                                    selected = "jenks"),
                         actionButton("apply_pop_bins", "Apply Bins", class = "btn-create", icon = icon("th"))
                     )
                   )
@@ -991,7 +1008,35 @@ ui <- fluidPage(
               checkboxInput("risk_air",         "Air Hazard (not implemented)",       value = FALSE),
               checkboxInput("risk_river",       "River Network*",    value = FALSE),
               checkboxInput("risk_basin",       "Pilcomayo Basin",  value = TRUE),
+            )
             ), # end Other details
+            
+            hr(),
+            
+            tags$details(
+              tags$summary(
+                h3(strong("Combined Risk Scoring"), style = "margin: 0;")
+              ),
+              hr(),
+              h5("Select Input Layers:", style = "margin: 0;"),
+              div(class = "layer-block",
+                  checkboxInput("combined_water", "Water Risk", value = FALSE),
+                  checkboxInput("combined_sed", "Sediment Risk", value = FALSE),
+                  checkboxInput("combined_eji", "EJI Vulnerability", value = FALSE),
+                  checkboxInput("combined_pop", "Population Density", value = FALSE)
+              ),
+              div(class = "layer-block",
+                  checkboxInput("combined_custom_res", "Override raster resolution", value = FALSE),
+                  conditionalPanel(
+                    condition = "input.combined_custom_res == true",
+                    numericInput("combined_resolution", "Resolution (degrees):",
+                                 value = NULL, min = 0.001, max = 1, step = 0.001)
+                  )
+              ),
+              actionButton("create_combined", "Create Combined Risk Layer",
+                           class = "btn btn-sm btn-primary", style = "margin-top: 6px;"),
+              checkboxInput("risk_combined", "Display Combined Risk", value = FALSE)
+            ),
             
             hr(),
             
