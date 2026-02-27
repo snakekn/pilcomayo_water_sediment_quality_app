@@ -1008,6 +1008,19 @@ ui <- fluidPage(
               checkboxInput("risk_air",         "Air Hazard (not implemented)",       value = FALSE),
               checkboxInput("risk_river",       "River Network*",    value = FALSE),
               checkboxInput("risk_basin",       "Pilcomayo Basin",  value = TRUE),
+              checkboxInput("risk_watersheds_water", "Water Station Watersheds"),
+              conditionalPanel(
+                condition = "input.risk_watersheds_water == true",
+                actionButton("delineate_water_watersheds", "Delineate Water Station Subcatchments",
+                             icon = icon("water"), class = "btn-primary btn-block",
+                             style = "margin-bottom:6px;")
+              ),
+              checkboxInput("risk_watersheds_sed", "Sediment Station Watersheds"),
+              conditionalPanel(
+                condition = "input.risk_watersheds_sed == true",
+                actionButton("delineate_sed_watersheds", "Delineate Sediment Station Subcatchments",
+                             icon = icon("mountain"), class = "btn-success btn-block")
+              )
             )
             ), # end Other details
             
@@ -1017,7 +1030,8 @@ ui <- fluidPage(
               tags$summary(
                 h3(strong("Combined Risk Scoring"), style = "margin: 0;")
               ),
-              hr(),
+              p(HTML("<i>* Before combining, ensure each selected layer has been created and binned in the Input & Display Layers section above.</i>"),
+                style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
               h5("Select Input Layers:", style = "margin: 0;"),
               div(class = "layer-block",
                   checkboxInput("combined_water", "Water Risk", value = FALSE),

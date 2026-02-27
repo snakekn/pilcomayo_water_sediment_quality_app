@@ -25,6 +25,7 @@ library(shinyBS)
 library(ggrepel)
 library(stringr)
 library(gstat)
+library(whitebox)
 
 
 options(shiny.trace = FALSE)

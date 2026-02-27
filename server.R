@@ -5271,6 +5271,140 @@ observeEvent(combined_risk_raster(), {
     }
   }, ignoreInit = TRUE)
   
+  
+  ######### WATERSHEDS #############
+  
+  water_watersheds <- reactiveVal(NULL)
+  sed_watersheds   <- reactiveVal(NULL)
+  
+  observeEvent(input$delineate_water_watersheds, {
+    df <- water_stations_df()
+    if (is.null(df) || nrow(df) == 0) {
+      showNotification("Please score water stations before delineating watersheds.", 
+                       type = "warning", duration = 5)
+      return()
+    }
+    
+    withProgress(message = "Delineating water station subcatchments...", {
+      tryCatch({
+        result <- delineate_subcatchments(
+          station_df    = df,
+          flow_dir_path = "data/dem/flow_direction_wbt2.tif",
+          flow_acc_path = "data/dem/flow_accumulation_wbt2.tif",
+          snap_dist     = 10000
+        )
+        water_watersheds(result)
+        showNotification("Water subcatchments delineated.", type = "message", duration = 4)
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 10)
+        message("Watershed error: ", e$message)
+      })
+    })
+  })
+  
+  observeEvent(input$delineate_sed_watersheds, {
+    df <- sed_stations_df()
+    if (is.null(df) || nrow(df) == 0) {
+      showNotification("Please score sediment stations before delineating watersheds.",
+                       type = "warning", duration = 5)
+      return()
+    }
+    
+    withProgress(message = "Delineating sediment station subcatchments...", {
+      tryCatch({
+        result <- delineate_subcatchments(
+          station_df    = df,
+          flow_dir_path = "data/dem/flow_direction_wbt2.tif",
+          flow_acc_path = "data/dem/flow_accumulation_wbt2.tif",
+          snap_dist     = 10000
+        )
+        sed_watersheds(result)
+        showNotification("Sediment subcatchments delineated.", type = "message", duration = 4)
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error", duration = 10)
+        message("Watershed error: ", e$message)
+      })
+    })
+  })
+  
+  # Display observer
+  observe({
+    water_bin_breaks()
+    sed_bin_breaks()
+    water_watersheds()
+    sed_watersheds()
+    
+    # Water watersheds
+    if (isTRUE(input$risk_watersheds_water) && !is.null(water_watersheds())) {
+      df <- water_watersheds()
+      is_binned <- isTRUE(input$bin_water) && !is.null(water_bin_breaks())
+      
+      if (is_binned) {
+        breaks    <- water_bin_breaks()
+        n         <- length(breaks) - 1
+        bin_vals  <- as.character(cut(df$HQ, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+        pal       <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")), domain = as.character(seq_len(n)))
+        fill_colors  <- pal(bin_vals)
+        border_colors <- pal(bin_vals)
+      } else {
+        pal          <- colorNumeric("RdYlBu", domain = df$HQ, reverse = TRUE, na.color = "transparent")
+        fill_colors  <- pal(df$HQ)
+        border_colors <- pal(df$HQ)
+      }
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("water_watersheds") %>%
+        addPolygons(
+          data        = df,
+          fillColor   = fill_colors,
+          fillOpacity = 0.4,
+          color       = border_colors,
+          weight      = 1.5,
+          opacity     = 0.8,
+          group       = "water_watersheds",
+          label       = ~paste0(station, " | HQ: ", round(HQ, 2)) %>% lapply(htmltools::HTML),
+          options     = pathOptions(pane = "polygonPane")
+        )
+    } else {
+      leafletProxy("risk_map") %>% clearGroup("water_watersheds")
+    }
+    
+    # Sediment watersheds
+    if (isTRUE(input$risk_watersheds_sed) && !is.null(sed_watersheds())) {
+      df <- sed_watersheds()
+      is_binned <- isTRUE(input$bin_sediment) && !is.null(sed_bin_breaks())
+      
+      if (is_binned) {
+        breaks    <- sed_bin_breaks()
+        n         <- length(breaks) - 1
+        bin_vals  <- as.character(cut(df$HQ, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+        pal       <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")), domain = as.character(seq_len(n)))
+        fill_colors  <- pal(bin_vals)
+        border_colors <- pal(bin_vals)
+      } else {
+        pal          <- colorNumeric("RdYlGn", domain = df$HQ, reverse = TRUE, na.color = "transparent")
+        fill_colors  <- pal(df$HQ)
+        border_colors <- pal(df$HQ)
+      }
+      
+      leafletProxy("risk_map") %>%
+        clearGroup("sed_watersheds") %>%
+        addPolygons(
+          data        = df,
+          fillColor   = fill_colors,
+          fillOpacity = 0.4,
+          color       = border_colors,
+          weight      = 1.5,
+          opacity     = 0.8,
+          group       = "sed_watersheds",
+          label       = ~paste0(station, " | HQ: ", round(HQ, 2)) %>% lapply(htmltools::HTML),
+          options     = pathOptions(pane = "polygonPane")
+        )
+    } else {
+      leafletProxy("risk_map") %>% clearGroup("sed_watersheds")
+    }
+  })
+  
   # Jackson TO DO:
   # - implement ability to click on the map and retrieve the different scores at that point
   # - revisit UI

@@ -1789,3 +1789,180 @@ standardize_raster <- function(r, template, fill_nas = FALSE) {
   r
 }
 
+delineate_subcatchments <- function(station_df, flow_dir_path, flow_acc_path,
+                                     snap_dist = 10000) {
+  library(whitebox)
+  library(terra)
+  library(sf)
+  
+  message("Loading flow rasters...")
+  flow_acc <- terra::rast(flow_acc_path)
+  
+  pour_points <- station_df %>%
+    dplyr::select(where(~!is.list(.))) %>%
+    dplyr::filter(!is.na(longitude_decimal) & !is.na(latitude_decimal)) %>%
+    dplyr::select(station, HQ, longitude_decimal, latitude_decimal) %>%
+    sf::st_as_sf(coords = c("longitude_decimal", "latitude_decimal"), crs = 4326) %>%
+    sf::st_filter(sf::st_transform(pilco_basin, 4326)) %>%
+    dplyr::mutate(FID = seq_len(nrow(.)))  # assign sequential FIDs AFTER basin filter
+  
+  tmp_points  <- "data/dem/tmp_pour_points.shp"
+  tmp_snapped <- "data/dem/tmp_snapped.shp"
+  tmp_wshed   <- "data/dem/tmp_watershed.tif"
+  
+  # Clean up any existing temp files
+  for (f in c(tmp_points, tmp_snapped)) {
+    existing <- list.files(dirname(f), pattern = paste0(tools::file_path_sans_ext(basename(f)), "\\."), full.names = TRUE)
+    if (length(existing) > 0) file.remove(existing)
+  }
+  
+  sf::st_write(pour_points, tmp_points, quiet = TRUE, append = FALSE)
+  
+  # Snap pour points to flow accumulation
+  message("Snapping pour points...")
+  snapped_pts <- snap_to_accumulation_threshold(pour_points, flow_acc, threshold = 1111)
+  
+  message("Snapped points CRS: ", sf::st_crs(snapped_pts)$epsg)
+  message("Flow direction CRS: ", terra::crs(terra::rast(flow_dir_path), describe=TRUE)$code)
+  
+  message("Snapped coordinates:")
+  print(sf::st_coordinates(snapped_pts))
+  message("Duplicate points: ", sum(duplicated(sf::st_coordinates(snapped_pts))))
+  
+  message("Projecting snapped_pts to match flow direction raster CRS...")
+  # Reproject snapped points to match flow direction raster CRS
+  fdr <- terra::rast(flow_dir_path)
+  snapped_pts_proj <- sf::st_transform(snapped_pts, sf::st_crs(fdr))
+  sf::st_write(snapped_pts_proj, tmp_snapped, quiet = TRUE, append = FALSE)
+  
+  test_read <- sf::st_read(tmp_snapped, quiet = TRUE)
+  message("Snapped file columns: ", paste(names(test_read), collapse = ", "))
+  message("Snapped file FID values: ", paste(test_read$FID, collapse = ", "))
+  message("Snapped file CRS: ", sf::st_crs(test_read)$epsg)
+  sf::st_write(test_read %>% dplyr::select(FID), 
+               "data/dem/debug_pour_points.shp", delete_dsn = TRUE)
+  
+  # Debug: check a sample of flow direction values
+  fdr_check <- terra::rast("data/dem/flow_direction_wbt2.tif")
+  message("Flow direction unique values: ", paste(sort(unique(terra::values(fdr_check))), collapse = ", "))
+  message("Flow direction value range: ", terra::minmax(fdr_check)[1], " to ", terra::minmax(fdr_check)[2])
+  
+  # Check snapped points are on high accumulation cells
+  snapped_coords <- sf::st_coordinates(snapped_pts)
+  acc_at_snapped <- terra::extract(flow_acc, sf::st_transform(snapped_pts, sf::st_crs(flow_acc)))
+  message("Flow accumulation at snapped points: ", paste(round(acc_at_snapped[,2]), collapse = ", "))
+  
+  # Delineate full cumulative watersheds
+  message("Delineating watersheds...")
+  wbt_watershed(
+    d8_pntr  = flow_dir_path,
+    pour_pts = tmp_snapped,
+    output   = tmp_wshed
+  )
+  
+  # Convert raster to polygons — each watershed has a unique integer ID
+  message("Converting to polygons...")
+  wshed_raster <- terra::rast(tmp_wshed)
+  
+  wshed_poly <- terra::as.polygons(wshed_raster) %>%
+    sf::st_as_sf() %>%
+    sf::st_make_valid()
+  
+  message("Watershed polygon count: ", nrow(wshed_poly))
+  message("Watershed raster unique values: ", paste(sort(unique(na.omit(terra::values(wshed_raster)))), collapse = ", "))
+  message("Watershed raster extent: ", paste(as.vector(terra::ext(wshed_raster)), collapse = ", "))
+  message("Pour points extent: ", paste(sf::st_bbox(snapped_pts), collapse = ", "))
+  
+  # Join station info by matching FID to watershed value
+  snapped_pts <- sf::st_read(tmp_snapped, quiet = TRUE) %>%
+    sf::st_drop_geometry()
+  
+  colnames(wshed_poly)[1] <- "FID"
+  
+  wshed_poly <- wshed_poly %>%
+    dplyr::left_join(
+      snapped_pts %>% dplyr::select(FID, station, HQ),
+      by = "FID"
+    )
+  
+  # ── Incremental subcatchments ─────────────────────────────────────────────
+  # For each station, subtract all upstream station watersheds
+  message("Computing incremental subcatchments...")
+  
+  # Get snapped point coordinates for upstream/downstream determination
+  snapped_sf <- sf::st_read(tmp_snapped, quiet = TRUE)
+  
+  # For each watershed, find which other station points fall within it
+  # Points inside a watershed are upstream of that watershed's outlet
+  incremental <- wshed_poly
+  
+  for (i in seq_len(nrow(wshed_poly))) {
+    current_watershed <- wshed_poly[i, ]
+    current_fid       <- wshed_poly$FID[i]
+    
+    # Find snapped points that fall within this watershed
+    # excluding the outlet point itself
+    pts_in_watershed <- sf::st_filter(
+      snapped_sf,
+      current_watershed
+    )
+    
+    upstream_fids <- pts_in_watershed$FID[pts_in_watershed$FID != current_fid]
+    
+    if (length(upstream_fids) > 0) {
+      # Get upstream watersheds
+      upstream_watersheds <- wshed_poly %>%
+        dplyr::filter(FID %in% upstream_fids) %>%
+        sf::st_union()
+      
+      # Subtract upstream area from current watershed
+      incremental[i, ] <- tryCatch({
+        diff <- sf::st_difference(current_watershed, upstream_watersheds)
+        diff$FID     <- current_fid
+        diff$station <- current_watershed$station
+        diff$HQ      <- current_watershed$HQ
+        diff
+      }, error = function(e) {
+        message("Warning: could not subtract upstream for station ", 
+                current_watershed$station, " — using full watershed")
+        current_watershed
+      })
+    }
+  }
+  
+  incremental <- sf::st_make_valid(incremental)
+  incremental <- sf::st_transform(incremental, 4326)
+  
+  message("Done — ", nrow(incremental), " subcatchments delineated")
+  return(incremental)
+}
+
+snap_to_accumulation_threshold <- function(pour_points, flow_acc, threshold = 1111) {
+  
+  # Reproject pour points to match flow accumulation CRS
+  pour_points_proj <- sf::st_transform(pour_points, sf::st_crs(flow_acc))
+  
+  # Get cell indices above threshold
+  high_acc_idx    <- terra::cells(flow_acc > threshold, 1)[[1]]
+  high_acc_coords <- terra::xyFromCell(flow_acc, high_acc_idx)
+  high_acc_vals   <- terra::extract(flow_acc, high_acc_idx)[[1]]
+  
+  high_acc_sf <- sf::st_as_sf(
+    as.data.frame(high_acc_coords),
+    coords = c("x", "y"),
+    crs    = sf::st_crs(flow_acc)
+  ) %>% dplyr::mutate(acc = high_acc_vals, cell_id = high_acc_idx)
+  
+  # Snap each pour point to nearest high accumulation cell
+  nearest_idx <- sf::st_nearest_feature(pour_points_proj, high_acc_sf)
+  snapped     <- high_acc_sf[nearest_idx, ]
+  
+  snapped <- snapped %>%
+    dplyr::mutate(
+      FID     = pour_points$FID,
+      station = pour_points$station,
+      HQ      = pour_points$HQ
+    )
+  
+  return(snapped)
+}
