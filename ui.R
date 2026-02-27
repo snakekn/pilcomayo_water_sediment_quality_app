@@ -989,7 +989,7 @@ ui <- fluidPage(
                                                 "Equal Area"     = "equal_area",
                                                 "Natural Breaks" = "jenks"),
                                     selected = "jenks"),
-                        actionButton("apply_pop_bins", "Apply Bins", class = "btn-create", icon = icon("th"))
+                        actionButton("apply_pop_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
                     )
                   )
               )
@@ -1008,17 +1008,17 @@ ui <- fluidPage(
               checkboxInput("risk_air",         "Air Hazard (not implemented)",       value = FALSE),
               checkboxInput("risk_river",       "River Network*",    value = FALSE),
               checkboxInput("risk_basin",       "Pilcomayo Basin",  value = TRUE),
-              checkboxInput("risk_watersheds_water", "Water Station Watersheds"),
+              checkboxInput("risk_watersheds_water", "Water Station Subcatchments"),
               conditionalPanel(
                 condition = "input.risk_watersheds_water == true",
-                actionButton("delineate_water_watersheds", "Delineate Water Station Subcatchments",
+                actionButton("delineate_water_watersheds", "Delineate Subcatchments*",
                              icon = icon("water"), class = "btn-primary btn-block",
                              style = "margin-bottom:6px;")
               ),
-              checkboxInput("risk_watersheds_sed", "Sediment Station Watersheds"),
+              checkboxInput("risk_watersheds_sed", "Sediment Station Subcatchments"),
               conditionalPanel(
                 condition = "input.risk_watersheds_sed == true",
-                actionButton("delineate_sed_watersheds", "Delineate Sediment Station Subcatchments",
+                actionButton("delineate_sed_watersheds", "Delineate Subcatchments*",
                              icon = icon("mountain"), class = "btn-success btn-block")
               )
             )
@@ -1047,8 +1047,8 @@ ui <- fluidPage(
                                  value = NULL, min = 0.001, max = 1, step = 0.001)
                   )
               ),
-              actionButton("create_combined", "Create Combined Risk Layer",
-                           class = "btn btn-sm btn-primary", style = "margin-top: 6px;"),
+              actionButton("create_combined", "Create Combined Risk Layer*",
+                           class = "btn-create", icon = icon("layer-group")),
               checkboxInput("risk_combined", "Display Combined Risk", value = FALSE)
             ),
             
