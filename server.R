@@ -5408,6 +5408,59 @@ observeEvent(combined_risk_raster(), {
   # Jackson TO DO:
   # - implement ability to click on the map and retrieve the different scores at that point
   # - revisit UI
+  # - Data Preparation tab
+  
+  data_prep_water <- reactive({
+    req(master_data$water_scored)
+    
+    df <- master_data$water_scored |>
+      group_by(year) |>
+      summarise(n_params = length(unique(parameter)),
+                n_stations = length(unique(station)),
+                n_obs = n(),
+                HQ_range = paste0(round(min(HQ, na.rm = TRUE), digits = 2), " - ", round(max(HQ, na.rm = TRUE), digits = 2)))
+    
+    return(df)
+  })
+  
+  output$data_prep_water_table <- renderDT({
+    data_prep_water()
+  })
+  
+  data_prep_sed <- reactive({
+    req(master_data$sed_scored)
+    
+    df <- master_data$sed_scored |>
+      group_by(year) |>
+      summarise(n_params = length(unique(parameter)),
+                n_stations = length(unique(station)),
+                n_obs = n(),
+                HQ_range = paste0(round(min(HQ, na.rm = TRUE), digits = 2), " - ", round(max(HQ, na.rm = TRUE), digits = 2)))
+    
+    return(df)
+  })
+  
+  output$data_prep_sed_table <- renderDT({
+    data_prep_sed()
+  })
+  
+  output$full_water_table <- renderDT({
+    master_data$water_scored |>
+      mutate(
+        value = round(concentration, 2),
+        HQ    = round(HQ, 2)
+      ) |>
+      select(station, date, parameter, fraction, value, unit, HQ, data_source)
+  })
+  
+  output$full_sed_table <- renderDT({
+    master_data$sed_scored |>
+      mutate(
+        value = round(concentration, 2),
+        HQ    = round(HQ, 2)
+      ) |>
+      select(station, date, parameter, sieve_size, value, unit, HQ, data_source)
+  })
   
 } # End Server
 

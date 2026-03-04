@@ -109,19 +109,20 @@ ui <- fluidPage(
   }
   
   /* ── Map Panel: Sticky map, scrollable sidebar ────────────────── */
-  html, body {
+/* Allow normal page scrolling */
+html, body {
   height: 100%;
-  overflow: hidden;
+  overflow: auto;  /* was: hidden */
 }
 
 .container-fluid {
   height: 100vh;
-  overflow: hidden;
+  overflow: auto;  /* was: hidden */
 }
 
 .tab-content {
-  height: calc(100vh - 84px); /* 42px = height of navbar tabs */
-  overflow: hidden;
+  height: calc(100vh - 84px);
+  overflow: auto;  /* was: hidden */
 }
   
   .well {
@@ -158,14 +159,64 @@ ui <- fluidPage(
         includeMarkdown("text/introduction.md"),
         # load from a .md to reduce clutter
         
-        tabPanel("Import", dataUploadUI("upload_data")),
-        
         tags$hr(),
         tags$hr(),
         includeMarkdown("text/introduction_sources.md"),
         tags$hr(),
         tags$p(
           "This application was developed using R Shiny and integrates spatial and tabular data for interactive analysis."
+        )
+      )
+    ),
+    
+    tabPanel(
+      "Data Preparation",
+      sidebarPanel(
+        conditionalPanel(
+          condition = "!output.map_data_ready",
+          div(
+            style = "text-align: center; padding: 20px;",
+            icon("spinner", class = "fa-spin fa-3x"),
+            h4("Loading data...", style = "margin-top: 20px;")
+          )
+        ),
+        conditionalPanel(
+          condition = "output.map_data_ready",
+          tags$details(
+            tags$summary(
+              h4(strong("Upload Data"), style = "margin: 0;")
+            ),
+            tabPanel("Import", dataUploadUI("upload_data"))
+          ) 
+        )
+      ),
+      mainPanel(
+        conditionalPanel(
+          condition = "output.map_data_ready",
+          tabsetPanel(
+            tabPanel("Water Data",
+                     checkboxInput("show_summary_water", "Show Summary Table"),
+                     conditionalPanel(
+                       condition = "input.show_summary_water",
+                       dataTableOutput("data_prep_water_table")
+                     ),
+                     checkboxInput("show_full_water", "Show Full Data"),
+                     conditionalPanel(
+                       condition = "input.show_full_water",
+                       dataTableOutput("full_water_table")
+                     )),
+            tabPanel("Sediment Data",
+                     checkboxInput("show_summary_sed", "Show Summary Table"),
+                     conditionalPanel(
+                       condition = "input.show_summary_sed",
+                       dataTableOutput("data_prep_sed_table")
+                     ),
+                     checkboxInput("show_full_sed", "Show Full Data"),
+                     conditionalPanel(
+                       condition = "input.show_full_sed",
+                       dataTableOutput("full_sed_table")
+                     ))
+        )
         )
       )
     ),
