@@ -1,4 +1,4 @@
-load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save = FALSE) {
+load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save = TRUE, check_standards = TRUE) {
   
   # Quick library confirmation. Slows things down, but this is a 1-off function anyways
   library(tidyverse)
@@ -8,7 +8,7 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
   sys.source(here(dir, "convert_data_format.R"), envir = globalenv()) # pivot_pilcomayo_data()
   sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_data()
   sys.source(here(dir, "helpers_server.R"), envir = globalenv()) # merge_media_safely(), clip_to_bolivia()
-  sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_to_loc_year()
+  sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_to_loc_year() which includes setting stds
   sys.source(here(dir, "locyear_to_locscore.R"), envir = globalenv()) # weigh_inverse_time()
   
   # if the user is looking to complete all tasks (not just save the data)
@@ -31,6 +31,11 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
     all_sed_pivot <<- pivot_pilcomayo_data(all_sed_data, media_type = "sediment")
     print("DONE")
     
+    if(check_standards) {
+      print("Confirming we have the most up-to-date standards")
+      stds <<- readr::read_csv(here::here("data/standards/strict_standards.csv"))
+    }
+    
     print("Scoring water data...")
     all_water_scored <<- score_data(all_water_pivot)
     print("DONE")
@@ -52,7 +57,6 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
       all_media_locyear <<- merge_media_safely(all_water_locyear, all_sed_locyear)
       print("DONE")
     }
-    
     
     print("All base data loaded, pivoted, scored, and merged as requested.")
     
