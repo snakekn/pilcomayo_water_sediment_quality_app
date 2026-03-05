@@ -49,6 +49,7 @@ p2 = plot_top_hq_params(bol_sed_scored,
                         return_data = FALSE,
                         all_params = FALSE,
                         recent_range = 5,
+                        num_output = 7,
                         ggplot_output=TRUE)
 p2
 ####silver####
@@ -81,6 +82,7 @@ arsenic_stations_water = plot_top_hq_stations(bol_media_scored,
                                        temporal_aggregation = "recent", 
                                        param_aggregation = "pct95",
                                        ggplot_output = FALSE,
+                                       graph_type = "boxplot",
                                        recent_range = 5)
 
 arsenic_stations_water
@@ -92,6 +94,7 @@ arsenic_stations_sed = plot_top_hq_stations(bol_media_scored,
                                               temporal_aggregation = "recent", 
                                               param_aggregation = "pct95",
                                               ggplot_output = FALSE,
+                                            graph_type = "boxplot",
                                               recent_range = 5)
 
 arsenic_stations_sed
@@ -101,7 +104,8 @@ arsenic_sieve = plot_top_hq_sieve(bol_sed_scored,
                                   param_selection = "Arsenic", 
                                   param_aggregation = "pct95", 
                                   station_selection="all", 
-                                  temporal_aggregation = "recent", 
+                                  temporal_aggregation = "recent",
+                                  graph_type = "boxplot",
                                   recent_range = 5)
 arsenic_sieve  
 
@@ -266,3 +270,67 @@ zinc_sieve = plot_top_hq_sieve(bol_sed_scored,
                                   temporal_aggregation = "recent", 
                                   recent_range = 5)
 zinc_sieve 
+
+#### build boxplots for stations on specific params ####
+params_water <- c("Silver","Arsenic", "Iron", "Cadmium", "Lead", "Selenium", "Zinc", "Copper", "Mercury")
+params_sed = c("Arsenic", "Mercury", "Zinc", "Cadmium", "Lead", "Copper", "Nickel", "Chromium")
+
+plots_water = list()
+for (p in params_water) {
+  cat("\n---", p, "---\n")
+  plt = plot_top_hq_stations(bol_media_scored, 
+                       media_type = "water", 
+                       param = p, 
+                       temporal_aggregation = "recent", 
+                       param_aggregation = "pct95",
+                       ggplot_output = FALSE,
+                       recent_range = 5,
+                       graph_type = "boxplot")
+  # print(plt)  # important: actually renders the plotly widget
+  plots_water[[p]] = plt
+}
+
+plots_sed = list()
+for (p in params_sed) {
+  cat("\n---", p, "---\n")
+  plt = plot_top_hq_stations(bol_media_scored, 
+                       media_type = "sediment", 
+                       param = p, 
+                       temporal_aggregation = "recent", 
+                       param_aggregation = "pct95",
+                       ggplot_output = FALSE,
+                       recent_range = 5,
+                       graph_type = "boxplot")
+  plots_sed[[p]] = plt
+  #print(plt)  # important: actually renders the plotly widget
+}
+
+#### Location-based analysis ####
+# water quality, all stations & parameters
+plot_top_hq_stations(bol_media_scored, 
+                     media_type = "water", 
+                     param = "all", 
+                     temporal_aggregation = "recent", 
+                     param_aggregation = "pct95",
+                     ggplot_output = FALSE,
+                     recent_range = 5,
+                     all_stations = TRUE,
+                     graph_type = "boxplot")
+
+# sed quality, all S&P
+plot_top_hq_stations(bol_media_scored, 
+                     media_type = "sediment", 
+                     param = "all", 
+                     temporal_aggregation = "recent", 
+                     param_aggregation = "pct95",
+                     ggplot_output = FALSE,
+                     recent_range = 5,
+                     all_stations = TRUE,
+                     graph_type = "boxplot")
+
+#### Get list of standards & sources
+std_sources = read_csv(here::here("data/standards/all_standards.csv")) |>
+  distinct(regulator, source) |>
+  arrange(regulator) |>
+  drop_na()
+std_sources |> View()

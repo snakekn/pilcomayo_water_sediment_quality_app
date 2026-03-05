@@ -9,6 +9,7 @@ plot_top_hq_params <- function(data,
                                return_data = FALSE,
                                all_params = FALSE,
                                recent_range = 0,
+                               num_output = 10,
                                ggplot_output = FALSE
                                ) {
   library(plotly) # lazy coding :P
@@ -447,7 +448,7 @@ plot_top_hq_params <- function(data,
   
   if(!all_params) {
     top_params = top_params |>
-      slice_head(n = 10)
+      slice_head(n = num_output)
   }
   
   if(return_data) {
@@ -601,7 +602,7 @@ plot_top_hq_params <- function(data,
     layout(
       title = list(
         text = paste0(
-          "Top 10 Parameters (Ranked using Hazard Quotient)",
+          sprintf("Top %d Parameters (Ranked using Hazard Quotient)",num_output),
           "<br><sup>",
         "Media: ", media_label, if (fraction_applied) paste0(" (", fraction, ")"), ". ",
         temporal_label, " & ", spatial_label,

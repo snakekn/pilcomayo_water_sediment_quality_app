@@ -1,5 +1,12 @@
 # example: plot_top_hq_sieve(all_sed_scored, "Lead", param_aggregation = "mean")
-plot_top_hq_sieve = function(data, param_selection = "all", param_aggregation = "pct95", station_selection="all", temporal_aggregation = "recent", recent_range = 5) {
+plot_top_hq_sieve = function(data, 
+                             param_selection = "all", 
+                             param_aggregation = "pct95", 
+                             station_selection="all", 
+                             temporal_aggregation = "recent", 
+                             recent_range = 5,
+                             graph_type = "ranking"
+                             ) {
   # Demonstrate what we're working with
   cat("\n[plot_top_hq_sieve] Params: ")
   params_callout <- list(
@@ -38,14 +45,17 @@ plot_top_hq_sieve = function(data, param_selection = "all", param_aggregation = 
   }
   
   if(temporal_aggregation == "recent") { 
-    years_range = data |>
-      group_by(station) |>
-      summarize(last_year = max(year, na.rm=TRUE),
-                min_year = last_year - recent_range,
-                .groups="drop")
-    data = years_range |>  
-      right_join(data, by="station") |>
-      filter(year >= min_year)
+    
+    data = temporal_filtering(data)
+    
+    # years_range = data |>
+    #   group_by(station) |>
+    #   summarize(last_year = max(year, na.rm=TRUE),
+    #             min_year = last_year - recent_range,
+    #             .groups="drop")
+    # data = years_range |>  
+    #   right_join(data, by="station") |>
+    #   filter(year >= min_year)
   }
   
   sieve_options = unique(data$sieve_size)
@@ -102,16 +112,98 @@ plot_top_hq_sieve = function(data, param_selection = "all", param_aggregation = 
                            param_aggregation == "avg" ~ "Mean",
                            param_aggregation == "pct95" ~ "95th Percentile")
   
-  p = plot_df |>
-    ggplot(aes(x = reorder(sieve_size, min_mm), 
-               y = value,
-               text = hover_text)) +
-    geom_col(fill = "tan") +
-    geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
-    coord_flip() + 
-    labs(title = paste0("Sieve Sizes Ranked by ", param_aggregation_label, " Value: ", param_selection),
-         x = "Sieve Size", y = paste0("Hazard Quotient (", param_aggregation_label, ")")) +
-    theme_minimal()
+  if(graph_type == "boxplot") {
+    # ensure sieve_size is an ordered factor using the same order as plot_df
+    sieve_order <- plot_df |>
+      arrange(min_mm) |>
+      pull(sieve_size)
+    
+    data_bp <- data |>
+      rename(sieve_name = sieve_size) |>
+      mutate(
+        sieve_min = parse_min_mm(sieve_name),
+        sieve_size = cut(
+          sieve_min,
+          breaks = c(0, 0.063, 0.125, 0.25, 0.5, 1, 2, Inf),
+          labels = c(
+            "Very Fine (<0.063mm)",
+            "Fine Silt (0.063-0.125mm)",
+            "Medium-Coarse Silt (0.125-0.25mm)",
+            "Fine Sand (0.25-0.5mm)",
+            "Medium Sand (0.5-1.0mm)",
+            "Coarse Sand (1.0-2.0mm)",
+            ">2mm"
+          ),
+          right = FALSE
+        ),
+        sieve_size = factor(as.character(sieve_size), levels = sieve_order)
+      )
+    
+    plot_df <- plot_df |>
+      mutate(sieve_size = factor(sieve_size, levels = sieve_order))
+    
+    title_text <- paste0(
+      "Sieve Sizes: HQ Distributions (", param_aggregation_label, " Highlighted)",
+      if (param_selection != "all") paste0(" — ", param_selection) else ""
+    )
+    
+    p <- ggplot(data_bp, aes(x = sieve_size, y = HQ)) +
+      geom_boxplot(
+        outlier.shape = 16,
+        outlier.size  = 1.5,
+        linewidth     = 0.7,
+        fatten        = 4,
+        outlier.alpha = 0.5,
+        fill          = "white"
+      ) +
+      stat_summary(
+        fun  = median,
+        geom = "point",
+        color = "darkred",
+        size  = 1.5
+      ) +
+      geom_point(
+        data = plot_df,
+        aes(x = sieve_size, y = value),
+        inherit.aes = FALSE,
+        shape = 23,          # diamond
+        size  = 3,
+        fill  = "tan",
+        color = "darkred",
+        stroke = 1
+      ) +
+      geom_hline(
+        yintercept = 1,
+        linetype   = "dashed",
+        color      = "firebrick",
+        linewidth  = 1
+      ) +
+      coord_flip() +
+      labs(
+        title = title_text,
+        x     = "Sieve Size",
+        y     = paste0("Hazard Quotient (", param_aggregation_label, ")")
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+        legend.position    = "bottom",
+        plot.title         = element_text(face = "bold", size = 14),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor   = element_blank()
+      )
+    
+  } else {
+    p = plot_df |>
+      ggplot(aes(x = reorder(sieve_size, min_mm), 
+                 y = value,
+                 text = hover_text)) +
+      geom_col(fill = "tan") +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
+      coord_flip() + 
+      labs(title = paste0("Sieve Sizes Ranked by ", param_aggregation_label, " Value: ", param_selection),
+           x = "Sieve Size", y = paste0("Hazard Quotient (", param_aggregation_label, ")")) +
+      theme_minimal()
+  }
   
   ply = ggplotly(p, tooltip = "text")
   return(ply)

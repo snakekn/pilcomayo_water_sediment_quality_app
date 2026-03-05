@@ -42,8 +42,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   if (length(param) == 1 && tolower(param) == "all") {
     message("Using ALL parameters in dataset...")
   } else {
-    message("Filtering for parameters: ")
-    message(param)
+    message(sprintf("Filtering for parameters: %s", param))
     message("Total rows pre-param filtering: ", nrow(data))
     data = data |>
       filter(parameter %in% param)
@@ -310,14 +309,15 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
                     "pct95" = quantile(HQ, probs = 0.95, na.rm=TRUE)),
         
         n_parameters = n(),
-        n_measurements = sum(n_measurements),
+        n_measurements = n(),
         # parameters = paste(unique(parameter), collapse = ", "),
         .groups = "drop"
       )
+      
     
-    message(paste("Aggregated", unique(df_exceedances$n_parameters), "parameters per station-date"))
-  } else {
-    station_hq = temporally_filtered_df # just to get the names right
+    message(paste("Aggregated HQ values into one per-station"))
+  } else { # update name, get counts
+    station_hq = temporally_filtered_df
   }
   
   # Get top 10 stations by HQ
@@ -326,7 +326,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     top_stations <- station_hq |>
       arrange(desc(HQ)) |>
       mutate(
-        station_label = paste0(station, "(n=", n_measurements, ")"),
+        station_label = paste0(station, " (n=", n_measurements, ")"),
         station_label = factor(station_label, levels = rev(station_label)),
         exceeds_standard = HQ >= 1,
         hover_text = paste0(
@@ -352,7 +352,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     top_stations <- station_hq |>
       arrange(desc(HQ)) |>
       mutate(
-        station_label = paste0(station),
+        station_label = paste0(station, " (n=", n_measurements, ")"),
         station_label = factor(station_label, levels = rev(unique(station_label))),
         exceeds_standard = HQ >= 1,
         hover_text = paste0(
@@ -375,13 +375,8 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
         )
       )
     
-    temporally_filtered_df = temporally_filtered_df |>
-      group_by(station) |>
-      summarize(sample_count=n(), .groups = "drop") |>
-      right_join(temporally_filtered_df, by="station") |>
-      mutate(station_label = sprintf("%s (n=%d)", station, sample_count)) |>
-      select(-sample_count)
-  }
+
+    }
   
   # mutate data so the HQ bin is added
   top_stations = top_stations |>
@@ -390,10 +385,17 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
                           labels = hq_classification_sys$labels,
                           include.lowest = TRUE, right = FALSE))
   
+  print(top_stations$hq_class |> summary())
   
   if (!all_stations) { # options are all or 10 baby
     top_stations = top_stations |> slice_head(n = 10)
   }
+  stations_included = top_stations %>% 
+    arrange(desc(HQ)) |>
+    pull(station)
+  station_labels_ordered = top_stations %>% 
+    arrange(desc(HQ)) |>
+    pull(station_label)
   
   if(return_data) {
     return(top_stations)
@@ -405,8 +407,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   param_aggregation_title = case_match(param_aggregation,
                                    "pct95" ~ "95th Percentile",
                                    .default = param_aggregation)
-  print(param_aggregation_title)
-  
+
   # Create title based on whether param_aggregation was used
   if (!is.null(param_aggregation)) {
     title_text <- paste(
@@ -423,27 +424,25 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   use_log = (ceiling(log10(max(top_stations$HQ))) - floor(log10(min(top_stations$HQ)))) >= 2
   
   if(graph_type == "boxplot") {
-    top_station_names <- top_stations %>% 
-      arrange(desc(HQ)) %>%  # HQ in top_stations IS the 95th percentile
-      pull(station)
-    
-    station_labels_ordered <- top_stations %>%
-      arrange(desc(HQ)) %>%
-      pull(station_label)
     
     # Reorder factor levels
     top_stations <- top_stations %>%
-      mutate(station_label = factor(station_label, levels = station_labels_ordered))
+      mutate(station = factor(station, levels = stations_included))
 
     # force tf_df to do the same
     temporally_filtered_df <- temporally_filtered_df %>%
-      filter(station %in% top_station_names) %>%
-      mutate(station_label = factor(station_label, levels = station_labels_ordered),
-             hq_class = cut(HQ, 
-                            breaks = hq_classification_sys$breaks,
-                            labels = hq_classification_sys$labels,
-                            include.lowest = TRUE, right = FALSE))
-      
+      filter(station %in% stations_included) %>%
+      mutate(station = factor(station, levels = rev(stations_included)))
+    
+    station_labels_vec = setNames(top_stations$station_label,
+                                  top_stations$station)
+    
+    print(summary(top_stations$HQ))
+    print(hq_classification_sys$breaks)
+    
+    # See which values are NA
+    top_stations %>% filter(is.na(hq_class)) %>% select(station, HQ, hq_class)
+    
       # Calculate 95th percentiles for plotting
     # percentile_95 <- top_stations %>%
     #   group_by(station_label) %>%
@@ -451,27 +450,29 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     
     # Create boxplot
     p <- ggplot(temporally_filtered_df, 
-                 aes(x = station_label, y = HQ)) +
+                 aes(x = station, y = HQ)) +
       geom_boxplot(
-        # aes(fill = after_stat(ifelse(..ymax.. > 1, "Exceeds", "Below"))),
         outlier.shape = 16,
         outlier.size = 1.5,
         linewidth = 0.7,
         fatten=4,
         outlier.alpha = 0.5,
-        fill="lightblue"
+        fill="white",
       ) +
+      stat_summary(
+        fun = median,
+        geom = "point",
+        color = "darkred",
+        size = 1.5
+      )+
       geom_point(
         data = top_stations,
-        aes(x = station_label, y = HQ, fill=hq_class),
+        aes(x = station, y = HQ),
         shape = 23,  # diamond shape
         size = 3,
         color = "darkred",
         stroke = 1
       ) +
-      scale_fill_manual(
-        values = hq_classification_sys$colors,
-        name = "Hazard Class")+
       geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
       coord_flip() +
       labs(
@@ -621,3 +622,4 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   
   return(ply)
 }
+

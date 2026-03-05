@@ -17,9 +17,36 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
   
   ### Main Script
   
+  ## see if we can convert the standard value to a uniform unit
+  std_unit = list(water = "mg/l", sediment = "mg/kg", soil = "mg/kg")
+  
+  
   # group by parameter & media, get the lowest value, arrange by name of parameter
+  # include unit management
   strict_std <<- std_file |>
     mutate(is_ph_low = tolower(parameter) == "ph" & grepl("low", parameter, ignore.case = TRUE)) |>
+    rowwise() |>
+    mutate(
+      value = {
+        # check we know how to change these
+        if(media %in% names(std_unit)) {
+          # check if we can convert between units
+          unit_conv = compare_units(unit, std_unit[media])
+          if(unit_conv$convertible) {
+            # update the value and unit
+            value / unit_conv$conversion_factor
+            std_unit[media]
+          } else {
+            value
+          }
+        } else {
+          # we don't know how to update these, and don't care
+          value
+        }
+      },
+      unit = ifelse(media %in% names(std_unit), std_unit[media], unit)
+    ) |>
+    ungroup() |>
     group_by(parameter, media) |>
     slice_min(
       order_by = ifelse(is_ph_low, -value, value), 

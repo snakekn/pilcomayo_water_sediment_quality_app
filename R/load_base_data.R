@@ -1,18 +1,15 @@
-load_base_data <- function(load = TRUE, loctime = FALSE, save = FALSE) {
+load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save = FALSE) {
   
+  # Quick library confirmation. Slows things down, but this is a 1-off function anyways
   library(tidyverse)
   
-  # load all helper functions
-  load_scripts <- function(dir = "scripts/risk_analysis") {
-    if (!dir.exists(dir)) return(invisible())
-    files <- list.files(dir, pattern = "[.]R$", full.names = TRUE, recursive = TRUE)
-    for (f in files) {
-      # source into the *current* app environment to avoid globals
-      sys.source(f, envir = globalenv()) 
-    }
-  }
-  
-  load_scripts(dir = "R")
+  #### Load source files for functions required only for this function ####
+  dir = "R"
+  sys.source(here(dir, "convert_data_format.R"), envir = globalenv()) # pivot_pilcomayo_data()
+  sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_data()
+  sys.source(here(dir, "helpers_server.R"), envir = globalenv()) # merge_media_safely(), clip_to_bolivia()
+  sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_to_loc_year()
+  sys.source(here(dir, "locyear_to_locscore.R"), envir = globalenv()) # weigh_inverse_time()
   
   # if the user is looking to complete all tasks (not just save the data)
   if(load) {
@@ -46,15 +43,18 @@ load_base_data <- function(load = TRUE, loctime = FALSE, save = FALSE) {
     all_media_scored <<- merge_media_safely(all_water_scored, all_sed_scored)
     print("DONE")
     
-    print("Turning all_sed_scored into all_sed_locyear")
-    all_sed_locyear <<- score_to_loc_year(all_sed_scored)
-    print("DONE. Turning all_water_scored into all_water_locyear")
-    all_water_locyear <<- score_to_loc_year(all_water_scored)
-    print("DONE. Merging into all_media_locyear")
-    all_media_locyear <<- merge_media_safely(all_water_locyear, all_sed_locyear)
-    print("DONE")
+    if(locyear) {
+      print("Turning all_sed_scored into all_sed_locyear")
+      all_sed_locyear <<- score_to_loc_year(all_sed_scored)
+      print("DONE. Turning all_water_scored into all_water_locyear")
+      all_water_locyear <<- score_to_loc_year(all_water_scored)
+      print("DONE. Merging into all_media_locyear")
+      all_media_locyear <<- merge_media_safely(all_water_locyear, all_sed_locyear)
+      print("DONE")
+    }
     
-    print("All base data loaded, pivoted, scored, and merged.")
+    
+    print("All base data loaded, pivoted, scored, and merged as requested.")
     
     print("Loading border shapefiles and clipping scored data to Bolivia...")
     
