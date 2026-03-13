@@ -1,72 +1,72 @@
-"","regulator","parameter","abbr","value","unit","media","limit","notes","source","hqcr","value_unif","unit_unif"
-"1","Bolivian Law 1333","Aluminum","Al",0.2,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.2,"mg/l"
-"2","Bolivian Law 1333","Ammonia","NH3",0.05,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.05,"mg/l"
-"3","EPA","Antimony","Sb",0.006,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",0.006,"mg/l"
-"4","FAO","Arsenic","As",0.01,"mg/L","drinking water",NA,"For natural mineral waters","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq",0.01,"mg/L"
-"5","FAO","Arsenic","As",0.2,"mg/kg","food",NA,"For rice, polished","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq",0.2,"mg/kg"
-"6","CDC","Arsenic","As",1,"ug/L","human urine",NA,NA,"https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx","hq",1,"ug/L"
-"7","OEHHA","Arsenic","As",1.5,"mg/kg-d","inhalation",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",1.5,"mg/kg-d"
-"8","OEHHA","Arsenic","As",12,"mg/kg-d","oral",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",12,"mg/kg-d"
-"9","USGS","Arsenic","As",5.9,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",5.9,"mg/kg"
-"10","EPA","Arsenic","As",0.39,"mg/kg","soil",NA,"For residential soil",NA,"hq",0.39,"mg/kg"
-"11","EPA","Arsenic","As",0.01,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",0.01,"mg/l"
-"12","Bolivian Law 1333","BOD",NA,2,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",2,"mg/l"
-"13","Bolivian Law 1333","BOD5",NA,2,"mg/l","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",2,"mg/l"
-"14","Bolivian Law 1333","Barium","Ba",1,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",1,"mg/l"
-"15","OEHHA","Beryllium","Be",8.4,"mg/kg-d","oral",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",8.4,"mg/kg-d"
-"16","Bolivian Law 1333","Beryllium","Be",0.001,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.001,"mg/l"
-"17","Bolivian Law 1333","Boron","B",1,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",1,"mg/l"
-"18","Bolivian Law 1333","COD",NA,5,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",5,"mg/l"
-"19","FAO","Cadmium","Cd",0.003,"mg/L","drinking water",NA,"For natural mineral waters","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq",0.003,"mg/L"
-"20","FAO","Cadmium","Cd",0.05,"mg/kg","food",NA,"Lowest MCL for Cadmium in local crops. Should be considered on a monthly intake basis","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq",0.05,"mg/kg"
-"21","CDC","Cadmium","Cd",0.315,"ug/dL","human blood",NA,"Population  > 1yr age","https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx","hq",0.315,"ug/dL"
-"22","OEHHA","Cadmium","Cd",15,"mg/kg-d","oral",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",15,"mg/kg-d"
-"23","USGS","Cadmium","Cd",0.596,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",0.596,"mg/kg"
-"24","EPA","Cadmium","Cd",71,"mg/kg","soil",NA,"For composite workers in industrial land use",NA,"hq",71,"mg/kg"
-"25","WHO","Cadmium","Cd",0.003,"mg/L","water",NA,NA,"https://www.who.int/teams/environment-climate-change-and-health/water-sanitation-and-health/chemical-hazards-in-drinking-water","hq",0.003,"mg/l"
-"26","Bolivian Law 1333","Calcium","Na",200,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",200,"mg/l"
-"27","Bolivian Law 1333","Chlorides","Cl",250,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",250,"mg/l"
-"28","USGS","Chromium","Cr",37.3,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",37.3,"mg/kg"
-"29","Bolivian Law 1333","Chromium","Cr hex",0.05,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.05,"mg/l"
-"30","Bolivian Law 1333","Cobalt","Co",0.1,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.1,"mg/l"
-"31","Bolivian Law 1333","Color",NA,10,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",10,"mg/l"
-"32","USGS","Copper","Cu",35.7,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",35.7,"mg/kg"
-"33","Bolivian Law 1333","Copper","Cu",0.05,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.05,"mg/l"
-"34","EPA","Cyanide","Cyanide",0.2,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",0.2,"mg/l"
-"35","Bolivian Law 1333","DO",NA,50,"mg/l","water","Class D","Class D limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",50,"mg/l"
-"36","Bolivian Law 1333","Iron","Fe",0.3,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.3,"mg/l"
-"37","FAO","Lead","Pb",0.05,"mg/kg","food",NA,"Lowest MCL for Lead in local crops","https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf","hq",0.05,"mg/kg"
-"38","CDC","Lead","Pb",3.5,"ug/dL","human blood",NA,"Reference limit for children ages 1-5.","https://www.cdc.gov/lead-prevention/php/news-features/updates-blood-lead-reference-value.html","hq",3.5,"ug/dL"
-"39","OEHHA","Lead","Pb",0.042,"mg/kg-d","inhalation",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",0.042,"mg/kg-d"
-"40","OEHHA","Lead","Pb",8.5,"ng/kg-d","oral",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",8.5,"ng/kg-d"
-"41","EPA","Lead","Pb",35,"mg/kg","sediment",NA,NA,NA,"hq",35,"mg/kg"
-"42","EPA","Lead","Pb",400,"mg/kg","soil",NA,"For residential soil",NA,"hq",400,"mg/kg"
-"43","EPA","Lead","Pb",0.01,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",0.01,"mg/l"
-"44","Bolivian Law 1333","Lithium","Li",2.5,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",2.5,"mg/l"
-"45","Bolivian Law 1333","Magnesium","Mg",100,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",100,"mg/l"
-"46","WHO","Manganese","Mn",0.08,"mg/L","water",NA,NA,"https://www.who.int/teams/environment-climate-change-and-health/water-sanitation-and-health/chemical-hazards-in-drinking-water","hq",0.08,"mg/l"
-"47","CDC","Mercury","Hg",5,"ug/dL","human blood",NA,NA,"https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx","hq",5,"ug/dL"
-"48","EPA","Mercury","Hg",0.13,"mg/kg","sediment",NA,NA,NA,"hq",0.13,"mg/kg"
-"49","EPA","Mercury","Hg",23,"mg/kg","soil",NA,"For residential soil",NA,"hq",23,"mg/kg"
-"50","Bolivian Law 1333","Mercury","Hg",0.001,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.001,"mg/l"
-"51","OEHHA","Nickel","Ni",0.91,"mg/kg-d","oral",NA,NA,"https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf","cr",0.91,"mg/kg-d"
-"52","USGS","Nickel","Ni",18,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",18,"mg/kg"
-"53","Bolivian Law 1333","Nickel","Ni",0.05,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.05,"mg/l"
-"54","EPA","Nitrate","NO3",10,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",10,"mg/l"
-"55","EPA","Nitrite","NO2",1,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",1,"mg/l"
-"56","Bolivian Law 1333","Nitrogen","N",5,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",5,"mg/l"
-"57","Bolivian Law 1333","Oxygen Saturation",NA,80,"%","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",80,"mg/l"
-"58","Bolivian Law 1333","Phosphates","PO4",0.4,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.4,"mg/l"
-"59","Bolivian Law 1333","Selenium","Se",0.01,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.01,"mg/l"
-"60","Bolivian Law 1333","Silver","Ag",0.05,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.05,"mg/l"
-"61","Bolivian Law 1333","Sodium","Na",200,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",200,"mg/l"
-"62","Bolivian Law 1333","Sulfate","SO4",300,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",300,"mg/l"
-"63","Bolivian Law 1333","TDS",NA,1000,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",1000,"mg/l"
-"64","EPA","Thallium","Tl",0.002,"mg/L","water",NA,NA,"https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations","hq",0.002,"mg/l"
-"65","Bolivian Law 1333","Tin","Sn",2,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",2,"mg/l"
-"66","Bolivian Law 1333","Uranium","U",0.02,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.02,"mg/l"
-"67","Bolivian Law 1333","Vanadium","V",0.1,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.1,"mg/l"
-"68","USGS","Zinc","Zn",123,"mg/kg","sediment","TEL",NA,"https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf","hq",123,"mg/kg"
-"69","Bolivian Law 1333","Zinc","Zn",0.2,"mg/L","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",0.2,"mg/l"
-"70","Bolivian Law 1333","pH high",NA,8.5,"u pH","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",8.5,"mg/l"
-"71","Bolivian Law 1333","pH low",NA,6,"u pH","water","Class A","Class A limit","https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf","hq",6,"mg/l"
+,regulator,parameter,abbr,value,unit,media,limit,notes,source,hqcr,value_unif,unit_unif
+1,Bolivian Law 1333,Aluminum,Al,0.2,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.2,mg/l
+2,Bolivian Law 1333,Ammonia,NH3,0.05,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.05,mg/l
+3,EPA,Antimony,Sb,0.006,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,0.006,mg/l
+4,FAO,Arsenic,As,0.01,mg/L,drinking water,NA,For natural mineral waters,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq,0.01,mg/L
+5,FAO,Arsenic,As,0.2,mg/kg,food,NA,"For rice, polished",https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq,0.2,mg/kg
+6,CDC,Arsenic,As,1,ug/L,human urine,NA,NA,https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx,hq,1,ug/L
+7,OEHHA,Arsenic,As,1.5,mg/kg-d,inhalation,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,1.5,mg/kg-d
+8,OEHHA,Arsenic,As,12,mg/kg-d,oral,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,12,mg/kg-d
+9,USGS,Arsenic,As,5.9,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,5.9,mg/kg
+10,EPA,Arsenic,As,0.39,mg/kg,soil,NA,For residential soil,NA,hq,0.39,mg/kg
+11,EPA,Arsenic,As,0.01,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,0.01,mg/l
+12,Bolivian Law 1333,BOD,NA,2,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,2,mg/l
+13,Bolivian Law 1333,BOD5,NA,2,mg/l,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,2,mg/l
+14,Bolivian Law 1333,Barium,Ba,1,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,1,mg/l
+15,OEHHA,Beryllium,Be,8.4,mg/kg-d,oral,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,8.4,mg/kg-d
+16,Bolivian Law 1333,Beryllium,Be,0.001,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.001,mg/l
+17,Bolivian Law 1333,Boron,B,1,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,1,mg/l
+18,Bolivian Law 1333,COD,NA,5,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,5,mg/l
+19,FAO,Cadmium,Cd,0.003,mg/L,drinking water,NA,For natural mineral waters,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq,0.003,mg/L
+20,FAO,Cadmium,Cd,0.05,mg/kg,food,NA,Lowest MCL for Cadmium in local crops. Should be considered on a monthly intake basis,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq,0.05,mg/kg
+21,CDC,Cadmium,Cd,0.315,ug/dL,human blood,NA,Population  > 1yr age,https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx,hq,0.315,ug/dL
+22,OEHHA,Cadmium,Cd,15,mg/kg-d,oral,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,15,mg/kg-d
+23,USGS,Cadmium,Cd,0.596,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,0.596,mg/kg
+24,EPA,Cadmium,Cd,71,mg/kg,soil,NA,For composite workers in industrial land use,NA,hq,71,mg/kg
+25,WHO,Cadmium,Cd,0.003,mg/L,water,NA,NA,https://www.who.int/teams/environment-climate-change-and-health/water-sanitation-and-health/chemical-hazards-in-drinking-water,hq,0.003,mg/l
+26,Bolivian Law 1333,Calcium,Na,200,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,200,mg/l
+27,Bolivian Law 1333,Chlorides,Cl,250,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,250,mg/l
+28,USGS,Chromium,Cr,37.3,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,37.3,mg/kg
+29,Bolivian Law 1333,Chromium,Cr hex,0.05,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.05,mg/l
+30,Bolivian Law 1333,Cobalt,Co,0.1,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.1,mg/l
+31,Bolivian Law 1333,Color,NA,10,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,10,mg/l
+32,USGS,Copper,Cu,35.7,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,35.7,mg/kg
+33,Bolivian Law 1333,Copper,Cu,0.05,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.05,mg/l
+34,EPA,Cyanide,Cyanide,0.2,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,0.2,mg/l
+35,Bolivian Law 1333,DO,NA,50,mg/l,water,Class D,Class D limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,50,mg/l
+36,Bolivian Law 1333,Iron,Fe,0.3,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.3,mg/l
+37,FAO,Lead,Pb,0.05,mg/kg,food,NA,Lowest MCL for Lead in local crops,https://www.fao.org/fao-who-codexalimentarius/sh-proxy/fr/?lnk=1&url=https%253A%252F%252Fworkspace.fao.org%252Fsites%252Fcodex%252FStandards%252FCXS%2B193-1995%252FCXS_193e.pdf,hq,0.05,mg/kg
+38,CDC,Lead,Pb,3.5,ug/dL,human blood,NA,Reference limit for children ages 1-5.,https://www.cdc.gov/lead-prevention/php/news-features/updates-blood-lead-reference-value.html,hq,3.5,ug/dL
+39,OEHHA,Lead,Pb,0.042,mg/kg-d,inhalation,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,0.042,mg/kg-d
+40,OEHHA,Lead,Pb,8.5,ng/kg-d,oral,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,8.5,ng/kg-d
+41,EPA,Lead,Pb,35,mg/kg,sediment,NA,NA,NA,hq,35,mg/kg
+42,EPA,Lead,Pb,400,mg/kg,soil,NA,For residential soil,NA,hq,400,mg/kg
+43,EPA,Lead,Pb,0.01,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,0.01,mg/l
+44,Bolivian Law 1333,Lithium,Li,2.5,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,2.5,mg/l
+45,Bolivian Law 1333,Magnesium,Mg,100,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,100,mg/l
+46,WHO,Manganese,Mn,0.08,mg/L,water,NA,NA,https://www.who.int/teams/environment-climate-change-and-health/water-sanitation-and-health/chemical-hazards-in-drinking-water,hq,0.08,mg/l
+47,CDC,Mercury,Hg,5,ug/dL,human blood,NA,NA,https://wwwn.cdc.gov/TSP/substances/ToxSearch.aspx,hq,5,ug/dL
+48,EPA,Mercury,Hg,0.13,mg/kg,sediment,NA,NA,NA,hq,0.13,mg/kg
+49,EPA,Mercury,Hg,23,mg/kg,soil,NA,For residential soil,NA,hq,23,mg/kg
+50,Bolivian Law 1333,Mercury,Hg,0.001,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.001,mg/l
+51,OEHHA,Nickel,Ni,0.91,mg/kg-d,oral,NA,NA,https://oehha.ca.gov/sites/default/files/media/downloads/crnr/appendixa.pdf,cr,0.91,mg/kg-d
+52,USGS,Nickel,Ni,18,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,18,mg/kg
+53,Bolivian Law 1333,Nickel,Ni,0.05,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.05,mg/l
+54,EPA,Nitrate,NO3,10,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,10,mg/l
+55,EPA,Nitrite,NO2,1,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,1,mg/l
+56,Bolivian Law 1333,Nitrogen,N,5,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,5,mg/l
+57,Bolivian Law 1333,Oxygen Saturation,NA,80,%,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,80,mg/l
+58,Bolivian Law 1333,Phosphates,PO4,0.4,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.4,mg/l
+59,Bolivian Law 1333,Selenium,Se,0.01,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.01,mg/l
+60,Bolivian Law 1333,Silver,Ag,0.05,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.05,mg/l
+61,Bolivian Law 1333,Sodium,Na,200,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,200,mg/l
+62,Bolivian Law 1333,Sulfate,SO4,300,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,300,mg/l
+63,Bolivian Law 1333,TDS,NA,1000,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,1000,mg/l
+64,EPA,Thallium,Tl,0.002,mg/L,water,NA,NA,https://www.epa.gov/ground-water-and-drinking-water/national-primary-drinking-water-regulations,hq,0.002,mg/l
+65,Bolivian Law 1333,Tin,Sn,2,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,2,mg/l
+66,Bolivian Law 1333,Uranium,U,0.02,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.02,mg/l
+67,Bolivian Law 1333,Vanadium,V,0.1,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.1,mg/l
+68,USGS,Zinc,Zn,123,mg/kg,sediment,TEL,NA,https://pubs.usgs.gov/wri/wri034013/pdfs/wrir034013.pdf,hq,123,mg/kg
+69,Bolivian Law 1333,Zinc,Zn,0.2,mg/L,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,0.2,mg/l
+70,Bolivian Law 1333,pH high,NA,8.5,u pH,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,8.5,mg/l
+71,Bolivian Law 1333,pH low,NA,6,u pH,water,Class A,Class A limit,https://www.consultores-ambientales.com.bo/wp-content/uploads/2016/04/4.-Reglamento-en-Mareria-de-Contaminacion-Hidrica-RMCH.pdf,hq,6,mg/l

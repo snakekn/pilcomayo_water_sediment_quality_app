@@ -6,6 +6,10 @@ library(stringr)
 library(janitor)
 library(readr)
 
+ID_COLS = c("data_source",
+            "Station","Date","Time","Campaign","Institution",
+            "River","Latitude","Longitude","Latitude Decimal","Longitude Decimal",
+            "Year", "Distance from Bank", "Sieve Size")
 
 upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, format = NA, src_lang = NA, target_lang = NA) {
   ## pseudocode 

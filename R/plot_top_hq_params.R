@@ -10,9 +10,12 @@ plot_top_hq_params <- function(data,
                                all_params = FALSE,
                                recent_range = 0,
                                num_output = 10,
-                               ggplot_output = FALSE
+                               ggplot_output = FALSE,
+                               graph_type = "boxplot"
                                ) {
   library(plotly) # lazy coding :P
+  sys.source(here(dir, "set_strict_stds.R"), envir = globalenv()) # set_strict_stds()
+  
   
   cat("[plot_top_hq_params] Params: ")
   params_callout <- list(
@@ -106,110 +109,6 @@ plot_top_hq_params <- function(data,
   # Get unique parameters in the filtered data
   params <- unique(df$parameter)
   
-  # print(length(params))
-  
-  #### commented out -- calculates HQ, which we already have prepared ####
-  # 
-  # # Calculate HQ for each parameter
-  # param_hq_list <<- tibble()
-  # 
-  # for (param in params) {
-  #   # cat("\n [plot_top_hq_params] On Param: ", param)
-  #   param_df <- df |> filter(parameter == param)
-  #   # cat("\n Total measurements for the parameter: ", length(param_df))
-  #   
-  #   # Special handling for pH - filter to pH units only
-  #   if (param == "pH") {
-  #     param_df <- param_df |> filter(unit == "u")
-  #   }
-  #   
-  #   # Retrieve standard for this parameter-media combination
-  #   if(media_type != "all") {
-  #     df = df |>
-  #       filter(media == media_type)
-  #   }
-  #   
-  #   param_stds <- strict_std |>
-  #     filter(str_detect(.data$parameter, !!param))
-  #   
-  #   # Skip if no standard exists
-  #   if (nrow(param_stds) == 0) {
-  #     message(" -- Skipping because no standard exists")
-  #     next
-  #   } else {
-  #     message(cat("\nStandards found: ", length(param_stds)))
-  #     # message(head(param_stds))
-  #   }
-  #   
-  #   # Check if this is a range-based parameter (like pH)
-  #   has_low <- any(str_detect(param_stds$parameter, "low"))
-  #   has_high <- any(str_detect(param_stds$parameter, "high"))
-  #   is_range_param <- has_low && has_high
-  #   
-  #   if (is_range_param) {
-  #     # Handle range-based standards (pH)
-  #     low_std <- param_stds |> filter(str_detect(parameter, "low"))
-  #     high_std <- param_stds |> filter(str_detect(parameter, "high"))
-  #     
-  #     param_std_low <- low_std$value[1]
-  #     param_std_high <- high_std$value[1]
-  #     std_unit <- low_std$unit[1]
-  #     data_unit <- param_df$unit[1]
-  #     std_source <- low_std$regulator[1]
-  #     
-  #     # Handle unit conversion
-  #     if (param == "pH") {
-  #       display_unit <- "pH units"
-  #     } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-  #       param_std_low <- convert_units(param_std_low, std_unit, data_unit)
-  #       param_std_high <- convert_units(param_std_high, std_unit, data_unit)
-  #       display_unit <- data_unit
-  #     } else {
-  #       display_unit <- std_unit
-  #     }
-  #     
-  #     # Calculate HQ based on distance from acceptable range
-  #     std_low_val <- param_std_low
-  #     std_high_val <- param_std_high
-  #     
-  #     param_df <- param_df |>
-  #       mutate(
-  #         hq = case_when(
-  #           concentration < std_low_val ~ std_low_val / concentration,
-  #           concentration > std_high_val ~ concentration / std_high_val,
-  #           TRUE ~ NA_real_
-  #         )
-  #       )
-  #     
-  #     # View(param_df)
-  #     
-  #     std_text <- paste0(round(param_std_low, 3), " - ", round(param_std_high, 3), " ", display_unit)
-  #     
-  #   } else {
-  #     # Handle single-threshold standards
-  #     param_std <- param_stds$value[1]
-  #     std_unit <- param_stds$unit[1]
-  #     data_unit <- param_df$unit[1]
-  #     std_source <- param_stds$regulator[1]
-  #     
-  #     # Handle unit conversion
-  #     if (param == "pH") {
-  #       display_unit <- "pH units"
-  #     } else if (!is.na(std_unit) && !is.na(data_unit) && std_unit != data_unit) {
-  #       param_std <- convert_units(param_std, std_unit, data_unit)
-  #       display_unit <- data_unit
-  #     } else {
-  #       display_unit <- std_unit
-  #     }
-  #     
-  #     # Calculate HQ for single threshold
-  #     std_val <- param_std
-  #     # param_df <- param_df |>
-  #     #   mutate(hq = concentration / std_val)
-  #     # 
-  #     std_text <- paste0(round(param_std, 3), " ", display_unit)
-  #     # print(std_text) # debugging
-  #   }
     #### filter out HQ NAs ####
     # Filter to only exceedances
     param_df_exceedances <- df |>
@@ -226,33 +125,7 @@ plot_top_hq_params <- function(data,
     if (temporal_aggregation == "recent") {
       station_temporal = temporal_filtering(param_df_exceedances, nyears=recent_range) # outsource!
       
-      # 
-      # # get a range
-      # if(recent_range != 0) {
-      #   station_temporal = param_df_exceedances |>
-      #     group_by(station) |>
-      #     summarize(last_year = max(year, na.rm=TRUE),
-      #            min_year = last_year - recent_range,
-      #            .groups = "drop") |>
-      #     right_join(param_df_exceedances, by="station") |>
-      #     filter(year > min_year) |>
-      #     select(station, HQ, date) |>
-      #     rename(hq = HQ)
-        
-        temporal_label = sprintf("Last %d years", recent_range)
-        
-      # } else {
-      #   # Get most recent measurement for each station
-      #   station_temporal <- param_df_exceedances |>
-      #     group_by(station) |>
-      #     arrange(desc(date)) |>
-      #     slice(1) |>
-      #     ungroup() |>
-      #     select(station, HQ, date) |>
-      #     rename(hq = HQ)
-      #   
-      #   temporal_label <- "Most Recent Date Sampled at Station"
-      # }
+      temporal_label = sprintf("Last %d years", recent_range)
       
     } else if (temporal_aggregation == "weighted") {
       # Weighted average with more recent observations weighted higher
@@ -275,7 +148,6 @@ plot_top_hq_params <- function(data,
         )
       
       temporal_label <- "Weighted Average Across Years"
-      
     
       } else if (temporal_aggregation == "max") {
       # Maximum HQ across all time points for each station
@@ -286,8 +158,6 @@ plot_top_hq_params <- function(data,
           HQ = max(HQ, na.rm = TRUE),
           .groups = "drop"
         )
-      
-      # View(station_temporal) # debugging
       
       temporal_label <- "Maximum Across Years"
       
@@ -305,8 +175,6 @@ plot_top_hq_params <- function(data,
       
       temporal_label <- "Average Across Years"
     }
-    
-    # View(station_temporal)
     
     #### STEP 2: param aggregation ####
     param_summary = station_temporal |>
@@ -327,84 +195,9 @@ plot_top_hq_params <- function(data,
                                "mean" ~ "Mean",
                                "pct95" ~ "95th Percentile",
                                .default = "Not Caught!")
-    # 
-    # if (spatial_aggregation == "max") {
-    #   # View(station_temporal) # debugging
-    #   
-    #   param_summary <- station_temporal |>
-    #     summarise(
-    #       max_station = station[which.max(hq)],  # Track which station has max
-    #       max_date = date[which.max(hq)],  # Track date of max HQ
-    #       hq = max(hq, na.rm = TRUE),
-    #       n_stations = n(),
-    #       .groups = "drop"
-    #     )
-    #   
-    #   spatial_label <- "Maximum"
-    #   
-    # 
-    #   } else if (spatial_aggregation == "median") {
-    #   param_summary <- station_temporal |>
-    #     summarise(
-    #       hq = median(hq, na.rm = TRUE),
-    #       n_stations = n(),
-    #       max_station = NA_character_,  # Not applicable for median
-    #       max_date = as.Date(NA),  # Not applicable for median
-    #       .groups = "drop"
-    #     )
-    #   
-    #   spatial_label <- "Median"
-    #   
-    # 
-    #   } else if (spatial_aggregation == "mean") {  # spatial_aggregation == "mean"
-    #   param_summary <- station_temporal |>
-    #     summarise(
-    #       hq = mean(hq, na.rm = TRUE),
-    #       n_stations = n(),
-    #       max_station = NA_character_,  # Not applicable for mean
-    #       max_date = as.Date(NA),  # Not applicable for mean
-    #       .groups = "drop"
-    #     )
-    #   spatial_label <- "Average"
-    #   
-    # } else if (spatial_aggregation == "pct95") {
-    #   param_summary = station_temporal |>
-    #     summarise(
-    #       hq = quantile(hq, probs = 0.95, na.rm=TRUE),
-    #       n_stations = n(),
-    #       max_station = NA_character_,  # Not applicable for mean
-    #       max_date = as.Date(NA),  # Not applicable for mean
-    #       .groups = "drop"
-    #     )
-    #   spatial_label = "95th Percentile"
-    # }
     
     spatial_label = paste(spatial_label, "Across Stations")
     
-    # Add parameter info
-    # param_summary <- param_summary |>
-    #   mutate(
-    #     parameter = param,
-    #     standard = std_text,
-    #     std_source = std_source,
-    #     n_measurements = nrow(param_df_exceedances)
-    #   )
-    # 
-    # View(param_summary) ## debugging
-    
-    # param_hq_list[[param]] <<- param_summary
-    # message(param_hq_list[[param]])
-    # 
-    # param_hq_list <- bind_rows(
-    #   param_hq_list,
-    #   param_summary |> mutate(parameter = param)
-    # )
-    # print(param)
-    # print(param_summary)
-  #  }
-  
-  # View(param_hq_list)
-
   # Combine all parameter summaries
   if (nrow(df) == 0) {
     stop(paste("No exceedances found for any parameters in", media_type))
@@ -420,28 +213,6 @@ plot_top_hq_params <- function(data,
     group_by(parameter) |>
     slice_min(as.numeric(std_val), n=1)
     
-  # param_summary = df |>
-  #   group_by(parameter) |>
-  #   summarize(
-  #     hq = case_when(method == "max" ~ max(HQ, na.rm = TRUE),
-  #                    method %in% c("mean", "average") ~ mean(HQ, na.rm = TRUE),
-  #                    method == "median" ~ median(HQ, na.rm = TRUE)
-  #                    ),
-  #     n_measurements = n(),
-  #     n_stations = n_distinct(station),
-  #     .groups = "drop"
-  #   ) |>
-  #   left_join(std_lookup, by = "parameter")
-
-  # Debugging: find hq-problematic params
-  # problem_tib <- map_lgl(param_hq_list, ~ !"hq" %in% names(.x) || nrow(.x)==0)
-  # if(any(problem_tib)) {
-  #   cat("Problem params:", names(param_hq_list)[problem_tib], "\n")
-  #   print(param_hq_list[problem_tib][[1]])
-  # }
-
-  # View(param_hq_list)
-  
   top_params <- param_summary |>
     arrange(desc(HQ)) |>  # .data$hq forces proper scoping
     mutate(param_label = sprintf("%s (n=%d)", parameter, n_samples))
@@ -455,16 +226,6 @@ plot_top_hq_params <- function(data,
     message("Returning data only")
     return(top_params)
   }
-  
-  # 
-  # # Get top 10 parameters by HQ
-  # top_params <- bind_rows(param_hq_list, .id = "param_name") |>  # Direct bind_rows [file:1]
-  #   mutate(hq = coalesce(hq, 0)) |>  # GUARANTEE hq exists
-  #   arrange(desc(hq)) |>
-  #   slice_head(n = 10) |>
-  #   mutate(param_label = paste0(param_name, " (n=", n_measurements, ")"))
-  # 
-  # View(top_params)
   
   top_params = top_params |>
     mutate(
@@ -511,60 +272,68 @@ plot_top_hq_params <- function(data,
   # Create title based on aggregation methods used
   title_text <- sprintf("Top %d Parameters (Data from %s, %s HQ)", nrow(top_params), temporal_label, spatial_label)
   use_log = (ceiling(log10(max(top_params$HQ))) - floor(log10(min(top_params$HQ)))) >= 2
-  # print(use_log)
-  # print(max(top_params$hq))
-  # print(min(top_params$hq))
   
+  # Final plotting section - REPLACED WITH THIS:
+  media_label = case_match(media_type, "all" ~ "All Media", "sediment" ~ "Sediment", "water" ~ "Water", .default = "None Selected") 
   
-  # method_label <- if (method == "max") {
-  #   "Maximum"
-  # } else if (method == "median") {
-  #   "Median"
-  # } else {
-  #   "Average"
-  # }
-
-  # y_lab <- paste(
-  #   method_label,
-  #   if (use_log) "Hazard Quotient (HQ, log10 scale)"
-  #   else         "Hazard Quotient (HQ)"
-  # )
-  
-  # main_title <- paste(
-  #   "Top 10 Parameters by",
-  #   method_label,
-  #   if (use_log) "Hazard Quotient (log10)" else "Hazard Quotient"
-  # )
-  
-  ## Nadav's Notes: Would be helpful to trigger log10 if the magnitude difference is high
-  # Create bar chart with hover text
-  p <- ggplot(top_params, aes(x = param_label, y = HQ, text = hover_text)) +
-    geom_col() +
-    geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
-    # scale_fill_manual(
-    #   values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
-    #   labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
-    #   name = NULL
-    # ) +
-    coord_flip() +
-    labs(
-      title = title_text,
-      x = "Parameter",
-      y = paste(if (use_log) {
-                  "Hazard Quotient (logarithmic scale)"
-                  } else {
-                    "Hazard Quotient"
-                  })
-
-    ) +
-    theme_minimal(base_size = 12) +
-    theme(
-      legend.position = "bottom",
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 10, color = "gray30"),
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor = element_blank()
-    )
+  if (graph_type == "boxplot") {
+    # Boxplot branch - per-parameter station distributions
+    params_included <- top_params$parameter
+    
+    # Use station_temporal (or param_hq_list if you fixed the loop)
+    box_data <- station_temporal |>
+      filter(parameter %in% params_included) |>
+      mutate(parameter = factor(parameter, levels = rev(params_included)))
+    
+    # Summary points (95th %ile)
+    point_data <- top_params |>
+      mutate(parameter = factor(parameter, levels = rev(params_included)))
+    
+    p <- ggplot(box_data, aes(x = parameter, y = HQ)) +
+      geom_boxplot(outlier.shape = 16, outlier.size = 1.5, linewidth = 0.7,
+                   fatten = 4, outlier.alpha = 0.5, fill = "white") +
+      stat_summary(fun = median, geom = "point", color = "darkred", size = 1.5) +
+      geom_point(data = point_data, aes(x = parameter, y = HQ),  # Fixed: parameter!
+                 shape = 23, size = 3, color = "darkred", stroke = 1) +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
+      coord_flip() +
+      labs(title = title_text, x = "Parameter", 
+           y = if(use_log) "Hazard Quotient (log scale)" else "Hazard Quotient") +
+      theme_minimal(base_size = 12) +
+      theme(legend.position = "bottom", panel.grid.major.y = element_blank(),
+            axis.text.x = element_text(angle = 45, hjust = 1))
+    
+  } else {
+    ## Nadav's Notes: Would be helpful to trigger log10 if the magnitude difference is high
+    # Create bar chart with hover text
+    p <- ggplot(top_params, aes(x = param_label, y = HQ, text = hover_text)) +
+      geom_col() +
+      geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
+      # scale_fill_manual(
+      #   values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
+      #   labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
+      #   name = NULL
+      # ) +
+      coord_flip() +
+      labs(
+        title = title_text,
+        x = "Parameter",
+        y = paste(if (use_log) {
+          "Hazard Quotient (logarithmic scale)"
+        } else {
+          "Hazard Quotient"
+        })
+        
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+        legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 10, color = "gray30"),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank()
+      )
+  }
   
     if (use_log) {
       p <- p +
@@ -583,7 +352,6 @@ plot_top_hq_params <- function(data,
   p = p + theme(
     axis.text.x = element_text(angle = -45, hjust = 0)  # angle HQ ticks
   )
-
    
   media_label = case_match(media_type,
                           "all" ~ "All Media",

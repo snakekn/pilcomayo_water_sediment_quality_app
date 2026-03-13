@@ -2,96 +2,10 @@
 #' 1. Gather data on 3 parameters of interest
 #' 2. Determine which stations have the worst impacts of wastewater
 
-#### OLD CODE #####
-### 3 graphs with plotly dates
-g = bol_water_scored |> 
-  filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
-  group_by(station, parameter) |>
-  arrange(concentration) |>
-  slice(ceiling(0.95 * n())) |>
-  summarize(
-    pct95 = concentration,
-    pct95_date = date,
-    n_samples = n(),
-    .groups = "drop"
-  ) |>
-  mutate(parameter = case_when(
-    parameter == "Ammonia" ~ "Ammonia (mg/L)",
-    parameter == "BOD" ~ "BOD (mg/L)",
-    parameter == "Fecal coliforms" ~ "Fecal coliforms (CFU or MPN/100mL)",
-    TRUE ~ parameter
-  )) |>
-  ggplot(aes(x=station, y=pct95, fill=parameter, text = paste0("Station: ", station, "\n",
-                                                               "Parameter: ", parameter, "\n",
-                                                               "Concentration: ", round(pct95, 2), "\n",
-                                                               "Date: ", pct95_date, "\n",
-                                                               "Samples: ", n_samples)))+
-  geom_col(position="dodge")+
-  facet_wrap(~parameter, scales="free_y", ncol=1)+
-  labs(title="Wastewater Contamination Indicators per Station",
-       x = "Station",
-       y="Concentration (95th %ile)",
-       fill="Parameter")+
-  theme_minimal()+
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "bottom"
-    )+
-  scale_y_log10()
-
-ggplotly(g, tooltip = "text")
-
-
-### initial 3 graphs for each station
-# issue: dates aren't factored in
-g = bol_water_scored |> 
-  filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
-  group_by(station, parameter) |>
-  arrange(concentration) |>
-  slice(ceiling(0.95 * n())) |>
-  summarize(
-    pct95 = concentration,
-    pct95_date = date,
-    n_samples = n(),
-    .groups = "drop"
-  )  
-     
-
-ggplotly(g)
-
-
-### graph for each date shown. biiit too small to make anything out
-time_series_data <- bol_water_scored |> 
-  filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
-  mutate(
-    parameter = case_when(
-      parameter == "Ammonia" ~ "Ammonia (mg/L)",
-      parameter == "BOD" ~ "BOD (mg/L)",
-      parameter == "Fecal coliforms" ~ "Fecal coliforms (CFU or MPN/100mL)",
-      TRUE ~ parameter
-  ))
-g <- ggplot(time_series_data, aes(x = date, y = concentration, color = parameter)) +
-  geom_line(linewidth = 0.8) +
-  geom_point(size = 2) +
-  facet_wrap(~station, ncol = 1, scales = "free_y") +
-  labs(
-    title = "Water Quality Parameters Over Time by Station",
-    x = "Date",
-    y = "Concentration",
-    color = "Parameter"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "bottom",
-    strip.text = element_text(face = "bold", size = 11)
-  ) +
-  scale_y_log10()  # Use log scale if concentrations vary widely
-
-ggplotly(g)
 
 ### get correlations for each parameter
-spike_detection <- bol_water_scored |> 
+spike_detection <- bol_media_scored |> 
+  filter(media == "water") |>
   filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
   select(station, date, parameter, concentration) |>
   group_by(parameter) |>
@@ -128,7 +42,7 @@ concurrent_spikes <- spike_detection |>
 
 ##### what percent of instances sampled surpassed regulatory limits? #####
 #set regulatory limits - not used
-regulatory_limits <- data.frame(
+regulatory_limits_bol <- data.frame(
   parameter = c("Ammonia", "BOD", "Fecal coliforms"),
   class_A = c(0.01, 2, 200),
   class_B = c(0.1, 5, 1000),
@@ -137,7 +51,8 @@ regulatory_limits <- data.frame(
 )
 
 # classify each score based on all 3 parameters
-water_class_classification <- bol_water_scored |>
+water_class_classification <- bol_media_scored |>
+  filter(media == "water") |>
   filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
   group_by(station, date) |>
   filter(n_distinct(parameter) == 3) |>  # Only dates with all 3 measured
@@ -178,7 +93,7 @@ station_class_frequency <- water_class_classification |>
   mutate(water_class = factor(water_class, levels = c("A", "B", "C", "D", "Beyond D"))) |>
   arrange(station, water_class) |>
   select(station, water_class, n, percentage)
-  
+
 # get overall quality conditions so it's easier for people to compare
 overall_totals <- water_class_classification |>
   count(water_class) |>
@@ -194,38 +109,41 @@ station_class_with_total <- station_class_frequency |>
   select(station, water_class, n, percentage) |>
   bind_rows(overall_totals) |>
   mutate(water_class = factor(water_class,
-                              levels = c("A", "B","C","D","Beyond D"))
+                              levels = rev(c("A", "B","C","D","Beyond D")))
   )
 
 # help reorder the stations based on water quality
 station_order <- station_class_frequency |>
   group_by(station) |>
   summarize(
-    quality_score = sum(percentage * case_when(
-      water_class == "A" ~ 1,
-      water_class == "B" ~ 2,
-      water_class == "C" ~ 3,
-      water_class == "D" ~ 4,
-      water_class == "Beyond D" ~ 5,
-      TRUE ~ 6
+    quality_score = sum(case_when(
+      water_class == "A" ~ percentage,           # Reward %A
+      water_class == "B" ~ percentage * 0.5,     # Slight reward
+      water_class == "C" ~ percentage * 0.1,     # Penalty
+      water_class == "D" ~ percentage * 0.05,     # Heavy penalty  
+      water_class == "Beyond D" ~ 0              # Worst
     )),
     .groups = "drop"
   ) |>
-  arrange(quality_score) |>
+  arrange(desc(quality_score)) |>
   pull(station)
 
 # add total to the lineup
-station_levels <- c("TOTAL", station_order)
+station_levels <- rev(c(station_order, "TOTAL"))
 
 # plot!
 ggplot(station_class_with_total, 
        aes(x = factor(station, levels=station_levels), 
            y = percentage, 
            fill = water_class)) +
-  geom_col() +
+  geom_col(position = "stack") +
   scale_fill_manual(
-    values = c("A" = "#2E7D32", "B" = "#81C784", 
-               "C" = "#FFB74D", "D" = "#E57373", "Beyond D" = "#B71C1C"),
+    values = c("A" = "#2E7D32",
+               "B" = "#81C784", 
+               "C" = "#FFB74D", 
+               "D" = "#E57373",
+               "Beyond D" = "#B71C1C"
+    ),
     breaks = c("A", "B", "C", "D", "Beyond D")
   ) +
   coord_flip() +
@@ -236,8 +154,147 @@ ggplot(station_class_with_total,
     y = "Percentage of Samples (%)",
     fill = "Water Class"
   ) +
-  theme_minimal() +
+  theme_minimal(base_size=16) +
   theme(legend.position = "bottom",
         axis.text.y = element_text(
           face = ifelse(station_levels == "TOTAL", "bold", "plain")
         ))
+
+#### wastewater indicator analysis: intl ####
+
+regulatory_limits_intl = list(fecal = 0,
+                              ammonia = 17, 
+                              bod = 30)
+
+wastewater_indication = function(data, limits) {
+  result = list()
+  ## classify each station-date whether it's over the limit across all parameters
+  data_class = data |>
+    filter(media == "water") |>
+    filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
+    group_by(station, date) |>
+    filter(n_distinct(parameter) == 3) |>  # Only dates with all 3 measured
+    summarize(
+      ammonia = concentration[parameter == "Ammonia"],
+      bod = concentration[parameter == "BOD"],
+      fecal = concentration[parameter == "Fecal coliforms"],
+      .groups = "drop"
+    ) |>
+    mutate(
+      within_limits = ammonia <= limits["ammonia"] & bod <= limits["bod"] & fecal <= limits["fecal"],
+      class = ifelse(within_limits, "Compliant", "Non-Compliant")
+    ) |>
+    arrange(station, date)
+  
+  result$detailed = data_class # for easy return
+  
+  ## get total counts for each station
+  station_frequency = data_class |>
+    group_by(station, class) |>
+    summarize(n = n(), .groups = "drop_last") |>
+    mutate(
+      total = sum(n),
+      percentage = round(100 * n / total, 1)
+    ) |>
+    ungroup() |>
+    # Make sure water_class is ordered
+    mutate(class = factor(class, levels = c("Compliant", "Non-Compliant"))) |>
+    arrange(station, class) |>
+    select(station, class, n, percentage)
+  
+  result$station_summary = station_frequency # for easy return
+  
+  ## get overall quality conditions
+  overall_frequency = data_class |>
+    count(class) |>
+    mutate(
+      station = "TOTAL",
+      total = sum(n),
+      percentage = round(100 * n / total, 1)
+    ) |>
+    select(station, class, n, percentage)
+  
+  result$overall_summary = overall_frequency # for easy return :)
+  
+  ## combine into station data
+  station_class_with_total = station_frequency |>
+    select(station, class, n, percentage) |>
+    bind_rows(overall_frequency) |>
+    mutate(class = factor(class,
+                          levels = c("Non-Compliant", "Compliant")),
+           station_label = ifelse(station == "TOTAL",
+                                  paste0("**",station,"**"),
+                                  station)
+    )
+  
+  result$class_total = station_class_with_total
+  
+  ## plot results
+  # reorder stations based on water quality
+  station_order <- station_frequency |>
+    group_by(station) |>
+    summarize(
+      quality_score = sum(percentage * case_when(
+        class == "Compliant" ~ 0,
+        class == "Non-Compliant" ~ 1
+      )),
+      .groups = "drop"
+    ) |>
+    arrange(quality_score) |>
+    pull(station)
+  
+  # add total to lineup
+  station_levels <- c("TOTAL", station_order)
+  
+  g = ggplot(station_class_with_total, 
+             aes(x = factor(station, levels=rev(station_levels)), 
+                 y = percentage, 
+                 fill = class)) +
+    geom_col() +
+    scale_fill_manual(
+      values = c("Non-Compliant" = "#E57373",
+                 "Compliant" = "#2E7D32"),
+      guide = "legend"
+      #breaks = c("Compliant", "Non-Compliant")
+    ) +
+    coord_flip() +
+    labs(
+      title = "WHO & USEPA Wastewater Contamination Guidelines by Station",
+      subtitle = "Percentage of samples at the station within recommended limits",
+      x = "Station",
+      y = "Percentage of Samples (%)",
+      fill = "Compliance"
+    ) +
+    theme_minimal(base_size=16) +
+    theme(legend.position = "bottom",
+          # axis.text.y = element_text(face = "plain", size = 12),
+          axis.text.y = element_text(
+            face = ifelse(rev(station_levels) == "TOTAL", "bold", "plain")
+          )
+    )
+  result$g = g # add to result
+  
+  ## get station compliance rates
+  station_compliance = station_frequency |>
+    pivot_wider(
+      names_from = class,
+      values_from = c(n, percentage),
+      names_sep = "_",
+      values_fill = 0
+    ) |>
+    mutate(
+      total_samples = `n_Non-Compliant` + `n_Compliant`,
+      compliance_pct = round(100 * `n_Compliant` / total_samples, 1)
+    ) |>
+    select(station, 
+           compliant_count = `n_Compliant`,
+           non_compliant_count = `n_Non-Compliant`,
+           compliance_pct,
+           total_samples) |>
+    arrange(desc(compliance_pct))
+  
+  result$station_compliance = station_compliance
+  
+  print(sprintf("Total date-station samples reviewed: %g", sum(station_compliance$total_samples)))
+  return(result)
+}

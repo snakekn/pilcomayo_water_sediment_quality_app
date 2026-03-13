@@ -2,14 +2,24 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
   
   # Quick library confirmation. Slows things down, but this is a 1-off function anyways
   library(tidyverse)
+  library(here)
   
   #### Load source files for functions required only for this function ####
+  # Takes a lot to run this place
   dir = "R"
   sys.source(here(dir, "convert_data_format.R"), envir = globalenv()) # pivot_pilcomayo_data()
   sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_data()
   sys.source(here(dir, "helpers_server.R"), envir = globalenv()) # merge_media_safely(), clip_to_bolivia()
   sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_to_loc_year() which includes setting stds
   sys.source(here(dir, "locyear_to_locscore.R"), envir = globalenv()) # weigh_inverse_time()
+  sys.source(here(dir, "load_water_data.R"), envir = globalenv()) # load_water_data()
+  sys.source(here(dir, "clean_water_data.R"), envir = globalenv()) # clean_water_data()
+  sys.source(here(dir, "translate_pilco_data.R"), envir = globalenv()) # translate_pilco_data()
+  sys.source(here(dir, "param_mapping.R"), envir = globalenv()) # param_mapping()
+  sys.source(here(dir, "load_sediment_data.R"), envir = globalenv()) # load_sediment_data()
+  sys.source(here(dir, "clean_sediment_data.R"), envir = globalenv()) # clean_sediment_data()
+  sys.source(here(dir, "dms_to_decimal.R"), envir = globalenv()) # dms_to_decimal()
+  sys.source(here(dir, "convert_data_format.R"), envir = globalenv()) # dms_to_decimal()
   
   # if the user is looking to complete all tasks (not just save the data)
   if(load) {
@@ -34,6 +44,7 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
     if(check_standards) {
       print("Confirming we have the most up-to-date standards")
       stds <<- readr::read_csv(here::here("data/standards/strict_standards.csv"))
+      stds_all <<- readr::read_csv(here::here("data/standards/all_standards.csv"))
     }
     
     print("Scoring water data...")
@@ -87,11 +98,13 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
     print("Adding base data to the master_data file path")
     saveRDS(all_sed_scored, here::here("data/processed/all_sed_scored.rds"))
     saveRDS(all_water_scored, here::here("data/processed/all_water_scored.rds"))
-    saveRDS(all_sed_locyear, here::here("data/processed/all_sed_locyear.rds"))
-    saveRDS(all_water_locyear, here::here("data/processed/all_water_locyear.rds"))
-    
     saveRDS(all_media_scored, here::here("data/processed/all_media_scored.rds"))
-    saveRDS(all_media_locyear, here::here("data/processed/all_media_locyear.rds"))
+    
+    if(locyear) {
+      saveRDS(all_sed_locyear, here::here("data/processed/all_sed_locyear.rds"))
+      saveRDS(all_water_locyear, here::here("data/processed/all_water_locyear.rds"))
+      saveRDS(all_media_locyear, here::here("data/processed/all_media_locyear.rds"))
+    }
     
     if (loctime) {
       print("Including loctime data in master_data")
