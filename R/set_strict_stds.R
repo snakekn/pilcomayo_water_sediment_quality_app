@@ -12,7 +12,7 @@ library(janitor)
 set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", SAVE_LOCATION = "data/standards/strict_standards.csv") {
   
   # Note: This file was compilated from existing gDrive files (as of 10/21/2025). You can update this file and re-run to get newest set of lowest params
-  std_file = read_csv(here(FILE_LOCATION)) |>
+  std_file <<- read_csv(here(FILE_LOCATION)) |>
     clean_names()
   
   ### Main Script
@@ -24,10 +24,12 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
   # group by parameter & media, get the lowest value, arrange by name of parameter
   # include unit management
   strict_std <<- std_file |>
+    filter(!is.na(unit)) |>
     mutate(is_ph_low = tolower(parameter) == "ph" & grepl("low", parameter, ignore.case = TRUE)) |>
     rowwise() |>
     mutate(
       value = {
+        # cat(sprintf("%s (%s)\n", parameter, unit))
         # check we know how to change these
         if(media %in% names(std_unit)) {
           # check if we can convert between units
@@ -35,7 +37,6 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
           if(unit_conv$convertible) {
             # update the value and unit
             value / unit_conv$conversion_factor
-            std_unit[media]
           } else {
             value
           }
@@ -44,7 +45,7 @@ set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", S
           value
         }
       },
-      unit = ifelse(media %in% names(std_unit), std_unit[media], unit)
+      unit = ifelse(media %in% names(std_unit), std_unit[[media]], unit)
     ) |>
     ungroup() |>
     group_by(parameter, media) |>

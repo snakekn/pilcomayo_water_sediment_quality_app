@@ -14,9 +14,3 @@ facet_plots = function(func, data, params) {
   
   wrap_plots(plots, ncol=3)
 }
-
-# get a set of parameters together
-# x = facet_plots(plot_pilcomayo_ts, all_water_data, params)
-
-# library(tidyverse)
-

@@ -1,4 +1,3 @@
-
 #' Clean raw water data from pilco format
 #' @param data Raw data frame from pilco
 #' @param source Data source ("pilco" currently supported)

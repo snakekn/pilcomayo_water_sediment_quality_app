@@ -1,5 +1,3 @@
-# Purpose: allow Jackson's existing code to work with the risk anaylsis functionality
-
 library(dplyr)
 library(tidyr)
 library(stringr)
@@ -12,13 +10,7 @@ ID_COLS = c("data_source",
             "Year", "Distance from Bank", "Sieve Size")
 
 upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, format = NA, src_lang = NA, target_lang = NA) {
-  ## pseudocode 
-  # 1. check if we know what format we're getting
-  # 2. check the df and see what format it's in
-  # 3. Change the data from wide to long: 
-  # 4. Change the data from long to wide: 
-  # 5. return?
-  
+
   # in case we have weird non-UTF-8 characters
   names(sample_data) <- fix_headers(names(sample_data))
 
@@ -47,10 +39,8 @@ upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, f
   return(formatted_data)
 }
 
-
 pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type = NA, date_format = "mdy") {
   if (is.null(df) || !is.data.frame(df)) stop("df NULL/not data.frame")
-  # print(names(df)) # what cols are we getting?
   if (!"data_source" %in% names(df)) df$data_source <- NA_character_
   # force data_source to be first so id_cols catches it easily
   df <- dplyr::relocate(df, data_source, .before = 1)
@@ -118,7 +108,6 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
   # parse and tidy
   df_long <- df_long %>%
     mutate(
-      # Nadav's Notes: need to keep total, suspended, dissolved, then put into column "Fraction"
       fraction = case_when(
         str_detect(raw_name, regex("\\bSuspended\\b", ignore_case = TRUE)) ~ "Suspended",
         str_detect(raw_name, regex("\\bDissolved\\b", ignore_case = TRUE)) ~ "Dissolved",
@@ -155,9 +144,6 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
   keep <- c(intersect(id_cols, names(df_long)), "Date", "Year", "parameter", "fraction", "media", "concentration", "unit", "cr_route")
   df_long %>% select(all_of(keep)) %>% janitor::clean_names()
 }
-
-
-# intake raw data -- JMills
 
 #### Helpers
 

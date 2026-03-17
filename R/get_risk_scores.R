@@ -1,4 +1,3 @@
-
 #### Split scored df by station & year, merge into a single set of scores per location-year ####
 # potentially good for showing all on a map. Note: can take awhile to load, so we want to sse this (or show a loading bar) early if possible
 score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year", lat_col = "latitude_decimal", lon_col = "longitude_decimal") {
@@ -81,7 +80,7 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
         )
       
       tibble(
-        !!!.y,                           # keeps the group key columns and names
+        !!!.y,                           
         lat = lat_val,
         lon = lon_val,
         hazard_index   = hazard_index,
@@ -202,9 +201,7 @@ convert_suspended_concentrations <- function(sample_data) {
   return(sample_data)
 }
 
-
 # to get HQ, CR, and calculated scores for each data point. Note that data points with more data will have higher HQs, rather than being normalized
-# Nadav's Note: may want to only calculate ones above 1?? 
 score_data <- function(sample_data) {
   # need: parameter, media, concentration, unit, cr_route
   req <- c("parameter","media","concentration","unit","cr_route")
@@ -213,9 +210,6 @@ score_data <- function(sample_data) {
   
   # Convert suspended sediment concentrations BEFORE scoring
   sample_data <- convert_suspended_concentrations(sample_data)
-  
-  # debugging
-  # View(sample_data)
   
   # Calculate hqcr for each row
   scored <- sample_data |>
@@ -230,9 +224,6 @@ score_data <- function(sample_data) {
   scored <- scored |>
     tidyr::unnest_wider(hqcr)
   
-  # debugging
-  # View(scored)
-  
   # Now add the derived columns after unnesting
   scored <- scored |>
     dplyr::mutate(
@@ -243,9 +234,6 @@ score_data <- function(sample_data) {
       has_standard = has_HQ | has_CR | has_WL  # Add this column
     )
   
-  # debugging
-  # View(scored)
-  
   return(scored)
 }
 
@@ -253,10 +241,8 @@ score_data <- function(sample_data) {
 get_std <- function(parameter, std_type, media) {
   
   key = make_key(parameter, media, std_type)
-  #print(paste0("make_key", key))
   std <- std_map[[key]]
-  #print(std)
-  
+
   # if there's no standard, send nothing back
   if (is.null(std)) return(NULL)
   return(std)
@@ -265,12 +251,10 @@ get_std <- function(parameter, std_type, media) {
 # For an individual parameter: get & prep the parameter standard, then compare with the found value
 calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should have: param, med, val, unit
   ### set HQ/CR/WL to NA in case we don't have the data, then calculate each separately
-  # print(paste0(param, med, val, unit, route)) # for sanity :)
   hq = NA_real_
   cr = NA_real_
   wl = NA_real_
-  # print(list(param, med,val, unit, route))
-  
+
   std_info <- list(
     HQ = list(std_reg = NA, std_val = NA, std_unit = NA),
     CR = list(std_reg = NA, std_val = NA, std_unit = NA),
@@ -327,9 +311,6 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     upper <- std_high$value
     midpoint <- (lower + upper) / 2
     
-    # debugging
-    # cat("\n[pH exception]","\nval: ",val,"\nlower:",lower,"\nupper:",upper,"\n")
-    
     # Calculate HQ based on which side of midpoint
     if (is.na(val)) {
       hq <- NA_real_
@@ -365,9 +346,6 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
   
   ### Calculate HQ
   
-  # debugging
-  # cat("\n[main body]\n")
-  
   std = get_std(param, "hq", med) # fetch HQ standard
   # print(std)
   # confirm we got the standard, otherwise stop trying to calculate based on this parameter-media
@@ -375,31 +353,20 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     # check the units are the same and abort if they're not
     unit_check_hq = compare_units(unit, std$unit) # in helpers_server.R. Gives helpful responses
     
-    # debugging
-    # cat("\n[calculate_hqcr] Checking compare_units results\n")
-    # str(unit_check_hq)
-    
     if(!unit_check_hq$convertible) { # can't convert
       # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_hq$message, " Received sample units ", unit_check_hq$sample_parsed$raw, " and standard ", unit_check_hq$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
       val_norm = val / unit_check_hq$conversion_factor
       hq = val_norm/std$value
       
-      # debugging
-      # print("\n[hq: ]")
-      # print(hq)
-      
       std_info[["HQ"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
-      
-      # debugging!
-      # cat("\n[calculate_hqcr]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
-      #     std$value, " (",std$unit,")\nHQ: ", hq, "\nConversion Factor: ", unit_check_hq$conversion_factor)
     }
-  } # ELSE: leave HQ as NA_real_ 
+    
+  }
   
   ### calculate WL - closely related to grabbing HQ
   std = get_std(param, "wl", med) # fetch WL standard
-  # print(std)
+  
   # confirm we got the standard, otherwise stop trying to calculate based on this parameter-media
   if(!is.null(std)) {
     # check the units are the same and abort if they're not
@@ -413,7 +380,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
       std_info[["WL"]] = list(std_reg=std$regulator, std_val=std$value, std_unit=std$unit)
       
     }
-  } # ELSE: leave WL as NA_real_ 
+  } 
   
   ## calculate CR - not as simple :))
   
@@ -424,7 +391,7 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
   if (!is.null(std$value) && !is.na(std$value) && !is.null(std$unit) && !is.na(std$unit)) {
     unit_check_cr = compare_units(unit, std$unit)
     if(!unit_check_cr$convertible) { # can't convert
-      # message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
+      message(paste0("[pivot_pilcomayo_data: compare_units()] ", param, ": ", unit_check_cr$message, " Received sample units ", unit_check_cr$sample_parsed$raw, " and standard ", unit_check_cr$standard_parsed$raw, ". Leaving as NA with a note.")) 
     } else {
       val_norm = val / unit_check_cr$conversion_factor
       
@@ -449,7 +416,6 @@ calculate_hqcr = function(param, med, val, unit, route=NULL) { # tibble should h
     std_info[["CR"]] = list(std_reg = std$regulator, std_val = std$value, std_unit = std$unit)
   }
   
-  # print(std) # had an issue with !is.null(std) failing when the std wasn't null (received properly)
   if (is.null(std) || (is.data.frame(std) && nrow(std) == 0)) {
     return(list(HQ=hq, CR = cr, WL=wl, std_info = std_info))
   } else return(list(HQ=hq, CR = cr, WL=wl, std_info = std_info)) # redundant?

@@ -27,7 +27,6 @@ library(stringr)
 library(gstat)
 library(whitebox)
 
-
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors

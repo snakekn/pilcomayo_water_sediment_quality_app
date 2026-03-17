@@ -309,11 +309,6 @@ plot_top_hq_params <- function(data,
     p <- ggplot(top_params, aes(x = param_label, y = HQ, text = hover_text)) +
       geom_col() +
       geom_hline(yintercept = 1, linetype = "dashed", color = "firebrick", linewidth = 1) +
-      # scale_fill_manual(
-      #   values = c("TRUE" = "darkorange", "FALSE" = "steelblue"),
-      #   labels = c("TRUE" = "Exceeds Standard", "FALSE" = "Below Standard"),
-      #   name = NULL
-      # ) +
       coord_flip() +
       labs(
         title = title_text,

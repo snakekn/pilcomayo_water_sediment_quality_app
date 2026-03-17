@@ -10,40 +10,6 @@ info_callout <- function(title, text = NULL, md_file = NULL) {
   )
 }
 
-# 4) A two-column download row
-download_row <- function(left_id, left_label, right_id, right_label) {
-  fluidRow(
-    column(6, downloadButton(left_id, left_label)),
-    column(6, downloadButton(right_id, right_label))
-  )
-}
-
-# 5) A scoped radio group (reuse for class/usgs/etc.)
-scoped_radio <- function(input_id, label, choices, selected = NULL, inline = TRUE) {
-  radioButtons(input_id, label, choices = choices, selected = selected, inline = inline)
-}
-
-# 6) A conditional blurb for Ranking panes (pass md file)
-ranking_blurb <- function(md_file) {
-  info_callout("Ranking", md_file = md_file)
-}
-
-# 7) Standards tables tabset (since you repeat them)
-standards_tabset <- function(tbl1_id, tbl1_label, tbl2_id, tbl2_label) {
-  tabsetPanel(
-    tabPanel(tbl1_label, dataTableOutput(tbl1_id)),
-    tabPanel(tbl2_label, dataTableOutput(tbl2_id))
-  )
-}
-
-# 8) Common selectors (IDs supplied by caller)
-param_selector <- function(input_id, label = "Select Parameter:", choices = NULL) {
-  selectInput(input_id, label, choices = choices)
-}
-station_selector <- function(input_id, label = "Select Station:", choices = NULL) {
-  selectInput(input_id, label, choices = choices)
-}
-
 dataUploadUI <- function(id) {
   ns <- NS(id)
   tagList(
@@ -81,3 +47,39 @@ dataUploadUI <- function(id) {
     tableOutput(ns("files_table"))
     )
 }
+
+#### Unused ####
+# 
+# # 4) A two-column download row
+# download_row <- function(left_id, left_label, right_id, right_label) {
+#   fluidRow(
+#     column(6, downloadButton(left_id, left_label)),
+#     column(6, downloadButton(right_id, right_label))
+#   )
+# }
+# 
+# # 5) A scoped radio group (reuse for class/usgs/etc.)
+# scoped_radio <- function(input_id, label, choices, selected = NULL, inline = TRUE) {
+#   radioButtons(input_id, label, choices = choices, selected = selected, inline = inline)
+# }
+# 
+# # 6) A conditional blurb for Ranking panes (pass md file)
+# ranking_blurb <- function(md_file) {
+#   info_callout("Ranking", md_file = md_file)
+# }
+# 
+# # 7) Standards tables tabset (since you repeat them)
+# standards_tabset <- function(tbl1_id, tbl1_label, tbl2_id, tbl2_label) {
+#   tabsetPanel(
+#     tabPanel(tbl1_label, dataTableOutput(tbl1_id)),
+#     tabPanel(tbl2_label, dataTableOutput(tbl2_id))
+#   )
+# }
+# 
+# # 8) Common selectors (IDs supplied by caller)
+# param_selector <- function(input_id, label = "Select Parameter:", choices = NULL) {
+#   selectInput(input_id, label, choices = choices)
+# }
+# station_selector <- function(input_id, label = "Select Station:", choices = NULL) {
+#   selectInput(input_id, label, choices = choices)
+# }

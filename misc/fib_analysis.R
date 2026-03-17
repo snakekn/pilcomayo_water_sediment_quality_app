@@ -1,9 +1,4 @@
-##### GOALS #####
-#' 1. Gather data on 3 parameters of interest
-#' 2. Determine which stations have the worst impacts of wastewater
-
-
-### get correlations for each parameter
+### Determine days where all indicator contaminants spiked
 spike_detection <- bol_media_scored |> 
   filter(media == "water") |>
   filter(parameter %in% c("Ammonia", "BOD", "Fecal coliforms")) |>
@@ -41,13 +36,13 @@ concurrent_spikes <- spike_detection |>
   arrange(station, date)
 
 ##### what percent of instances sampled surpassed regulatory limits? #####
-#set regulatory limits - not used
+# these are the BOL Law 1333 Regulations, but they aren't used. 
 regulatory_limits_bol <- data.frame(
   parameter = c("Ammonia", "BOD", "Fecal coliforms"),
-  class_A = c(0.01, 2, 200),
-  class_B = c(0.1, 5, 1000),
-  class_C = c(1.0, 20, 5000),
-  class_D = c(2.0, 30, 10000)
+  class_A = c(0.05, 2, 200),
+  class_B = c(1, 5, 1000),
+  class_C = c(2, 20, 5000),
+  class_D = c(4, 30, 10000)
 )
 
 # classify each score based on all 3 parameters

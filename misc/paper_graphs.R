@@ -334,3 +334,24 @@ std_sources = read_csv(here::here("data/standards/all_standards.csv")) |>
   arrange(regulator) |>
   drop_na()
 std_sources |> View()
+
+#### 4.2.3 Other Contaminants ####
+### Get table of each parameter and the exceedance rate for the last 5 years
+bol_media_scored_recent = temporal_filtering(bol_media_scored |> filter(year!=2024))
+
+get_exceedances = function(df, m) {
+  d = df |>
+    filter(media == m, !is.na(HQ)) |>
+    group_by(parameter) |>
+    summarize(n_samples = n(),
+              n_exceeded = sum(HQ>1, rm.na=TRUE),
+              exceedance_rate = round(n_exceeded/n_samples*100,0))
+  
+  s = set_strict_stds() |> # from set_strict_stds.R
+    filter(media == m)
+  # sys.source(here("R", "set_strict_stds.R"), envir = globalenv()) # set_strict_stds()
+
+  t = d |>
+    left_join(s, by = "parameter") |>
+    select(parameter, regulator, value, unit, exceedance_rate, n_samples, n_exceeded)
+}
