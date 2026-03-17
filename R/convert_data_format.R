@@ -1,8 +1,9 @@
-library(dplyr)
-library(tidyr)
-library(stringr)
-library(janitor)
-library(readr)
+library(pacman)
+p_load(dplyr)
+p_load(tidyr)
+p_load(stringr)
+p_load(janitor)
+p_load(readr)
 
 ID_COLS = c("data_source",
             "Station","Date","Time","Campaign","Institution",

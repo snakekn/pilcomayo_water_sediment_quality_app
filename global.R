@@ -2,30 +2,13 @@
 # app will run automatically using shiny::runApp("."), which happens when you click the "Run App" function
 
 ## Import libraries
-library(shiny)
-library(tidyverse)
-library(leaflet)
-library(leaflet.extras)
-library(sf)
-library(rsconnect)
-library(readxl)
-library(plotly)
-library(DT)
-library(zoo)
-library(missMDA)
-library(ggfortify)
-library(FactoMineR)
-library(factoextra)
-library(shinyWidgets)
-library(bslib)
-library(terra)
-library(ggiraph)
-library(shinyjs)
-library(shinyBS)
-library(ggrepel)
-library(stringr)
-library(gstat)
-library(whitebox)
+pacman::p_load(
+  shiny, tidyverse, leaflet, leaflet.extras, sf, rsconnect,
+  readxl, plotly, DT, zoo, missMDA, ggfortify,
+  FactoMineR, factoextra, shinyWidgets, bslib, terra,
+  ggiraph, shinyjs, shinyBS, ggrepel, stringr,
+  gstat, whitebox
+)
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)

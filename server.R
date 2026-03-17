@@ -749,20 +749,7 @@ server <- function(input, output, session) {
   })
       
   ##### Risk Map #####
-  # prepare the raster layers we'll utilize
-  
-  
-  
-  # Jackson's Notes: commenting this out for now (seems like it was not being used)
-  
-  # Risk layer definitions (add before your existing riskraster reactive)
-  # risk_layer_info <- list(
-  #   list(id = 1, name = "Environmental\nHazards", checkbox = "risk_hq", class = "risk1"),
-  #   list(id = 2, name = "Vulnerability", checkbox = "risk_vul", class = "risk2"),
-  #   list(id = 3, name = "Air Quality", checkbox = "risk_air", class = "risk3"),
-  #   list(id = 4, name = "Mining Sites", checkbox = "risk_mining", class = "risk4"),
-  #   list(id = 5, name = "Population", checkbox = "risk_pop", class = "risk5")
-  # )
+
   risk_raster = reactive({
     req(input$main_tab == "Risk Scores Map")   # do nothing unless Map tab active
     
