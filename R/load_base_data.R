@@ -1,8 +1,9 @@
 load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save = TRUE, check_standards = TRUE) {
   
   # Quick library confirmation. Slows things down, but this is a 1-off function anyways
-  library(tidyverse)
-  library(here)
+  library(pacman)
+  p_load(tidyverse)
+  p_load(here)
   
   #### Load source files for functions required only for this function ####
   # Takes a lot to run this place

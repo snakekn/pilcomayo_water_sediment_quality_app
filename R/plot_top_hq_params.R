@@ -14,7 +14,7 @@ plot_top_hq_params <- function(data,
                                graph_type = "boxplot"
                                ) {
   library(plotly) # lazy coding :P
-  sys.source(here(dir, "set_strict_stds.R"), envir = globalenv()) # set_strict_stds()
+  sys.source(here("R", "set_strict_stds.R"), envir = globalenv()) # set_strict_stds()
   
   
   cat("[plot_top_hq_params] Params: ")

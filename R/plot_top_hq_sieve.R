@@ -33,11 +33,6 @@ plot_top_hq_sieve = function(data,
   } else {
     cat("\nNot filtering on parameter")
   }
-  
-  cat("\n[plot_top_hq_sieve] Filtering for HQ>1: ", nrow(data))
-  data = data |> 
-    filter(HQ > 1)
-  cat("\nAfter filtering: ", nrow(data))
 
   # check if we have no exceedances
   if(nrow(data) == 0) {
@@ -45,103 +40,84 @@ plot_top_hq_sieve = function(data,
   }
   
   if(temporal_aggregation == "recent") { 
-    
     data = temporal_filtering(data)
-    
-    # years_range = data |>
-    #   group_by(station) |>
-    #   summarize(last_year = max(year, na.rm=TRUE),
-    #             min_year = last_year - recent_range,
-    #             .groups="drop")
-    # data = years_range |>  
-    #   right_join(data, by="station") |>
-    #   filter(year >= min_year)
+  }
+  
+  sieve_map <- function(sieve_label) {
+    case_match(sieve_label,
+               # Very Fine Silt (<0.063mm)
+               c("0.032 mm - N° 450 (ASTM)", "0.032 - 0.063 mm", "<0.063 mm") ~ "Very Fine (<0.063mm)",
+               
+               # Fine Silt (0.063-0.125mm)  
+               c("0.063 mm - N° 230 (ASTM)", "0.063 - 0.125 mm", "0.063 - <0.125 mm", 
+                 "0.032 - 0.125 mm", "<0.125 mm") ~ "Fine Silt (0.063-0.125mm)",
+               
+               # Medium-Coarse Silt (0.125-0.25mm)
+               c("0.125 mm - N° 120 (ASTM)", "0.125 - 0.250 mm", "0.125 - <2.0 mm") ~ "Medium-Coarse Silt (0.125-0.25mm)",
+               
+               # Fine Sand (0.25-0.5mm)
+               "0.250 mm - N° 060 (ASTM)" ~ "Fine Sand (0.25-0.5mm)",
+               
+               # Medium Sand (0.5-1.0mm)
+               c("0.500 mm - N° 035 (ASTM)", "0.5 - 1.0 mm") ~ "Medium Sand (0.5-1.0mm)",
+               
+               # Coarse Sand (1.0-2.0mm)
+               c("1.00 mm - N° 018 (ASTM)", "1.0 - 2.0 mm") ~ "Coarse Sand (1.0-2.0mm)",
+               
+               # Gravel (>2mm)
+               c("2.00 mm - N° 010 (ASTM)", "<=2.00 mm", "0.125 - 4.75 mm", "0.063 - <2.0 mm") ~ ">2mm",
+               
+               # Broad ranges → conservative (finest end)
+               "0.063 - 0.250 mm" ~ "Fine Silt (0.063-0.125mm)",
+               
+               NA_character_ ~ NA_character_,
+               .default = NA_character_  # Catch leftovers
+    )
   }
   
   sieve_options = unique(data$sieve_size)
-  parse_min_mm <- function(name) {
-    # Grab FIRST decimal number anywhere in string (handles <0.125, 0.032 - 0.063, etc.)
-    num_match <- str_extract(name, "\\d*\\.?\\d+")
-    # if (is.na(num_match)) return(NA)
-    as.numeric(num_match)
-  }
-  # sieve_sizes <- t(sapply(sieve_options, parse_min_mm))
-  # sieve_sizes_num <- as.numeric(as.character(sieve_sizes))  # Coerces factors/handles safely
+  print(sieve_options)
+
+  sieve_order = c("Very Fine (<0.063mm)", 
+                  "Fine Silt (0.063-0.125mm)", 
+                  "Medium-Coarse Silt (0.125-0.25mm)", 
+                  "Fine Sand (0.25-0.5mm)", 
+                  "Medium Sand (0.5-1.0mm)", 
+                  "Coarse Sand (1.0-2.0mm)", 
+                  ">2mm")
   
-  # bins <- cut(sieve_sizes_num, breaks = c(0, 0.063, 0.125, 0.25, 0.5, 1, 2, Inf), 
-              # labels = c("Very Fine (<0.063mm)", 
-                         # "Fine Silt (0.063-0.125mm)", 
-                         # "Medium-Coarse Silt (0.125-0.25mm)", 
-                         # "Fine Sand (0.25-0.5mm)", 
-                         # "Medium Sand (0.5-1.0mm)", 
-                         # "Coarse Sand (1.0-2.0mm)", 
-                         # ">2mm"), right = FALSE)
+  data = data |> 
+    mutate(sieve_size = factor(sieve_map(sieve_size), levels=sieve_order)) |>
+    filter(!is.na(sieve_size))
   
   plot_df = data |>
-    rename(sieve_name = sieve_size) |>
-    mutate(sieve_min = parse_min_mm(sieve_name),
-           sieve_size = as.character(cut(sieve_min, 
-                            breaks = c(0, 0.063, 0.125, 0.25, 0.5, 1, 2, Inf),
-                            labels = c("Very Fine (<0.063mm)", 
-                                       "Fine Silt (0.063-0.125mm)", 
-                                       "Medium-Coarse Silt (0.125-0.25mm)", 
-                                       "Fine Sand (0.25-0.5mm)", 
-                                       "Medium Sand (0.5-1.0mm)", 
-                                       "Coarse Sand (1.0-2.0mm)", 
-                                       ">2mm"), right = FALSE)),
-           .keep = "all") |>
     group_by(sieve_size) |>
     summarise(mean_value = mean(HQ, na.rm=TRUE),
               max_value = max(HQ, na.rm=TRUE),
               pct95_value = quantile(HQ, probs=0.95, na.rm=TRUE),
               n_measurements = n(),
-              n_stations = n_distinct(station)) |>
+              n_stations = n_distinct(station),
+              .groups = "drop") |>
     mutate(value = case_when(param_aggregation == "max" ~ max_value,
                              param_aggregation == "avg" ~ mean_value,
-                             param_aggregation == "pct95" ~ pct95_value),
-           min_mm = parse_min_mm(sieve_size)) |>
-    mutate(
-      hover_text = paste0(
-        "HQ: ", round(value, 3), "<br>",
-        "# Measurements: ", n_measurements, "<br>",
-        "# Stations: ", n_stations
-      )
-    )
+                             param_aggregation == "pct95" ~ pct95_value,
+                             TRUE ~ pct95_value),
+           hover_text = paste0(
+             "HQ: ", round(value, 3), "<br>",
+             "# Measurements: ", n_measurements, "<br>",
+             "# Stations: ", n_stations
+           )) 
   
   param_aggregation_label = case_when(param_aggregation == "max" ~ "Max",
                            param_aggregation == "avg" ~ "Mean",
                            param_aggregation == "pct95" ~ "95th Percentile")
   
+  use_log = (ceiling(log10(max(data$HQ))) - floor(log10(min(data$HQ)))) >= 2
+  
   if(graph_type == "boxplot") {
-    # ensure sieve_size is an ordered factor using the same order as plot_df
-    sieve_order <- plot_df |>
-      arrange(min_mm) |>
-      pull(sieve_size)
-    
-    data_bp <- data |>
-      rename(sieve_name = sieve_size) |>
-      mutate(
-        sieve_min = parse_min_mm(sieve_name),
-        sieve_size = cut(
-          sieve_min,
-          breaks = c(0, 0.063, 0.125, 0.25, 0.5, 1, 2, Inf),
-          labels = c(
-            "Very Fine (<0.063mm)",
-            "Fine Silt (0.063-0.125mm)",
-            "Medium-Coarse Silt (0.125-0.25mm)",
-            "Fine Sand (0.25-0.5mm)",
-            "Medium Sand (0.5-1.0mm)",
-            "Coarse Sand (1.0-2.0mm)",
-            ">2mm"
-          ),
-          right = FALSE
-        ),
-        sieve_size = factor(as.character(sieve_size), levels = sieve_order)
-      )
-    
-    plot_df <- plot_df |>
-      mutate(sieve_size = factor(sieve_size, levels = sieve_order))
-    
+
+    data_bp <- data
+
     title_text <- paste0(
       "Sieve Sizes: HQ Distributions (", param_aggregation_label, " Highlighted)",
       if (param_selection != "all") paste0(" — ", param_selection) else ""
@@ -194,7 +170,7 @@ plot_top_hq_sieve = function(data,
     
   } else {
     p = plot_df |>
-      ggplot(aes(x = reorder(sieve_size, min_mm), 
+      ggplot(aes(x = reorder(sieve_size, sieve_order), 
                  y = value,
                  text = hover_text)) +
       geom_col(fill = "tan") +
@@ -203,6 +179,14 @@ plot_top_hq_sieve = function(data,
       labs(title = paste0("Sieve Sizes Ranked by ", param_aggregation_label, " Value: ", param_selection),
            x = "Sieve Size", y = paste0("Hazard Quotient (", param_aggregation_label, ")")) +
       theme_minimal()
+  }
+  
+  if (use_log) {
+    p <- p +
+      scale_y_log10(
+        breaks = scales::breaks_log(10),
+        labels = scales::label_number(accuracy = 1, big.mark = ",")
+      )
   }
   
   ply = ggplotly(p, tooltip = "text")
