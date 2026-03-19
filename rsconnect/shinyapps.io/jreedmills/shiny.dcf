@@ -1,0 +1,13 @@
+name: shiny
+title: shiny
+username: jreedmills
+account: jreedmills
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15096270
+bundleId: 10742731
+url: https://jreedmills.shinyapps.io/shiny/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: comprehensive_river_remedy_report.html| comprehensive_river_remedy_report.qmd|.RData|README.md|www/TNC_2024_sed_USGS.gpkg

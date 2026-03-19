@@ -1,0 +1,40 @@
+Parameter,Unit,Class A,Class B,Class C,Class D
+pH low,,6,6,6,6
+pH high,,8.5,9,9,9
+Color (mg Pt/l),mg Pt/l,10,50,100,200
+TDS,mg/l,1000,1000,1500,1500
+DO (% sat),% sat,80,70,60,50
+BOD5,mg/l,2,5,20,30
+COD,mg/l,5,10,40,60
+Aluminum (Al),mg/l,0.2,0.5,1,1
+Ammonia (NH3),mg/l,0.05,1,2,4
+Antimony (Sb),mg/l,0.1,0.01,0.01,0.01
+Arsenic total (As),mg/l,0.05,0.05,0.05,0.1
+Barium (Ba),mg/l,1,1,2,5
+Beryllium (Be),mg/l,0.001,0.001,0.001,0.001
+Boron (B),mg/l,1,1,1,1
+Cadmium (Cd),mg/l,0.005,0.005,0.005,0.005
+Calcium (Na),mg/l,200,300,300,400
+Chlorides (Cl),mg/l,250,300,400,500
+Chromium (Cr hex),mg/l,0.05,0.05,0.05,0.05
+Chromium (Cr tri),mg/l,,0.6,0.6,1.1
+Cobalt (Co),mg/l,0.1,0.2,0.2,0.2
+Copper (Cu),mg/l,0.05,1,1,1
+Iron (Fe),mg/l,0.3,0.3,1,1
+Lead (Pb),mg/l,0.05,0.05,0.05,0.1
+Lithium (Li),mg/l,2.5,2.5,2.5,5
+Magnesium (Mg),mg/l,100,100,150,150
+Manganese (Mn),mg/l,0.5,1,1,1
+Mercury (Hg),mg/l,0.001,0.001,0.001,0.001
+Nickel (Ni),mg/l,0.05,0.05,0.5,0.5
+Nitrate (NO3),mg/l,20,50,50,50
+Total Nitrogen (N),mg/l,5,12,12,12
+Phosphates (PO4),mg/l,0.4,0.5,1,1
+Selenium (Se),mg/l,0.01,0.01,0.01,0.05
+Silver (Ag),mg/l,0.05,0.05,0.05,0.05
+Sodium (Na),mg/l,200,200,200,200
+Sulfate (SO4),mg/l,300,400,400,400
+Tin (Sn),mg/l,2,2,2,2
+Uranium (U),mg/l,0.02,0.02,0.02,0.02
+Vanadium (V),mg/l,0.1,0.1,0.1,0.1
+Zinc (Zn),mg/l,0.2,0.2,5,5

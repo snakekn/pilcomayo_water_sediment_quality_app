@@ -1,0 +1,157 @@
+regulator,parameter,abbr,value,unit,media,fraction,notes,source,hqcr
+Bolivian Law 1333,pH low,NA,6,NA,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,pH low,NA,6,NA,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,pH low,NA,6,NA,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,pH low,NA,6,NA,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,pH high,NA,8.5,NA,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,pH high,NA,9,NA,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,pH high,NA,9,NA,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,pH high,NA,9,NA,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Color,NA,10,mg Pt/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Color,NA,50,mg Pt/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Color,NA,100,mg Pt/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Color,NA,200,mg Pt/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,TDS,NA,1000,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,TDS,NA,1000,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,TDS,NA,1500,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,TDS,NA,1500,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,DO,NA,80,% sat,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,DO,NA,70,% sat,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,DO,NA,60,% sat,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,DO,NA,50,% sat,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,BOD5,NA,2,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,BOD5,NA,5,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,BOD5,NA,20,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,BOD5,NA,30,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,COD,NA,5,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,COD,NA,10,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,COD,NA,40,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,COD,NA,60,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Aluminum,NA,0.2,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Aluminum,NA,0.5,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Aluminum,NA,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Aluminum,NA,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Ammonia,NA,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Ammonia,NA,1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Ammonia,NA,2,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Ammonia,NA,4,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Antimony,NA,0.1,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Antimony,NA,0.01,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Antimony,NA,0.01,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Antimony,NA,0.01,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Arsenic,As,0.05,mg/l,water,Total,Class A limit,NA,hq
+Bolivian Law 1333,Arsenic,As,0.05,mg/l,water,Total,Class B limit,NA,hq
+Bolivian Law 1333,Arsenic,As,0.05,mg/l,water,Total,Class C limit,NA,hq
+Bolivian Law 1333,Arsenic,As,0.1,mg/l,water,Total,Class D limit,NA,hq
+Bolivian Law 1333,Barium,NA,1,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Barium,NA,1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Barium,NA,2,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Barium,NA,5,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Beryllium,NA,0.001,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Beryllium,NA,0.001,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Beryllium,NA,0.001,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Beryllium,NA,0.001,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Boron,NA,1,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Boron,NA,1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Boron,NA,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Boron,NA,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Cadmium,Cd,0.005,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Cadmium,Cd,0.005,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Cadmium,Cd,0.005,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Cadmium,Cd,0.005,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Calcium,NA,200,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Calcium,NA,300,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Calcium,NA,300,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Calcium,NA,400,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Chlorides,NA,250,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Chlorides,NA,300,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Chlorides,NA,400,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Chlorides,NA,500,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.05,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.05,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.05,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,NA,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.6,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,0.6,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Chromium,Cr,1.1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Cobalt,NA,0.1,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Cobalt,NA,0.2,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Cobalt,NA,0.2,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Cobalt,NA,0.2,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Copper,Cu,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Copper,Cu,1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Copper,Cu,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Copper,Cu,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Iron,Fe,0.3,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Iron,Fe,0.3,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Iron,Fe,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Iron,Fe,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Lead,Pb,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Lead,Pb,0.05,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Lead,Pb,0.05,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Lead,Pb,0.1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Lithium,NA,2.5,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Lithium,NA,2.5,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Lithium,NA,2.5,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Lithium,NA,5,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Magnesium,Mg,100,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Magnesium,Mg,100,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Magnesium,Mg,150,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Magnesium,Mg,150,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Manganese,Mn,0.5,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Manganese,Mn,1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Manganese,Mn,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Manganese,Mn,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Mercury,Hg,0.001,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Mercury,Hg,0.001,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Mercury,Hg,0.001,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Mercury,Hg,0.001,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Nickel,Ni,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Nickel,Ni,0.05,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Nickel,Ni,0.5,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Nickel,Ni,0.5,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Nitrate,NA,20,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Nitrate,NA,50,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Nitrate,NA,50,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Nitrate,NA,50,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Nitrogen,NA,5,mg/l,water,Total,Class A limit,NA,hq
+Bolivian Law 1333,Nitrogen,NA,12,mg/l,water,Total,Class B limit,NA,hq
+Bolivian Law 1333,Nitrogen,NA,12,mg/l,water,Total,Class C limit,NA,hq
+Bolivian Law 1333,Nitrogen,NA,12,mg/l,water,Total,Class D limit,NA,hq
+Bolivian Law 1333,Phosphates,NA,0.4,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Phosphates,NA,0.5,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Phosphates,NA,1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Phosphates,NA,1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Selenium,NA,0.01,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Selenium,NA,0.01,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Selenium,NA,0.01,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Selenium,NA,0.05,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Silver,Ag,0.05,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Silver,Ag,0.05,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Silver,Ag,0.05,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Silver,Ag,0.05,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Sodium,NA,200,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Sodium,NA,200,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Sodium,NA,200,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Sodium,NA,200,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Sulfate,NA,300,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Sulfate,NA,400,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Sulfate,NA,400,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Sulfate,NA,400,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Tin,NA,2,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Tin,NA,2,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Tin,NA,2,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Tin,NA,2,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Uranium,NA,0.02,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Uranium,NA,0.02,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Uranium,NA,0.02,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Uranium,NA,0.02,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Vanadium,NA,0.1,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Vanadium,NA,0.1,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Vanadium,NA,0.1,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Vanadium,NA,0.1,mg/l,water,NA,Class D limit,NA,hq
+Bolivian Law 1333,Zinc,Zn,0.2,mg/l,water,NA,Class A limit,NA,hq
+Bolivian Law 1333,Zinc,Zn,0.2,mg/l,water,NA,Class B limit,NA,hq
+Bolivian Law 1333,Zinc,Zn,5,mg/l,water,NA,Class C limit,NA,hq
+Bolivian Law 1333,Zinc,Zn,5,mg/l,water,NA,Class D limit,NA,hq
