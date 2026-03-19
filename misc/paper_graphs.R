@@ -74,7 +74,6 @@ normalize_water <- function(data, conc_col = "concentration", unit_col = "unit")
 #### per-year exceedances and maximums ####
 parameter_year_tables = function(df, m, p) {
   
-  
   d = df |>
     group_by(year, media, unit) |>
     filter(parameter == p, 
@@ -138,32 +137,44 @@ analyte_result_section = function(df, p) {
     temporal_filtering()
   
   ### get station plots
-  result$station_water = plot_top_hq_stations(data, 
+  result$station_water = tryCatch(plot_top_hq_stations(data, 
                                                media_type = "water", 
                                                param = p, 
                                                temporal_aggregation = "recent", 
                                                param_aggregation = "pct95",
                                                ggplot_output = FALSE,
                                                graph_type = "boxplot",
-                                               recent_range = 5)
+                                               recent_range = 5),
+                                  error = function(e) {
+                                    cat(sprintf("Water Station Plot Error: %s", e$message))
+                                    e$message
+                                  })
   ### get station plots
-  result$station_sediment = plot_top_hq_stations(data, 
+  result$station_sediment = tryCatch(plot_top_hq_stations(data, 
                                               media_type = "sediment", 
                                               param = p, 
                                               temporal_aggregation = "recent", 
                                               param_aggregation = "pct95",
                                               ggplot_output = FALSE,
                                               graph_type = "boxplot",
-                                              recent_range = 5)
+                                              recent_range = 5),
+                                     error = function(e) {
+                                       cat(sprintf("Sediment Station Plot Error: %s", e$message))
+                                       e$message
+                                     })
   
   ### get sieve plot
-  result$sieve = plot_top_hq_sieve(data, 
+  result$sieve = tryCatch(plot_top_hq_sieve(data, 
                     param_selection = p, 
                     param_aggregation = "pct95", 
                     station_selection="all", 
                     temporal_aggregation = "recent",
                     graph_type = "boxplot",
-                    recent_range = 5)
+                    recent_range = 5),
+                    error = function(e) {
+                      cat(sprintf("Sieve Plot Error: %s", e$message))
+                      e$message
+                    })
   
   return(result)
 }

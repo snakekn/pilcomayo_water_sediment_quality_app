@@ -986,8 +986,6 @@ rankings_station_water_r = corplot_pretty(rankings_station_water_r, title = "Cor
                                        m1 = "Recent Years to Include", m2="HQ Aggregation")
 rankings_station_water_r
 
-
-
 ##### View all parameter histograms #####
 bol_water_scored |> 
   mutate(HQ = HQ+1e-6) |> 
@@ -1008,15 +1006,3 @@ bol_water_scored |>
   scale_x_log10()+
   theme_minimal()+
   labs(x="Hazard Quotient", y="Count", title="Hazard Distribution for Sampled Parameters")
-
-#' Nadav's To Do's: 
-#' X Sensitivity analysis on 1,2,3,5 year recency windows (more Q's!)
-#'  X Implement into stations and do it again (did for sediment)
-#' X Write about FIB mapping & future monitoring strategies (look across space: ammonia, BOD, Fecal coliforms)
-#' X Does hardness matter? - add it to conclusion that we should consider, review if any contaminants matter (eg. Zinc)
-#' - Update data to recent-median - XXX - using 5-year 95th %ile 
-#'  X Update station/param code to include the year-window method
-#' X Conduct SA on sediments data (nice!)
-#' - Discuss binning for contaminant types (HM vs other) - metals will be different than others. Focus on HMs for stations to give AMTSK precipitation goals.
-#' - Read Katerina's content
-#' - Review my own writing & figures to ensure they make sense lol
