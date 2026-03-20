@@ -1,7 +1,8 @@
 # About The Project
 The Water and Sediment Quality Explorer application allows users to upload water and sediment quality data to generate dynamic data visualizations and maps of the Pilcomayo Basin. 
 
-Additional information about this project can be found on the [Bren School of the Environment's Masters Project website](https://bren.ucsb.edu/projects/addressing-centuries-heavy-metal-pollution-understanding-human-health-crisis-pilcomayo). 
+Additional information about this project can be found on the [Bren School of the Environment's Masters Project website](https://bren.ucsb.edu/projects/addressing-centuries-heavy-metal-pollution-understanding-human-health-crisis-pilcomayo). The app is hosted in Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19104674.svg)](https://doi.org/10.5281/zenodo.19104674)
+
 
 ## About the App
 ### Available Data
