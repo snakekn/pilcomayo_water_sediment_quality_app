@@ -1,11 +1,12 @@
 # True Upstream Mining Exposure Analysis in R
 # Handles points snapped to river segments (not nodes) by splitting segments
 
-library(sf)           # For spatial data handling
-library(dplyr)        # For data manipulation
-library(igraph)       # For network analysis
-library(ggplot2)      # For plotting
-library(lwgeom)       # For advanced geometric operations
+library(pacman) # just in case
+p_load(sf)           # For spatial data handling
+p_load(dplyr)        # For data manipulation
+p_load(igraph)       # For network analysis
+p_load(ggplot2)      # For plotting
+p_load(lwgeom)       # For advanced geometric operations
 
 # =============================================================================
 # SEGMENT-SPLITTING APPROACH FOR POINTS ON RIVER SEGMENTS

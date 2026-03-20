@@ -1,4 +1,4 @@
-load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save = TRUE, check_standards = TRUE) {
+load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_standards = TRUE) {
   
   # Quick library confirmation. Slows things down, but this is a 1-off function anyways
   library(pacman)
@@ -12,7 +12,6 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
   sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_data()
   sys.source(here(dir, "helpers_server.R"), envir = globalenv()) # merge_media_safely(), clip_to_bolivia()
   sys.source(here(dir, "get_risk_scores.R"), envir = globalenv()) # score_to_loc_year() which includes setting stds
-  sys.source(here(dir, "locyear_to_locscore.R"), envir = globalenv()) # weigh_inverse_time()
   sys.source(here(dir, "load_water_data.R"), envir = globalenv()) # load_water_data()
   sys.source(here(dir, "clean_water_data.R"), envir = globalenv()) # clean_water_data()
   sys.source(here(dir, "translate_pilco_data.R"), envir = globalenv()) # translate_pilco_data()
@@ -86,14 +85,6 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
     print("Scored data for water, sediment, and all media clipped to Bolivia.")
   }
   
-  if (loctime) {
-    print("Creating loctime data")
-    all_sed_loctime <<- weigh_inverse_time(sed_locyear)
-    all_water_loctime <<- weigh_inverse_time(water_locyear)
-    all_media_loctime <<- merge_media_safely(all_water_loctime, all_sed_loctime)
-    print("Loctime data created.")
-  }
-  
   # if the user wants to save everything to master_data
   if(save) {
     print("Adding base data to the master_data file path")
@@ -107,16 +98,9 @@ load_base_data <- function(load = TRUE, locyear = FALSE, loctime = FALSE, save =
       saveRDS(all_media_locyear, here::here("data/processed/all_media_locyear.rds"))
     }
     
-    if (loctime) {
-      print("Including loctime data in master_data")
-      saveRDS(all_sed_loctime, here::here("data/processed/all_sed_loctime.rds"))
-      saveRDS(all_water_loctime, here::here("data/processed/all_water_loctime.rds"))
-      saveRDS(all_media_loctime, here::here("data/processed/all_media_loctime.rds"))
-    }
-    
     print("master_data files saved to data/processed/all_* paths")
   }
 }
 
 # for easy using. 3 params!
-# load_base_data(load = TRUE, loctime=TRUE, save=TRUE)
+# load_base_data(load = TRUE, save=TRUE)

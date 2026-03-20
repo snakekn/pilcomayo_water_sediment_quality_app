@@ -1,6 +1,4 @@
-#' We need HQ bins to help classify data for stakeholders. 
-#' BUT: we have differences on how we calculate!
-#' Final decision:
+#' We need HQ bins to help classify data for stakeholders:
 #' 1. Keep all HQ<1, no need to update these using pct95
 #' 2. Use station max dates to calculate date range, but calculate using the date (not year)
 #' 3. Bin using aggregated station HQs rather than individual HQs, since we're grading station-level data
@@ -14,10 +12,9 @@ station_hqs = plot_top_hq_stations(bol_media_scored,
                                    recent_range = 5,
                                    param_aggregation = "pct95", 
                                    all_stations = TRUE,
-                                   return_data = TRUE)
-
-quantile(station_hqs |> select(HQ), probs = seq(0,1,length.out=5), na.rm=TRUE)
-# c(8,17,30,46,128)
+                                   return_data = TRUE) |>
+  select(HQ) |>
+  quantile(probs = seq(0,1,length.out=5), na.rm=TRUE) # c(8,17,30,46,128)
 
 #### Determining method differences ####
 # how many stations have HQ data?
