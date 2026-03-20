@@ -1,3 +1,4 @@
+Una versión en español se puede encontrar en: [README.es.md](/README.es.md)
 # About The Project
 The Water and Sediment Quality Explorer application allows users to upload water and sediment quality data to generate dynamic data visualizations and maps of the Pilcomayo Basin. 
 
