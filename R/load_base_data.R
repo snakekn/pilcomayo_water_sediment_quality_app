@@ -43,8 +43,8 @@ load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_stan
     
     if(check_standards) {
       print("Confirming we have the most up-to-date standards")
-      stds <<- readr::read_csv(here::here("data/standards/strict_standards.csv"))
-      stds_all <<- readr::read_csv(here::here("data/standards/all_standards.csv"))
+      stds_strict <<- readr::read_csv(here::here("data/standards/strict_standards.csv"))
+      stds <<- readr::read_csv(here::here("data/standards/all_standards.csv"))
     }
     
     print("Scoring water data...")

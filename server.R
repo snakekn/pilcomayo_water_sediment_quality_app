@@ -2,7 +2,9 @@
 
 #Define Server
 server <- function(input, output, session) {
-  ## Prepare master_data
+  message("Starting server.R")
+  
+  #### Prepare master_data ####
   
   # initialize master_data
   master_data = reactiveValues(
@@ -101,7 +103,7 @@ server <- function(input, output, session) {
     }
     
     if (!inherits(dates, "date")) {
-      dates <- as.date(dates)
+      dates <- as.Date(dates)
     }
     
     min_date <- min(dates, na.rm = TRUE)
@@ -185,7 +187,7 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$date <- as.date(df$date, "%d/%m/%Y")
+      df$date <- as.Date(df$date, "%d/%m/%Y")
       df
     })
     
@@ -220,60 +222,7 @@ server <- function(input, output, session) {
     ### 5. Users can still download pre-loaded datasets, or filter as needed
     
     req(master_data$water_scored)
-    return(master_data$water_scored) # skip the rest, just get the data we want
-    {
-    # 
-    # # can replace much of this with manual_compile_water. Goal is to replace with datahub later on
-    # water_files <- list.files(water_data_path_1333, pattern = "^water_\\d{4}_1333\\.xlsx$", full.names = TRUE)
-    # 
-    # water_dfs <- lapply(water_files, function(f) {
-    #   year <- stringr::str_extract(basename(f), "\\d{4}")
-    #   df <- read_xlsx(f)
-    #   df$Year <- as.integer(year)
-    #   df$date <- as.date(df$date, "%Y-%m-%d")
-    #   df
-    # })
-    # 
-    # all_data <- bind_rows(water_dfs) |> 
-    #   mutate(station = str_replace(station,
-    #                                "Tacobamba - Agua arriba confluencia Pilcomayo - Tacobamba",
-    #                                "Tacobamba arriba Pilcomayo")) |>
-    #   mutate(station = str_replace(station,
-    #                                "Pilcomayo - Agua arriba confluencia Pilcomayo - Tacobamba",
-    #                                "Pilcomayo arriba Tacobamba")) |>
-    #   filter(!is.na(`Latitude Decimal`))
-    # 
-    # # Count "Unclassified" in columns ending with "Class"
-    # all_data$num_unclass <- rowSums(
-    #   select(all_data, ends_with("Class")) == "Unclassified",
-    #   na.rm = TRUE
-    # )
-    # 
-    # # Count "Class D" in columns ending with "Class"
-    # all_data$num_class_d <- rowSums(
-    #   select(all_data, ends_with("Class")) == "Class D",
-    #   na.rm = TRUE
-    # )
-    # 
-    # # Count "Class C" in columns ending with "Class"
-    # all_data$num_class_c <- rowSums(
-    #   select(all_data, ends_with("Class")) == "Class C",
-    #   na.rm = TRUE
-    # )
-    # 
-    # # Count "Class B" in columns ending with "Class"
-    # all_data$num_class_b <- rowSums(
-    #   select(all_data, ends_with("Class")) == "Class B",
-    #   na.rm = TRUE
-    # )
-    # 
-    # all_data = all_data |>
-    #   mutate(potato = rowSums(
-    #     select(all_data, ends_with("Class")) == "Class B", na.rm = TRUE
-    #   ))
-    # 
-    # return(all_data)
-    }
+    return(master_data$water_scored) 
   })
   
   
@@ -298,7 +247,7 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$date <- as.date(df$date, "%d/%m/%Y")
+      df$date <- as.Date(df$date, "%d/%m/%Y")
       df
     })
     
@@ -334,7 +283,7 @@ server <- function(input, output, session) {
       year <- stringr::str_extract(basename(f), "\\d{4}")
       df <- read_xlsx(f)
       df$Year <- as.integer(year)
-      df$date <- as.date(df$date, "%d/%m/%Y")
+      df$date <- as.Date(df$date, "%d/%m/%Y")
       df
     })
     
@@ -415,8 +364,7 @@ server <- function(input, output, session) {
   })
   
   
-  # Get list of years in the data
-  
+  #### Get list of years in the data ####
   
   water_years <- reactive({
     unique(master_data$water_scored$year)
@@ -440,135 +388,6 @@ server <- function(input, output, session) {
                   sed_years()
     ))) 
   })
-  
-  ################# DOWNLOAD BUTTONS #########################
-  # 
-  # output$download_year_ui <- renderUI({
-  #   all_years <- all_years()
-  #   
-  #   selectInput("download_year", "Filter by Year (optional):",
-  #               choices = c("All", all_years),
-  #               selected = "All")
-  # })
-  # 
-  
-  # # Helper function to filter by year
-  # filter_by_year <- function(df, year_input) {
-  #   if (year_input == "all") {
-  #     return(df)
-  #   } else {
-  #     return(df %>% filter(Year == as.integer(year_input)))
-  #   }
-  # }
-  
-  # Sediment Data (Clean)
-  # output$download_sed_clean <- downloadHandler(
-  #   filename = function() {
-  #     paste0("sed_", str_to_lower(input$download_year), "_clean_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     data <- if (input$data_scope == "bol") {
-  #       bol_sed_clean()
-  #     } else {
-  #       all_sed_clean()
-  #     }
-  #     
-  #     if (input$download_year != "All") {
-  #       data <- data |> filter_by_year(input$download_year)
-  #     }
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  
-  # Sediment Data (USGS)
-  # output$download_sed_usgs <- downloadHandler(
-  #   filename = function() {
-  #     paste0("sed_", str_to_lower(input$download_year), "_usgs_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     data <- if (input$data_scope == "bol") {
-  #       bol_sed_usgs()
-  #     } else {
-  #       all_sed_usgs()
-  #     }
-  #     
-  #     if (input$download_year != "All") {
-  #       data <- data |> filter_by_year(input$download_year)
-  #     }
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  
-  # Water Data (Clean)
-  # output$download_water_clean <- downloadHandler(
-  #   filename = function() {
-  #     paste0("water_", str_to_lower(input$download_year), "_clean_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     data <- if (input$data_scope == "bol") {
-  #       bol_water_clean()
-  #     } else {
-  #       all_water_clean()
-  #     }
-  #     
-  #     if (input$download_year != "All") {
-  #       data <- data |> filter_by_year(input$download_year)
-  #     }
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  # 
-  # Water Data (1333)
-  # output$download_water_1333 <- downloadHandler(
-  #   filename = function() {
-  #     paste0("water_", str_to_lower(input$download_year), "_1333_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     data <- if (input$data_scope == "bol") {
-  #       bol_water_1333()
-  #     } else {
-  #       all_water_1333()
-  #     }
-  #     
-  #     if (input$download_year != "All") {
-  #       data <- data |> filter_by_year(input$download_year)
-  #     }
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  
-  # USGS Standards Table
-  # output$download_usgs_standards <- downloadHandler(
-  #   filename = function() {
-  #     paste0("usgs_sqgs_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     
-  #     data <- usgs_sqg |>
-  #       select(-match_name)
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  # 
-  # Bolivian 1333 Standards Table
-  # output$download_1333_standards <- downloadHandler(
-  #   filename = function() {
-  #     paste0("bolivian_1333_stds_", Sys.date(), ".csv")
-  #   },
-  #   content = function(file) {
-  #     
-  #     data <- bolivian_1333 |>
-  #       select(-match_name)
-  #     
-  #     write_csv(data, file)
-  #   }
-  # )
-  # 
   
   ################# PCA #########################
   
@@ -608,6 +427,9 @@ server <- function(input, output, session) {
     updateSelectizeInput(inputId = "pca_parameters",
                          choices = get_param_list(df, media_type = input$pca_media),
                          selected = NULL)
+    updateSelectizeInput(inputId = "pca_station",
+                         choices = c("All Stations" = "all", unique(df$station)),
+                         selected = "all")
   })
   
   observeEvent(input$deselect_all_pca, {
@@ -629,8 +451,8 @@ server <- function(input, output, session) {
     df   <- res$df
     rpca <- res$pca
     
-    message("[pca_plot output] dimensional values")
-    message(rpca$eig)
+    # message("[pca_plot output] dimensional values")
+    # message(rpca$eig)
     
     scores   <- as.data.frame(rpca$ind$coord[, 1:2])
     loadings <- as.data.frame(rpca$var$coord[, 1:2])
@@ -691,10 +513,19 @@ server <- function(input, output, session) {
   
   # Scree plot
   output$scree_plot <- renderPlot({
-    res = pca_result()
+    res <- pca_result()
     req(res)
     
-    fviz_screeplot(res$pca, addlabels = TRUE)
+    p <- fviz_screeplot(res$pca, addlabels = TRUE)
+    
+    p + theme_minimal(base_size = 16) +
+      theme(
+        text = element_text(size = 16),          # all text
+        axis.title = element_text(size = 18),    # axis labels
+        axis.text = element_text(size = 14),     # tick numbers
+        # axis.text.x = element_text(angle = 45, hjust = 1),  # rotate if crowded
+        plot.margin = margin(20, 20, 20, 20)     # bigger margins
+      )
   })
   
   
@@ -1016,6 +847,36 @@ server <- function(input, output, session) {
   
   ################# RANKING PLOTS ############################
   
+  # Compute available years
+  observe({
+    df <- master_data$all_media_scored
+    req(df)
+    
+    years <- sort(unique(df$year))  # or year(df$date)
+    if (length(years) == 0) return()
+    
+    # Default: last 5 years excluding most recent
+    max_yr <- max(years)
+    default_min <- max_yr - 6  # 5 years back from year-before-last
+    default_range <- c(max(default_min, min(years)), max_yr - 1)
+    
+    updateSliderInput(session, "param_plot_recent_years",
+                      min = min(years), max = max(years),
+                      value = default_range
+    )
+    updateSliderInput(session, "station_plot_recent_years",
+                      min = min(years), max = max(years),
+                      value = default_range
+    )
+    updateSliderInput(session, "sieve_plot_recent_years",
+                      min = min(years), max = max(years),
+                      value = default_range
+    )
+    updateSliderInput(session, "observation_plot_recent_years",
+                      min = min(years), max = max(years),
+                      value = default_range
+    )
+  })
   
   # Map classes to numeric scores (0 = best, 4 = worst)
   class_map <- c(
@@ -1075,44 +936,61 @@ server <- function(input, output, session) {
   # Compute water quality score per observation (row)
   observation_scores <- reactive({
     param = input$observation_plot_param
-    req(param)
+    media = input$observation_plot_media
+    range = input$observation_plot_recent_years
+    req(param, media, range)
     
-    cat("\n=== DEBUG observation_scores ===\n")
-    cat("\nparam: ", param, "\n", "nrow(param): ", nrow(param))    
-    df <- active_water_1333() |>
-      filter(parameter == param)
+    df = master_data$all_media_scored
     
     if (is.null(df) || nrow(df) == 0) {
-      cat("\n[observation_scores] No data found.\n")
       return(NULL)
     }
     
-    # Ensure HQ exists
-    if (!"HQ" %in% names(df)) {
-      message("[observation_scores] HQ column not found in active_water_1333()")
-      cat("[observation_scores] HQ column not found in active_water_1333()")
-      return(NULL) # just a throwaway instead of STOP
+    df = df |>
+      filter(!is.na(HQ),
+             parameter == input$observation_plot_param,
+             media == input$observation_plot_media)
+    
+    if (is.null(df) || nrow(df) == 0) {
+      return(NULL)
     }
-    # View(df)
-    # Compute HQ-based water score per observation
-    out <- df %>%
-      group_by(station, date) %>%
-      summarise(
-        water_score = mean(HQ, na.rm = TRUE),   # <- NEW HQ-based score
-        max_HQ      = max(HQ, na.rm = TRUE),    # optional
-        n_params    = sum(!is.na(HQ)),
-        .groups = "drop"
-      ) %>%
-      filter(is.finite(water_score))
-    # View(out)
-    return(out)
+    
+    if (input$observation_plot_media == "water") {
+      df = df |> 
+        filter(fraction == "Total")
+    }
+    
+    if(!is.null(input$observation_plot_recent_years)) {
+      df = df |>
+        filter(year <= range[2], year >= range[1])
+    }
+    
+    return(df)
+    ###
+    
+    # 
+    # # En
+    # # Compute HQ-based water score per observation
+    # out <- df %>%
+    #   group_by(station, date) %>%
+    #   summarise(
+    #     water_score = mean(HQ, na.rm = TRUE),   # <- NEW HQ-based score
+    #     max_HQ      = max(HQ, na.rm = TRUE),    # optional
+    #     n_params    = sum(!is.na(HQ)),
+    #     .groups = "drop"
+    #   ) %>%
+    #   filter(is.finite(water_score))
+    # # View(out)
+    # return(out)
   })
+  
+  
   
   output$observation_scores_ui <- renderUI({
     df <- observation_scores()
     
     if (is.null(df) || nrow(df) == 0) {
-      return(no_data_callout("water"))
+      return(no_data_callout(input$observation_plot_media))
     }
     
     # otherwise return the plot output placeholder
@@ -1123,28 +1001,57 @@ server <- function(input, output, session) {
   output$observation_scores_plot <- renderPlotly({
     df = observation_scores()
     
+    req(input$observation_plot_method, 
+        input$observation_plot_param, 
+        input$observation_plot_station, 
+        df)
+    
+    # calculate date range
+    nyears = 0 # null case - function won't consider it if we're not using recent
+    
+    # calculate date range
+    if(input$observation_plot_method_temporal == "recent") {
+      req(input$observation_plot_recent_years)
+      range = input$observation_plot_recent_years
+      nyears = if(!is.null(input$param_plot_recent_years)) {
+        range[2] - range[1]
+      } else {
+        0
+      }
+      
+      df = df |>
+        filter(year <= range[2])
+      
+      validate(
+        need(nrow(data) > 0, "No data available for ranking.")
+      )
+    }
+    
     if (is.null(df) || nrow(df) == 0) {
       return(NULL)
     }
     
     p <- df |>
-      slice_max(water_score, n = 15) |>
+      slice_max(HQ, n = 15) |>
       mutate(label = paste0(station, " (", date, ")"),
-             label = fct_reorder(label, water_score))
+             label = fct_reorder(label, HQ))
+
+    title_label = sprintf("Top %g HQs Observed of %s in %s", nrow(p), input$observation_plot_param, input$observation_plot_media)
     # View(p)
     p = p |>
-      ggplot(aes(x = label, y = water_score, 
-                 text = paste("Water Quality Score:", round(water_score, 2)))) +
+      ggplot(aes(x = label, y = HQ, 
+                 text = paste("Hazard Quotient:", round(HQ, 2)))) +
       geom_col(fill = "darkslateblue") +
       coord_flip() +
       theme_minimal() +
       labs(
-        title = "Overall Water Score: Top 15 Worst Observations (Bolivia)", 
-        subtitle = "Lower scores indicate better water quality",
-        x = NULL, y = "Water Quality Score (0=best, 4=worst)"
+        title = title_label, 
+        x = NULL, y = "Hazard Quotient"
       )
       quiet_plotly(p, tooltip = "text")
     }) 
+  
+  
     #   else if (input$observation_plot_class == "class_b") {
     #     p <- observation_scores() |>
     #       slice_max(num_class_b, n = 15, with_ties = FALSE) |>
@@ -1400,16 +1307,103 @@ server <- function(input, output, session) {
       )
   })
   
-  output$station_scores_plot <- renderPlotly({
+  ### To get the # of recent years to review
+  # Reactive that counts unique years
+  all_available_years <- reactive({
+    df <- master_data$all_media_scored  # or your data reactive
+    req(df)
+    
+    year_min = min(df$year, na.rm=TRUE)
+    year_max = max(df$year, na.rm=TRUE)
+    
+    c(year_min, year_max)
+  })
+  
+  # Update slider max when data changes
+  observeEvent(all_available_years(), {
+    years = all_available_years()
+    default_max = ifelse(2024 <= years[2], 2023, years[2])
+    default_min = ifelse(default_max - 5 > years[1], default_max-5, years[1])
+    
+    # observation plot
+    updateSliderInput(
+      session,
+      "observation_plot_recent_years",
+      min = years[1], max = years[2],
+      value = c(default_min, default_max)
+    )
+    # param plot
+    updateSliderInput(
+      session,
+      "param_plot_recent_years",
+      min = years[1], max = years[2],
+      value = c(default_min, default_max)
+    )
+    # station plot
+    updateSliderInput(
+      session,
+      "station_plot_recent_years",
+      min = years[1], max = years[2],
+      value = c(default_min, default_max)
+    )
+    # sieve plot
+    updateSliderInput(
+      session,
+      "sieve_plot_recent_years",
+      min = years[1], max = years[2],
+      value = c(default_min, default_max)
+    )
+  })
+  
+  # Use it in your reactive/plot
+  output$filtered_data <- renderTable({
+    n_years <- input$years_to_show
+    req(n_years)
+    
     df <- master_data$all_media_scored
-
+    req(df)
+    
+    recent_years <- tail(sort(unique(year(df$date))), n_years)
+    df |> filter(year(date) %in% recent_years)
+  })
+  
+  
+  output$station_scores_plot <- renderPlotly({
+    req(input$station_plot_param,
+        input$station_plot_media,
+        input$station_plot_method_parameter, 
+        input$station_plot_method_temporal, 
+        master_data$all_media_scored)
+    
+    data = master_data$all_media_scored
+    nyears = 0 # null case - function won't consider it if we're not using recent
+    
+    # calculate date range
+    if(input$station_plot_method_temporal == "recent") {
+      req(input$station_plot_recent_years)
+      range = input$station_plot_recent_years
+      nyears = if(!is.null(input$station_plot_recent_years)) {
+        range[2] - range[1]
+      } else {
+        0
+      }
+      
+      data = data |>
+        filter(year <= range[2])
+      
+      validate(
+        need(nrow(data) > 0, "No data available for ranking.")
+      )
+    }
+    
     # 1/8/2026: Update to utilize new param names
-    p = plot_top_hq_stations(df, 
+    p = plot_top_hq_stations(data, 
                              media = input$station_plot_media, 
                              param = input$station_plot_param, 
                              fraction = input$station_plot_fraction, 
                              temporal_aggregation = input$station_plot_method_temporal,
-                             param_aggregation = input$station_plot_method_parameter)
+                             param_aggregation = input$station_plot_method_parameter,
+                             recent_range = nyears)
     quiet_plotly(p, tooltip = "text")
     
     # if (input$station_plot_type == "class") {
@@ -1905,36 +1899,107 @@ server <- function(input, output, session) {
   # --- Step 3: Assign unique colors ---
   
   output$param_scores_plot <- renderPlotly({
-    req(master_data$all_media_scored)
-    req(input$param_plot_media, input$param_plot_method_spatial, input$param_plot_method_temporal)
+    req(master_data$all_media_scored,
+        input$param_plot_station, 
+        input$param_plot_media, 
+        input$param_plot_method_temporal)
     
-    cat("\n\nworking to render\n\n")
-    validate(need(!is.null(master_data$all_media_scored),
-                  "No data available for ranking."))
+    data = master_data$all_media_scored
+    nyears = 0 # null case - function won't consider it if we're not using recent
     
-    View(master_data$all_media_scored)
-    
+    # calculate date range
+    if(input$param_plot_method_temporal == "recent") {
+      req(input$param_plot_recent_years)
+      range = input$param_plot_recent_years
+      nyears = if(!is.null(input$param_plot_recent_years)) {
+        range[2] - range[1]
+      } else {
+        0
+      }
+      
+      data = data |>
+        filter(year <= range[2])
+      
+      validate(
+        need(nrow(data) > 0, "No data available for ranking.")
+      )
+    }
+
     # 1/8/2026: Update to utilize new param names
-    p = plot_top_hq_params(data = master_data$all_media_scored, 
-                           media = input$param_plot_media,
+    p = plot_top_hq_params(data = data, 
+                           media_type = input$param_plot_media,
                            fraction = input$param_plot_fraction,
-                           temporal_aggregation = input$param_plot_method_temporal,
-                           spatial_aggregation = input$param_plot_method_spatial,
                            station = input$param_plot_station,
-                           decay_per_day = input$param_plot_decay)
+                           temporal_aggregation = input$param_plot_method_temporal,
+                           # spatial_aggregation = input$param_plot_method_spatial,
+                           decay_per_day = input$param_plot_decay,
+                           recent_range = nyears)
     
     quiet_plotly(p, tooltip = "text")
   })
   
+  
+  
   # Nadav's Notes: Next to do. Will want to set up in a separate file like the others
   output$sieve_scores_plot <- renderPlotly({
-    req(input$sieve_plot_method, input$sieve_plot_param, input$sieve_plot_station, master_data$sed_scored)
+    req(input$sieve_plot_method, 
+        input$sieve_plot_param, 
+        input$sieve_plot_station, 
+        master_data$sed_scored)
     
-    p = plot_top_hq_sieve(data = master_data$sed_scored,
+    data = master_data$sed_scored
+    nyears = 0 # null case - function won't consider it if we're not using recent
+    
+    # calculate date range
+    if(input$sieve_plot_method_temporal == "recent") {
+      req(input$sieve_plot_recent_years)
+      range = input$sieve_plot_recent_years
+      nyears = if(!is.null(input$sieve_plot_recent_years)) {
+        range[2] - range[1]
+      } else {
+        0
+      }
+      
+      data = data |>
+        filter(year <= range[2])
+      
+      validate(
+        need(nrow(data) > 0, "No data available for ranking.")
+      )
+    }
+    # calculate date range
+    range = input$sieve_plot_recent_years
+    nyears = if(!is.null(input$sieve_plot_recent_years)) {
+      range[2] - range[1] 
+    } else {
+      0
+    }
+    
+    data = master_data$all_media_scored |>
+      filter(year <= range[2])
+    
+    p = plot_top_hq_sieve(data = data,
                           param_selection = input$sieve_plot_param,
-                          method = input$sieve_plot_method,
-                          station_selection = input$sieve_plot_station)
+                          param_aggregation = input$sieve_plot_method_spatial,
+                          station_selection = input$sieve_plot_station,
+                          temporal_aggregation = input$sieve_plot_method_temporal,
+                          recent_range = nyears
+                          )
     quiet_plotly(p, tooltip = "text")
+  })
+  
+  param_plot_year_range <- year_range_slider_server(
+    id = "param_plot_recent_years",
+    data = reactive(master_data$all_media_scored),
+    year_col = "year"
+  )
+  
+  filtered_param_data <- reactive({
+    yrs <- param_plot_year_range()  # returns c(min_year, max_year)
+    req(yrs)
+    
+    master_data$all_media_scored |> 
+      filter(year(date) >= yrs[1], year(date) <= yrs[2])  # adjust date/year col
   })
   
   ################# SLIDER MAPS ########################
@@ -2392,74 +2457,28 @@ server <- function(input, output, session) {
       )
   })
   
-  
-  
   ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  ############# TIME SERIES #######################
-  
-  
-  
-  
-  
-  # # Bind data from all years into one data frame for use in time series
-  # all_sediment_data <- reactive({
-  #   sed_files <- list.files(sed_data_path_clean, pattern = "^sed_\\d{4}_clean\\.xlsx$", full.names = TRUE)
-  #   
-  #   sed_dfs <- lapply(sed_files, function(f) {
-  #     year <- stringr::str_extract(basename(f), "\\d{4}")
-  #     df <- readxl::read_xlsx(f)
-  #     df$Year <- as.integer(year)
-  #     df$date <- as.date(df$date, "%d/%m/%Y")
-  #     df
-  #   })
-  #   
-  #   bind_rows(sed_dfs)
-  # })
-  # 
-  # all_water_data <- reactive({
-  #   water_files <- list.files(water_data_path_clean, pattern = "^water_\\d{4}_clean\\.xlsx$", full.names = TRUE)
-  #   
-  #   water_dfs <- lapply(water_files, function(f) {
-  #     year <- stringr::str_extract(basename(f), "\\d{4}")
-  #     df <- readxl::read_xlsx(f)
-  #     df$Year <- as.integer(year)
-  #     df$date <- as.date(df$date, "%d/%m/%Y")
-  #     df
-  #   })
-  #   
-  #   bind_rows(water_dfs)
-  # })
   
   # dynamically update choices for time series station & parameters
-  observe({
-    cat("\n\nin observe")
+  observeEvent(input$main_tab, {
+    if(input$main_tab != "Time Series") {
+      return()
+    }
+    
     df = master_data$all_media_scored
     req(df)
-    cat("\n\nall_media_scored observer triggered")
+    cat("\nall_media_scored observer triggered")
     
-    cat("\n\nall_media_scored class: ", class(master_data$all_media_scored)[1])
+    cat("\nall_media_scored class: ", class(master_data$all_media_scored)[1])
     
-    cat("\n\nall_media_scored nrows: ", nrow(master_data$all_media_scored))
+    cat("\nall_media_scored nrows: ", nrow(master_data$all_media_scored))
     
-    df <- master_data$all_media_scored
-  
     cat("\n=== DEBUG observe ts_tabs ===\n")
-    cat(names(df))
-    updateSelectInput(session, "ts_station", choices = c("All Stations" = "all", sort(unique(df$station))), selected = "All Stations")
     
+    ## prepare the station list
+    updateSelectInput(session, "ts_station", choices = c("All Stations" = "all", sort(unique(df$station)))) # , selected = "All Stations")
+    
+    ## prepare the parameter list
     exclude_cols = c("Average Velocity",
                      "Decimal Latitude",
                      "Decimal Longitude",
@@ -2497,7 +2516,7 @@ server <- function(input, output, session) {
     cat("\n\nnames in df", names(df), "\n\n\n")
     
     param_cols <- df |>
-      filter(!parameter %in% exclude_cols) |>        # remove metadata rows
+      filter(!tolower(parameter) %in% tolower(exclude_cols)) |>        # remove metadata rows
       mutate(concentration = suppressWarnings(as.numeric(concentration))) |>
       filter(!is.na(concentration)) |>                         # keep real numeric params
       pull(parameter) |>
@@ -2506,37 +2525,34 @@ server <- function(input, output, session) {
     
     updateSelectInput(session, "ts_param", choices = param_cols)
     
-    # observeEvent(input$ts_station, {
-    #   req(input$ts_station)  # Ensure a station is selected
-    #   
-    #   # Filter to the selected station
-    #   station_data <- df %>% filter(station == input$ts_station)
-    #   
-    #   # Find param columns with any non-NA values
-    #   valid_params <- station_data %>%
-    #     select(any_of(param_cols)) %>%
-    #     select(where(~ any(!is.na(.)))) %>%
-    #     colnames()
-    #   
-    #   # Update parameter dropdown
-    #   updateSelectInput(session, "ts_param",
-    #                     choices = sort(valid_params),
-    #                     selected = ifelse(
-    #                       input$ts_tabs == "Water Samples",
-    #                       "Total Arsenic (ug/l As)",
-    #                       "Arsenic (mg/kg As)"))
-    # })
-    
+    ## prepare the standards list
+    stds_selectable = c("No Standards Found")
+    param_selected = input$ts_param
+    if (!is.null(param_selected)) {
+      stds_options = strict_stds |>
+        filter(parameter == param_selected,
+               media %in% c("water", "drinking water", "sediment")) |>
+        pull(regulator) |>
+        unique() |>
+        sort()
+      
+      stds_selectable = {
+        if(length(stds_options)>0) {
+          c("All", "Strict", stds_options)
+        } 
+      }
+      updateSelectInput(session, "ts_standard_mode", choices = stds_selectable)
+    }
   })
   
-  observeEvent(input$ts_station, {
-    cat("\n\nts_station changed to: ", input$ts_station)
-  })
-  
-  observeEvent(input$ts_param, {
-    cat("\n\nts_param changed to: ", input$ts_param)
-  })
-  
+  # observeEvent(input$ts_station, {
+  #   cat("\n\nts_station changed to: ", input$ts_station)
+  # })
+  # 
+  # observeEvent(input$ts_param, {
+  #   cat("\n\nts_param changed to: ", input$ts_param)
+  # })
+  # 
   ts_filtered_data_water <- reactive({
     df = master_data$water_scored
     cat("\n\nnrows master_data", nrow(df))
@@ -2622,40 +2638,24 @@ server <- function(input, output, session) {
     
   })
   
-  # ts_standard_values <- reactive({
-  #   req(input$ts_param)
-  #   
-  #   media <- if (input$ts_tabs == "Water Samples") "water" else "sediment"
-  #   
-  #   # default is all
-  #   mode  <- if (is.null(input$ts_standard_mode)) "all" else input$ts_standard_mode
-  #   
-  #   # retrieve all relevant standards
-  #   ts_get_standards(
-  #     param_name = input$ts_param,
-  #     media      = media,
-  #     mode       = mode
-  #   )
-  # })
-  
   output$ts_plot_water <- renderUI({
-    cat("\n\n\n\nIN TS_PLOT_WATER\n\n\n\n")
+    message("\nIN TS_PLOT_WATER")
     # Unwrap the reactive data with ()
     data_df <- master_data$water_scored
     
-    # DIAGNOSTIC: What exactly is this?
-    message("\n[DIAGNOSTIC] ts_filtered_data_water() output:")
-    message("Class: ", paste(class(data_df), collapse = ", "))
-    message("Is data.frame? ", is.data.frame(data_df))
-    message("Is tibble? ", inherits(data_df, "tbl"))
-    message("Is NULL? ", is.null(data_df))
-    
-    if (!is.null(data_df)) {
-      message("Nrows: ", nrow(data_df))
-      message("Columns: ", paste(colnames(data_df), collapse = ", "))
-      message("First few rows:")
-      print(head(data_df))
-    }
+    # # DIAGNOSTIC: What exactly is this?
+    # message("\n[DIAGNOSTIC] ts_filtered_data_water() output:")
+    # message("Class: ", paste(class(data_df), collapse = ", "))
+    # message("Is data.frame? ", is.data.frame(data_df))
+    # message("Is tibble? ", inherits(data_df, "tbl"))
+    # message("Is NULL? ", is.null(data_df))
+    # 
+    # if (!is.null(data_df)) {
+    #   message("Nrows: ", nrow(data_df))
+    #   message("Columns: ", paste(colnames(data_df), collapse = ", "))
+    #   message("First few rows:")
+    #   print(head(data_df))
+    # }
     
     # Check that data exists and has rows
     if (is.null(data_df) || nrow(data_df) == 0) {
@@ -2677,24 +2677,9 @@ server <- function(input, output, session) {
     return(p)
   })  
   output$ts_plot_sed <- renderUI({
-    cat("\n\n\n\nIN TS_PLOT_SED\n\n\n\n")
+    message("\nIN TS_PLOT_SED")
     # Unwrap the reactive data with ()
     data_df <- master_data$sed_scored
-    
-    # DIAGNOSTIC: What exactly is this?
-    message("\n[DIAGNOSTIC] ts_filtered_data_sed() output:")
-    message("Class: ", paste(class(data_df), collapse = ", "))
-    message("Is data.frame? ", is.data.frame(data_df))
-    message("Is tibble? ", inherits(data_df, "tbl"))
-    message("Is NULL? ", is.null(data_df))
-    
-    if (!is.null(data_df)) {
-      message("Nrows: ", nrow(data_df))
-      message("Columns: ", paste(colnames(data_df), collapse = ", "))
-      message("First few rows:")
-      print(head(data_df))
-    }
-    
     # Check that data exists and has rows
     if (is.null(data_df) || nrow(data_df) == 0) {
       message("No data to plot")
@@ -2710,84 +2695,9 @@ server <- function(input, output, session) {
       standard_mode = input$ts_standard_mode
     )
     
-    # The function returns a girafe object, not ggplot
-    # so we return it directly without quiet_plotly
     return(p)
   })  
-  
-  # output$ts_plot_sed <- renderPlotly({
-  #   df <- ts_filtered_data_sed()
-  #   req(nrow(df) > 0)
-  #   
-  #   df$date <- as.date(df$date, format = "%d/%m/%Y")  
-  #   
-  #   # Create aggregated data for the line (average per date)
-  #   df_line <- df %>%
-  #     group_by(date) %>%
-  #     summarise(avg_value = mean(concentration, na.rm = TRUE), .groups = 'drop')
-  #   
-  #   # Start with the base plot using individual points
-  #   p <- ggplot(df, aes(x = date, y = concentration,
-  #                       text = paste0("date: ", date, "<br>",
-  #                                     input$ts_param, ": ", concentration, "<br>",
-  #                                     "Sieve Size: ", sieve_size, "<br>",
-  #                                     "Distance from Bank: ", distance_from_bank)))
-  #   
-  #   standard_vals <- ts_standard_values()
-  #   if (!is.null(standard_vals)) {
-  #     
-  #     tel <- standard_vals[1]
-  #     pel <- standard_vals[2]
-  #     
-  #     y_range <- max(df$value, na.rm = TRUE) - min(df$value, na.rm = TRUE)
-  #     offset_amount <- y_range * 0.05
-  #     
-  #     p <- p +
-  #       geom_hline(yintercept = tel, color = "darkorange", linetype = "dashed", linewidth = 0.7) +
-  #       geom_hline(yintercept = pel, color = "firebrick", linetype = "dashed", linewidth = 0.7) +
-  #       annotate("text", x = min(df$date), y = tel - offset_amount, label = paste("TEL =", tel, "mg/kg"), 
-  #                hjust = 1.1, vjust = 0.5, color = "darkorange", size = 3, fontface = "bold") +
-  #       annotate("text", x = min(df$date), y = pel + offset_amount, label = paste("PEL =", pel, "mg/kg"), 
-  #                hjust = 1.1, vjust = 0.5, color = "firebrick", size = 3, fontface = "bold") +
-  #       scale_x_date(expand = expansion(mult = c(0.2, 0.05))) +
-  #       coord_cartesian(clip = "off")
-  #   }
-  #   
-  #   # Check if Distance from Bank has variation
-  #   has_variation <- length(unique(df$`Distance from Bank`)) > 1
-  #   
-  #   p <- p +
-  #     # Add the line using averaged data
-  #     geom_line(data = df_line, aes(x = date, y = avg_value, group = 1,
-  #                                   text = paste0("date: ", date, "<br>",
-  #                                                 "Average ", input$ts_param, ": ", round(avg_value, 3))),
-  #               color = "black") +
-  #     {if(has_variation) {
-  #       # Multiple values - use fill aesthetic with legend
-  #       geom_point(shape = 21, size = 1.5, fill = "black", stroke = 0.3, color = "black", aes(alpha = `Distance from Bank`))
-  #     } else {
-  #       # All same - black fill, no legend
-  #       geom_point(shape = 21, size = 1.5, alpha = 0.5, fill = "black")
-  #     }} +
-  #     labs(
-  #       title = paste("Time Series of", input$ts_param, "from Sediment Samples at", input$ts_station),
-  #       x = "Time",
-  #       y = input$ts_param,
-  #       fill = if(has_variation) "Distance from Bank" else NULL  # Only show fill label if there's variation
-  #     ) +
-  #     theme_minimal() +
-  #     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  #   
-  #   if(length(unique(df$`Distance from Bank`)) < 2) {
-  #     p <- p + 
-  #       scale_fill_continuous(guide = "none") +  # Remove legend
-  #       # Optionally override colors to black
-  #       scale_fill_manual(values = "black", guide = "none")
-  #   }
-  #   
-  #   quiet_plotly(p, tooltip = "text")  # Show only the text tooltip
-  # })
-  
+
   
   ##############  MAPS  #############################
 
@@ -2797,29 +2707,29 @@ server <- function(input, output, session) {
     updateSelectInput(session, "sed_year", choices = sed_years, selected = max(sed_years))
   })
   
-  observe({
-    water_years <- water_years_1333()
-    updateSelectInput(session, "water_year", choices = water_years, selected = max(water_years))
-  })
-  
+  # observe({
+  #   water_years <- water_years_1333()
+  #   updateSelectInput(session, "water_year", choices = water_years, selected = max(water_years))
+  # })
+  # 
   # Load selected dataset for map
-  sed_selected_data <- reactive({
-    req(master_data$sed_scored, input$sed_date_range)
-    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
-    
-    master_data$sed_scored |>
-      filter(date >= input$sed_date_range[1],
-             date <= input$sed_date_range[2])
-  })
+  # sed_selected_data <- reactive({
+  #   req(master_data$sed_scored, input$sed_date_range)
+  #   req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
+  #   
+  #   master_data$sed_scored |>
+  #     filter(date >= input$sed_date_range[1],
+  #            date <= input$sed_date_range[2])
+  # })
   
-  water_selected_data <- reactive({
-    req(master_data$water_scored, input$water_date_range)
-    req(nrow(master_data$water_scored) > 0)  # Make sure it has data
-    
-    master_data$sed_scored |>
-      filter(date >= input$water_date_range[1],
-             date <= input$water_date_range[2])
-  })
+  # water_selected_data <- reactive({
+  #   req(master_data$water_scored, input$water_date_range)
+  #   req(nrow(master_data$water_scored) > 0)  # Make sure it has data
+  #   
+  #   master_data$sed_scored |>
+  #     filter(date >= input$water_date_range[1],
+  #            date <= input$water_date_range[2])
+  # })
   
   # Populate campaign dropdown for map
   output$sed_campaign_ui <- renderUI({
@@ -2863,7 +2773,7 @@ server <- function(input, output, session) {
     dates <- dates[!is.na(dates)]
     
     if (!inherits(dates, "date")) {
-      dates <- as.date(dates)
+      dates <- as.Date(dates)
     }
     
     min_date <- min(dates, na.rm = TRUE)
@@ -2915,7 +2825,7 @@ server <- function(input, output, session) {
   })
   
   observe({
-    cat("\n=== DEBUG new water param dropdown filler based on existing sed_data ===\n")
+    # cat("\n=== DEBUG new water param dropdown filler based on existing sed_data ===\n")
     req(master_data$water_scored)
     req(nrow(master_data$water_scored) > 0)
     
@@ -2924,9 +2834,9 @@ server <- function(input, output, session) {
     water_params <- water_params[!is.na(water_params)]
     water_params <- sort(water_params)
     
-    cat("Available water parameters:", paste(water_params, collapse = ", "), "\n")
+    # cat("Available water parameters:", paste(water_params, collapse = ", "), "\n")
     
-    updateSelectInput(session, "water_metal_param", 
+    updateSelectInput(session, "water_metal", 
                       choices = water_params,
                       selected = if(length(water_params) > 0) water_params[1] else NULL)
   })
@@ -3090,11 +3000,11 @@ server <- function(input, output, session) {
       cat("  date range input:", paste(input$map_date_range, collapse = " to "), "\n")
       
       if (!inherits(df[[date_col]], "date")) {
-        df[[date_col]] <- as.date(df[[date_col]])
+        df[[date_col]] <- as.Date(df[[date_col]])
       }
       
-      start_date <- as.date(input$map_date_range[1])
-      end_date <- as.date(input$map_date_range[2])
+      start_date <- as.Date(input$map_date_range[1])
+      end_date <- as.Date(input$map_date_range[2])
       
       df <- df %>%
         filter(.data[[date_col]] >= start_date,
@@ -3120,6 +3030,12 @@ server <- function(input, output, session) {
     }
     
     cat("  Final rows:", nrow(df), "\n")
+    
+    # filter out some columns for better viewing
+    df = df |>
+      select(-c(fraction, media, cr_route, converted_from_mg_kg, CR, WL, std_info, CR_cases_10k, has_HQ, has_CR, has_WL, has_standard)) |>
+      relocate(year, .before = station) |>
+      relocate(c(latitude_decimal, longitude_decimal), .after=last_col())
     
     return(df)
   })
@@ -3155,11 +3071,11 @@ server <- function(input, output, session) {
     # date filter
     if (!is.null(input$water_date_range) && length(input$water_date_range) == 2) {
       if (!inherits(df[[date_col]], "date")) {
-        df[[date_col]] <- as.date(df[[date_col]])
+        df[[date_col]] <- as.Date(df[[date_col]])
       }
       
-      start_date <- as.date(input$water_date_range[1])
-      end_date <- as.date(input$water_date_range[2])
+      start_date <- as.Date(input$water_date_range[1])
+      end_date <- as.Date(input$water_date_range[2])
       
       df <- df %>%
         filter(.data[[date_col]] >= start_date, .data[[date_col]] <= end_date)
@@ -3697,7 +3613,8 @@ server <- function(input, output, session) {
   
   output$stds_1333_table <- renderDT({
     stds |>
-      filter(regulator == "Bolivian Law 1333")
+      filter(regulator == "Bolivian Law 1333") |>
+      select(regulator, parameter, abbr, value, unit, limit)
   })
   
   output$stds_usgs_table_ts <- renderDT({
@@ -3707,6 +3624,12 @@ server <- function(input, output, session) {
   
   output$stds_all <- renderDT({
     stds
+  })
+  
+  output$stds_strict = renderDT({
+    strict_stds |>
+      select(-c(hqcr)) |>
+      filter(str_detect(media,input$plot_media))
   })
 
 
@@ -5450,5 +5373,3 @@ observeEvent(combined_risk_raster(), {
   })
   
 } # End Server
-
-

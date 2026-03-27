@@ -1,9 +1,11 @@
 ## global.R runs before ui.R and server.R. All of them replace app.R to make for easier reading & finding code
 # app will run automatically using shiny::runApp("."), which happens when you click the "Run App" function
+# Note: this means that refreshing the page does not re-run global.R, just server.R and ui.R
+message("Starting global.R")
 
 ## Import libraries
 pacman::p_load(
-  shiny, tidyverse, leaflet, leaflet.extras, sf, rsconnect,
+  shiny, tidyverse, leaflet, sf, rsconnect,
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
@@ -14,6 +16,9 @@ options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors
 options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
+
+#### State that we're starting ####
+message("Libraries imported and options set. Loading scripts...")
 
 #### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {
@@ -29,6 +34,7 @@ load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
 
 #### define paths to things ####
+message("global.R: Defining paths and loading shared datasets (standards, constants)")
 ## Define file paths to data
 sed_data_path_usgs <- "data/sed/usgs"
 water_data_path_1333 <- "data/water/1333"
@@ -58,10 +64,11 @@ stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
-stds = readr::read_csv(here::here("data/standards/all_standards.csv")) |>
+stds = stds |>
   mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
+strict_stds <<- set_strict_stds()
 
 # these are kept centrally to help us easily redefine if needed
 
@@ -98,3 +105,5 @@ HQ_STATION_BINS = list(
              "High Priority" = "#FF9800",      # Orange
              "Extreme Priority" = "#C62828")   # Dark red
 )
+
+message("Completed global.R")

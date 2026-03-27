@@ -133,8 +133,7 @@ plot_risk_map <- function(risk_map_result,
   
   library(htmltools)
   library(leaflet)
-  library(leaflet.extras)
-  
+
   # Extract components
   risk_raster <- risk_map_result$risk_raster
   snapped_points <- risk_map_result$snapped_points

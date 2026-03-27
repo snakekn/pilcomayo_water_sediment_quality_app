@@ -68,8 +68,11 @@ plot_pilcomayo_ts <- function(
     "EPA" = "epa",
     "WHO" = "who",
     "USGS" = "usgs",
-    "FAO" = "fao"
+    "FAO" = "fao",
+    "Bolivian Law 1333" = "bol"
   )
+  
+  regulator_map2 <- c("EPA","WHO","USGS","FAO","Bolivian Law 1333")
 
   if (standard_mode == "none") {
     param_stds <- NULL

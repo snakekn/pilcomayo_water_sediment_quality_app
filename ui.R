@@ -157,15 +157,10 @@ html, body {
         tags$img(src = "pilcomayo.jpg", height = "350px"),
         tags$hr(),
         includeMarkdown("text/introduction.md"),
-        # load from a .md to reduce clutter
-        
-        tags$hr(),
         tags$hr(),
         includeMarkdown("text/introduction_sources.md"),
         tags$hr(),
-        tags$p(
-          "This application was developed using R Shiny and integrates spatial and tabular data for interactive analysis."
-        )
+        includeMarkdown("text/acknowledgements.md")
       )
     ),
     
@@ -195,23 +190,23 @@ html, body {
           condition = "output.map_data_ready",
           tabsetPanel(
             tabPanel("Water Data",
-                     checkboxInput("show_summary_water", "Show Summary Table"),
+                     checkboxInput("show_summary_water", "Show Yearly Summary Table"),
                      conditionalPanel(
                        condition = "input.show_summary_water",
                        dataTableOutput("data_prep_water_table")
                      ),
-                     checkboxInput("show_full_water", "Show Full Data"),
+                     checkboxInput("show_full_water", "Show Complete Dataset"),
                      conditionalPanel(
                        condition = "input.show_full_water",
                        dataTableOutput("full_water_table")
                      )),
             tabPanel("Sediment Data",
-                     checkboxInput("show_summary_sed", "Show Summary Table"),
+                     checkboxInput("show_summary_sed", "Show Yearly Summary Table"),
                      conditionalPanel(
                        condition = "input.show_summary_sed",
                        dataTableOutput("data_prep_sed_table")
                      ),
-                     checkboxInput("show_full_sed", "Show Full Data"),
+                     checkboxInput("show_full_sed", "Show Complete Dataset"),
                      conditionalPanel(
                        condition = "input.show_full_sed",
                        dataTableOutput("full_sed_table")
@@ -221,7 +216,6 @@ html, body {
       )
     ),
     
-    # In ui.R - replace the Map of Environmental Samples tab:
     tabPanel(
       "Map of Environmental Samples",
       sidebarLayout(
@@ -243,11 +237,11 @@ html, body {
               "plot_media",
               "Media:",
               choices = c("Water" = "water", "Sediment" = "sediment"),
-              selected = "sediment",
+              selected = "water",
               inline = TRUE
             ),
             
-            # DATA SCOPE SELECTOR
+            # SPATIAL SCOPE SELECTOR
             radioButtons(
               "plot_data_scope",
               "Data Scope:",
@@ -268,7 +262,6 @@ html, body {
                 "Symbolize by:",
                 choices = c(
                   "Measured Concentration (mg/kg)" = "sed_value",
-                  "Compare to USGS SQGs" = "usgs",
                   "Hazard Quotient (HQ)" = "hq"
                 ),
                 selected = "sed_value"
@@ -319,8 +312,8 @@ html, body {
             condition = "input.plot_media == 'sediment'",
             tabsetPanel(
               tabPanel("Map", leafletOutput("sed_map", height = 600)),
-              tabPanel("Table", dataTableOutput("sed_table")),
-              tabPanel("Sediment Quality Standards", dataTableOutput("stds_sed_table"))
+              tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
+              tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
             )
           ),
           
@@ -329,8 +322,9 @@ html, body {
             condition = "input.plot_media == 'water'",
             tabsetPanel(
               tabPanel("Map", leafletOutput("water_map", height = 600)),
-              tabPanel("Table", dataTableOutput("water_table")),
-              tabPanel("Water Quality Standards", dataTableOutput("stds_1333_table"))
+              tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
+              tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
+              tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
             )
           )
         )
@@ -400,18 +394,23 @@ html, body {
         ),
         mainPanel(
           tabsetPanel(
-            id = "ts_tabs",
-            tabPanel("Time Series", 
-                     fluidRow(
-                       column(
-                         width = 12,
-                         uiOutput("ts_plot_water"),
-                         uiOutput("ts_plot_sed")
-                       )
-                     )
-            ),
-            tabPanel("View Standards", dataTableOutput("stds_all"))
-          )
+            ## initial attempt to get the plots left-aligned
+            # div(
+            #   style = "width: 100%; height: 500px; margin: 0;",  # full width, fixed height
+            #   plotlyOutput("ts_plot_water", width = "100%", height = "100%")
+            # ),
+            # div(
+            #   style = "width: 100%; height: 500px; margin: 0;",
+            #   plotlyOutput("ts_plot_sed", width = "100%", height = "100%")
+            # )
+           fluidRow(
+             column(
+               width = 12,
+               uiOutput("ts_plot_water"),
+               uiOutput("ts_plot_sed")
+             )
+           )
+            )
         )
       )
     ),  # Close Time Series tabPanel
@@ -438,125 +437,49 @@ html, body {
         tabPanel("Worst Observations", fluidRow(
           column(
             4,
-            # radioButtons(
-            #   "observation_std",
-            #   "Rank Observations Using:",
-            #   choices = c(
-            #     "Raw Water Samples" = "value",
-            #     "Bolivian Water Standards" = "class",
-            #     "Raw Sediment Samples" = "sed_value",
-            #     "USGS SQGs" = "usgs",
-            #     "Hazard Quotients" = "hq" # NADAV: NEED TO FIX
-            #   )
-            # ),
-            # conditionalPanel(
-            #   condition = "input.observation_std == 'class'",
-            #   radioButtons(
-            #     "observation_plot_class",
-            #     "Rank by:",
-            #     choices = c(
-            #       "Worst Overall Score" = "worst_score",
-            #       "# Unclassified Parameters" = "unclassified",
-            #       "# Class D Parameters" = "class_d",
-            #       "# Class C Parameters" = "class_c",
-            #       "# Class B Parameters" = "class_b"
-            #     )
-            #   )
-            # ),
-            # conditionalPanel(
-            #   condition = "input.observation_std == 'value'",
-            #   selectInput("observation_plot_param", "Select Parameter:", choices = NULL)
-            # ),
-            # conditionalPanel(
-            #   condition = "input.observation_std == 'usgs'",
-            #   radioButtons(
-            #     "observation_plot_usgs",
-            #     "Rank by:",
-            #     choices = c(
-            #       "Worst Overall Score" = "worst_score",
-            #       "# Parameters Above PEL" = "above_pel",
-            #       "# Parameters Above TEL" = "above_tel"
-            #     )
-            #   )
-            # ),
             selectInput("observation_plot_param", "Select Parameter:", choices = NULL),
-            # conditionalPanel(
-            #   condition = "input.observation_std == 'sed_value'",
-            #   selectInput("observation_plot_param_sed", "Select Parameter:", choices = NULL)
-            # ),
-            # conditionalPanel( # NADAV: NEED TO FIX
-            #   condition = "input.observation_std == 'hq'",
-            #   radioButtons(
-            #     "observation_plot_hq",
-            #     "Rank by:",
-            #     choices = c(
-            #       "Greatest total Hazard Quotient" = "highest_hq",
-            #       "# Parameters above standard" = "quantity_hq"
-            #     )
-            #   )
-            # ),
-            # conditionalPanel(
-            #   condition = "input.observation_std == 'class'",
-            #   info_callout(
-            #     "Observation Ranking",
-            #     "This plot ranks individual water samples based on water quality standards from Bolivian law.
-            #                                         Observations can be ranked by the number of parameters that fall into each classification, or by overall score.
-            #                                           Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each observation.
-            #                                           Data is sourced from www2.pilcomayo.net."
-            #   )
-            # ),
+            selectInput("observation_plot_media", "Select Media:", choices = c("Water" ="water", "Sediment"="sediment")),
+            
             info_callout(
               "Observation Ranking",
               "This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard).
                                                     Data is sourced from www2.pilcomayo.net."
             )
-            #   conditionalPanel(
-            #     condition = "input.observation_std == 'usgs'",
-            #     info_callout(
-            #       "Observation Ranking",
-            #       "This plot ranks individual sediment samples based on USGS Sediment Quality Guidelines (SQGs).
-            #                                           Observations can be ranked by the number of parameters that fall into each category, or by overall score.
-            #                                             Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above Pel=2), and finding the mean value for each observation.
-            #                                             Data is sourced from www2.pilcomayo.net."
-            #     )
-            #   ),
-            #   conditionalPanel(
-            #     condition = "input.observation_std == 'sed_value'",
-            #     info_callout(
-            #       "Observation Ranking",
-            #       "This plot ranks individual sediment samples based on measured values of the selected sediment quality parameter.
-            #                                        Higher values are ranked worse.
-            #                                        Data is sourced from www2.pilcomayo.net."
-            #     )
-            #   )
           ),
-          column(8, plotlyOutput("observation_scores_plot", height = "500px"))
+          column(8, uiOutput("observation_scores_ui", height = "500px"))
         )),  # Close Worst Observations tabPanel
         
         tabPanel("Worst Stations", fluidRow(
           column(
             4,
-            selectInput("station_plot_param", "Select Parameter:", choices = NULL),
-            selectInput("station_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sed")),
+            selectInput("station_plot_param", "Select Parameter:", choices = "Loading - Please Wait"),
+            selectInput("station_plot_media", "Select Media:", 
+                        choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
             conditionalPanel(
               condition = "input.station_plot_media != 'sed'",
               selectInput("station_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "any", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
             ),
-            radioButtons( # 1/8/2026: changed from param_plot_method
-              "station_plot_method_temporal",
-              "Temporal Aggregation:",
-              choices = c("Most Recent Data" = "recent", "Average Value" = "average", "Most Extreme Value" = "max") # recent, mean, average, max, weighted
+            # 1/8/2026: changed from param_plot_method
+            selectInput("station_plot_method_parameter", "HQ Calculation:",
+                        choices = c("95th Percentile" = "pct95", "Median Value" = "median", "Average Value" = "mean", "Most Extreme Value" = "max") # mean, average, median, max
             ),
-            radioButtons( # 1/8/2026: changed from param_plot_method
-              "station_plot_method_parameter",
-              "Parameter Aggregation:",
-              choices = c("Average Value" = "mean", "Most Extreme Value" = "max", "95th Percentile" = "pct95") # mean, average, median, max
+            # 1/8/2026: changed from param_plot_method
+            selectInput("station_plot_method_temporal", "Rank Data by Year Using:",
+              choices = c("Recent Years Only" = "recent", "Average Value" = "average", "Most Extreme Value" = "max") # recent, mean, average, max, weighted
             ),
-            # radioButtons( # 1/8/2026: changed from param_plot_method
-            #   "station_plot_method",
-            #   "OLD METHOD",
-            #   choices = c("Average Value" = "average", "Most Extreme Value" = "max")
-            # ),
+            conditionalPanel(
+              condition = "input.param_plot_method_temporal == 'recent'",
+              sliderInput(
+                "station_plot_recent_years",
+                "Years to Include:",
+                min = 2016,
+                max = 2024,  # starts small, gets updated
+                value = c(2018, 2023),
+                step = 1,
+                sep = "",
+                ticks = FALSE
+              )          
+            ),
             info_callout(
               "Station Ranking",
               "This plot ranks water sampling stations based on water quality standards from Bolivian law.
@@ -564,120 +487,7 @@ html, body {
                                                       Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
                                                       For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
                                                       Data is sourced from www2.pilcomayo.net."
-            ), # comma is for the brackets, remove if it's the last thing here
-            
-            { # old code
-              # radioButtons(
-              #   "station_plot_type",
-              #   "Rank Stations Using:",
-              #   choices = c(
-              #     "Raw Water Samples" = "value",
-              #     "Bolivian Water Standards" = "class",
-              #     "Raw Sediment Samples" = "sed_value",
-              #     "USGS SQGs" = "usgs"
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'class'",
-              #   radioButtons(
-              #     "station_plot_class",
-              #     "Rank by:",
-              #     choices = c(
-              #       "Worst Overall Score" = "worst_score",
-              #       "Mean # Unclassified Parameters" = "unclassified",
-              #       "Mean # Class D Parameters" = "class_d",
-              #       "Mean # Class C Parameters" = "class_c",
-              #       "Mean # Class B Parameters" = "class_b"
-              #     )
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'class' && input.station_plot_class == 'worst_score'",
-              #   checkboxInput(
-              #     "station_plot_recency",
-              #     "Weigh recent observations higher",
-              #     value = FALSE
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'value'",
-              #   selectInput("station_plot_param", "Select Parameter:", choices = NULL),
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'usgs'",
-              #   radioButtons(
-              #     "station_plot_usgs",
-              #     "Rank by:",
-              #     choices = c(
-              #       "Worst Overall Score" = "worst_score",
-              #       "Mean # Parameters Above PEL" = "above_pel",
-              #       "Mean # Parameters Above TEL" = "above_tel"
-              #     )
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'usgs' && input.station_plot_usgs == 'worst_score'",
-              #   checkboxInput(
-              #     "station_plot_recency_sed",
-              #     "Weigh recent observations higher",
-              #     value = FALSE
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'sed_value'",
-              #   selectInput("station_plot_param_sed", "Select Parameter:", choices = NULL)
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'value' | input.station_plot_type == 'sed_value'",
-              #   radioButtons(
-              #     "station_param_type",
-              #     "Rank by:",
-              #     choices = c("Average Value" = "average", "Most Extreme Value" = "max")
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'class'",
-              #   info_callout(
-              #     "Station Ranking",
-              #     "This plot ranks water sampling stations based on water quality standards from Bolivian law.
-              #                                         Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
-              #                                           Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
-              #                                           For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
-              #                                           Data is sourced from www2.pilcomayo.net."
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'value'",
-              #   info_callout(
-              #     "Station Ranking",
-              #     "This plot ranks water sampling stations based on measured values of the selected parameter.
-              #                                         For most parameters, higher values are ranked higher (worse). However, for some (DO, pH, etc.), lower values are ranked higher (worse).
-              #                                           Stations can be ranked based on the most extreme/worst recorded value, or the mean value across observations at that station.
-              #                                           Data is sourced from www2.pilcomayo.net."
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'usgs'",
-              #   info_callout(
-              #     "Station Ranking",
-              #     "This plot ranks sediment sampling stations based on USGS Sediment Quality Guidelines (SQGs).
-              #                                         Stations can be ranked by the mean number of parameters that fall into each category, or by overall score.
-              #                                           Overall score is calculated by assigning values to each category (Below TEL=0, Above TEL=1, Above PEL=2), and finding the mean value for each station.
-              #                                           For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
-              #                                           Data is sourced from www2.pilcomayo.net."
-              #   )
-              # ),
-              # conditionalPanel(
-              #   condition = "input.station_plot_type == 'sed_value'",
-              #   info_callout(
-              #     "Station Ranking",
-              #     "This plot ranks sediment sampling stations based on measured values of the selected parameter.
-              #                                         Higher values are ranked worse.
-              #                                           Stations can be ranked based on the most highest recorded value, or the mean value across observations at that station.
-              #                                           Data is sourced from www2.pilcomayo.net."
-              #   )
-              # )
-            } # old code.
+            )
           ),
           column(8, plotlyOutput("station_scores_plot", height = "500px"))
         )),  # Close Worst Stations tabPanel
@@ -686,20 +496,26 @@ html, body {
           column(
             4,
             selectInput("param_plot_station", "Select Station:", choices = c("All Stations" = "all")),
-            selectInput("param_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sed")),
+            selectInput("param_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
             conditionalPanel(
               condition = "input.param_plot_media != 'sed'",
               selectInput("param_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "all", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
             ),
-            radioButtons( 
-              "param_plot_method_temporal",
-              "Rank Data by Year Using:",
-              choices = c("Most Recent Year Only" = "recent", "Average Value Across Time" = "average", "Most Extreme Year" = "max", "Time-Weighted Value" = "weighted")
+            selectInput("param_plot_method_temporal", "Rank Data by Year Using:",
+              choices = c("Recent Years Only" = "recent", "Average Value Across Time" = "average", "Most Extreme Year" = "max", "Time-Weighted Value" = "weighted")
             ),
-            radioButtons(
-              "param_plot_method_spatial",
-              "Rank by:", # Nadav's Note: Better way to state?
-              choices = c("Average Value" = "average", "Most Extreme Value" = "max", "Median Value" = "median")
+            conditionalPanel(
+              condition = "input.param_plot_method_temporal == 'recent'",
+              sliderInput(
+                "param_plot_recent_years",
+                "Years to Include:",
+                min = 2016,
+                max = 2024,  # starts small, gets updated
+                value = c(2018, 2023),
+                step = 1,
+                sep = "",
+                ticks = FALSE
+              )
             ),
             shinyBS::bsCollapse(id = "param_plot_adv",
                                 bsCollapsePanel(title = "⚙️ Advanced Settings",
@@ -727,7 +543,26 @@ html, body {
               "sieve_plot_method",
               "Rank by:",
               choices = c("Average Value" = "avg", "Most Extreme Value" = "max")
-            )
+            ),
+            selectInput("sieve_plot_method_spatial", "Combine Station HQs Using:",
+                        choices = c("95th Percentile" = "pct95", "Maximum" = "max", "Median" = "median", "Mean" = "mean")
+            ),
+            selectInput("sieve_plot_method_temporal", "Rank Data by Year Using:",
+                        choices = c("Recent Years Only" = "recent", "Average Value Across Time" = "average", "Most Extreme Year" = "max", "Time-Weighted Value" = "weighted")
+            ),
+            conditionalPanel(
+              condition = "input.sieve_plot_method_temporal == 'recent'",
+              sliderInput(
+                "sieve_plot_recent_years",
+                "Years to Include:",
+                min = 2016,
+                max = 2024,  
+                value = c(2018, 2023),
+                step = 1,
+                sep = "",
+                ticks = FALSE
+              )
+            ),
           ),
           column(8, plotlyOutput("sieve_scores_plot", height = "500px"))
         ))  # Close Worst Sieve Sizes tabPanel
@@ -775,8 +610,8 @@ html, body {
         mainPanel(
           tabsetPanel(
             tabPanel("Autoplot", 
-                     plotlyOutput("pca_plot"),
-                     plotOutput("pca_static", height = "600px")  # Static below interactive
+                     plotlyOutput("pca_plot") # ,
+                     # plotOutput("pca_static", height = "600px")  # Static below interactive
             ),
             tabPanel("Scree Plot", plotOutput("scree_plot"))
           )
@@ -784,19 +619,7 @@ html, body {
       ) # close sidebarLayout 
     ), # Close PCA tabPanel
     
-    
-    
-    
-    
-    ################## RISK MAPPING ############################################
-    
-    ################# RISK MAPPING ##############################################
-    
     ################ RISK MAPPING #################################################
-    
-    
-    
-    
     
     tabPanel(
       "Risk Scores Map",

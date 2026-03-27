@@ -600,7 +600,67 @@ ts_get_standards <- function(param_name, media, mode = "all") {
 # RANKING PLOT HELPERS
 # ============================================================================
 
+year_range_slider_ui <- function(id, label = "Year Range") {
+  ns <- NS(id)
+  
+  tagList(
+    sliderInput(
+      ns("year_range"),
+      label = label,
+      min = 0, max = 1, value = 1,
+      sep = "",  # no comma separators
+      width = "100%"
+    ),
+    verbatimTextOutput(ns("year_display"))
+  )
+}
 
+year_range_slider_server <- function(id, data, year_col = "year") {
+  moduleServer(id, function(input, output, session) {
+    
+    # Extract available years from data
+    available_years <- reactive({
+      req(data())
+      df <- data()
+      if (!year_col %in% names(df)) {
+        return(integer(0))
+      }
+      r = sort(unique(df[[year_col]]))
+      print("[available_years]:")
+      print(r)
+      r
+    })
+    
+    # Default: last 5 years excluding most recent (e.g., 2018-2022 if max=2023)
+    default_range <- reactive({
+      yrs <- available_years()
+      req(length(yrs) >= 6)  # need at least 6 years for 5‑year window
+      max_yr <- max(yrs)
+      min_yr <- max_yr - 6  # 5 years back from year‑before‑last
+      c(min_yr, max_yr - 1)
+    })
+    
+    # Update slider bounds + default
+    observeEvent(available_years(), {
+      yrs <- available_years()
+      if (length(yrs) == 0) return()
+      
+      updateSliderInput(session, "year_range",
+                        min = min(yrs), max = max(yrs),
+                        value = default_range()
+      )
+    })
+    
+    # Display current range (e.g., "2018‑2023")
+    output$year_display <- renderText({
+      range <- input$year_range
+      paste0("Showing: ", range[1], "–", range[2])
+    })
+    
+    # Return reactive year range for use in filtering
+    return(reactive(input$year_range))
+  })
+}
 
 # ============================================================================
 # TIME SERIES HELPERS

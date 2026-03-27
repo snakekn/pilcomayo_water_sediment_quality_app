@@ -576,16 +576,5 @@ run_upstream_mining_analysis_split <- function(max_upstream_km = 200, run_diagno
 # =============================================================================
 # USAGE
 # =============================================================================
-
-cat("UPSTREAM MINING ANALYSIS - SEGMENT SPLITTING APPROACH\n")
-cat("====================================================\n\n")
-cat("This version handles points snapped to river segments by:\n")
-cat("1. Finding which segment each point lies on\n") 
-cat("2. Calculating the position along that segment (0-1)\n")
-cat("3. Splitting segments at point locations\n")
-cat("4. Creating new intermediate nodes where points are located\n")
-cat("5. Building a new network graph with these split segments\n")
-cat("6. Tracing upstream through the split network\n\n")
-cat("RUN ANALYSIS:\n")
-cat("results <- run_upstream_mining_analysis_split()\n\n")
-cat("This should accurately identify upstream mines!\n")
+# This should accurately identify upstream mines
+# results <- run_upstream_mining_analysis_split()
