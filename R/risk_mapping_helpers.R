@@ -7,6 +7,8 @@ prepare_water_quality_data <- function(data, params, fraction, date,
                                        temporal_aggregation = "recent",  # "recent", "mean", or "weighted"
                                        decay_per_day = NULL,
                                        nyears = 5) {
+  
+  message("[prepare_water_quality_data] Creating Water Risk Layer")
   message("Replacing HQ < 1 with HQ = 0")
   
   data <- data |>

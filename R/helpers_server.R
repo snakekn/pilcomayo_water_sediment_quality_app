@@ -626,8 +626,8 @@ year_range_slider_server <- function(id, data, year_col = "year") {
         return(integer(0))
       }
       r = sort(unique(df[[year_col]]))
-      print("[available_years]:")
-      print(r)
+      # print("[available_years]:")
+      # print(r)
       r
     })
     
@@ -940,10 +940,12 @@ standardize_raster <- function(r, template, fill_nas = FALSE) {
   }
   if (fill_nas) {
     repeat {
-      na_before <- sum(is.na(terra::values(r)))
+      # na_before <- sum(is.na(terra::values(r)))
+      na_before <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
       if (na_before == 0) break
       r <- terra::focal(r, w = 3, fun = "modal", na.policy = "only", na.rm = TRUE)
-      na_after <- sum(is.na(terra::values(r)))
+      # na_after <- sum(is.na(terra::values(r)))
+      na_after <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
       if (na_after == na_before) break
     }
   }

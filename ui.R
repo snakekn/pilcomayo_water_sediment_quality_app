@@ -394,15 +394,6 @@ html, body {
         ),
         mainPanel(
           tabsetPanel(
-            ## initial attempt to get the plots left-aligned
-            # div(
-            #   style = "width: 100%; height: 500px; margin: 0;",  # full width, fixed height
-            #   plotlyOutput("ts_plot_water", width = "100%", height = "100%")
-            # ),
-            # div(
-            #   style = "width: 100%; height: 500px; margin: 0;",
-            #   plotlyOutput("ts_plot_sed", width = "100%", height = "100%")
-            # )
            fluidRow(
              column(
                width = 12,

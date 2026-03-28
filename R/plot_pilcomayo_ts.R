@@ -10,7 +10,6 @@ plot_pilcomayo_ts <- function(
   message("Param: ", param, " | Media: ", media, " | Station: ", station,
           " | Mode: ", standard_mode)
 
-  library(ggiraph) # me being a bit lazy here...
   # -------------------------------------------------------
   # DEFINE MEDIA LABEL (FIX FOR YOUR ERROR)
   # -------------------------------------------------------
@@ -46,20 +45,22 @@ plot_pilcomayo_ts <- function(
   df$date <- as.Date(df$date)
   
   # Standardize units within the filtered dataset
-  reference_unit <- df$unit[1]
+  reference_unit <- df %>% filter(!is.na(unit) & unit != "") %>% pull(unit) %>% first()
   
-  df <- df %>%
-    rowwise() %>%
-    mutate(
-      conv_obj = list(compare_units(reference_unit, unit)),
-      concentration = ifelse(
-        conv_obj$convertible, 
-        concentration * conv_obj$conversion_factor, 
-        concentration
-      ),
-      unit = reference_unit  # Update unit to reference unit
-    ) %>%
-    ungroup()
+  if (!is.null(reference_unit) && !is.na(reference_unit) && nchar(reference_unit) > 0) {
+    df <- df %>%
+      rowwise() %>%
+      mutate(
+        conv_obj = list(compare_units(reference_unit, unit)),
+        concentration = ifelse(
+          conv_obj$convertible, 
+          concentration * conv_obj$conversion_factor, 
+          concentration
+        ),
+        unit = reference_unit  # Update unit to reference unit
+      ) %>%
+      ungroup()
+  }
 
   # -------------------------------------------------------
   # 2. LOAD + FILTER STANDARDS
@@ -72,41 +73,40 @@ plot_pilcomayo_ts <- function(
     "Bolivian Law 1333" = "bol"
   )
   
-  regulator_map2 <- c("EPA","WHO","USGS","FAO","Bolivian Law 1333")
-
   if (standard_mode == "none") {
     param_stds <- NULL
     has_standard <- FALSE
 
   } else {
-    if (standard_mode == "strict") {
-      param_stds <- stds %>% filter(
+    param_stds = stds |>
+      filter(
         .data$media == .env$media,
         str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
       )
+    
+    if (standard_mode == "strict") {
+      param_stds = param_stds |>
+        rowwise() %>%
+        mutate(
+          conv_obj     = list(compare_units(df$unit[1], unit)),
+          value_norm   = if (conv_obj$convertible) value * conv_obj$conversion_factor else value
+        ) %>%
+        ungroup() %>%
+        slice_min(value_norm, n = 1, with_ties = FALSE)
 
     } else if (standard_mode == "bol") {
-      param_stds <- stds %>% filter(
-        regulator == "Bolivian Law 1333",
-        .data$media == .env$media,
-        str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
-      )
+      param_stds <- param_stds %>% filter(
+        regulator == "Bolivian Law 1333")
       cat("\n\nbol selected", nrow(param_stds))
 
     } else if (standard_mode == "all") {
-      param_stds <- stds %>%
-        filter(
-          .data$media == .env$media,
-          .data$parameter == .env$param
-        )
-
+      # nothing more to do
+      
     } else if (standard_mode %in% names(regulator_map)) {
       regulator_code <- regulator_map[[standard_mode]]
       param_stds <- stds %>% filter(
-        tolower(.data$regulator) == .env$regulator_code,
-        .data$media == .env$media,
-        str_detect(.data$parameter, fixed(.env$param, ignore_case = TRUE))
-      )
+        tolower(.data$regulator) == .env$regulator_code
+        )
 
     } else {
       param_stds <- NULL
@@ -118,55 +118,30 @@ plot_pilcomayo_ts <- function(
   if (!has_standard) param_stds <- NULL
 
   # -------------------------------------------------------
-  # NO-STANDARDS CALLOUT OVERLAY — FIX ADDED
-  # -------------------------------------------------------
-  no_standards_banner <- ""
-  if (!has_standard) {
-    no_standards_banner <- sprintf("
-      <div style='
-        position:absolute;
-        top:20px; 
-        left:50%%; 
-        transform:translateX(-50%%);
-        padding:12px 20px;
-        background:rgba(255,230,230,0.9);
-        border-left:4px solid #dc3545;
-        border-radius:4px;
-        font-size:14px;
-        z-index:9999;
-        text-align:center;
-      '>
-        <strong>No standards found</strong><br>
-        No regulatory thresholds exist for %s (%s).
-      </div>",
-      param, media_label
-    )
-  }
-
-  # -------------------------------------------------------
   # 3. PROCESS STANDARDS
   # -------------------------------------------------------
   if (has_standard) {
-    sample_unit <- df$unit[1]
-
-    param_stds <- param_stds %>%
-      rowwise() %>%
-      mutate(
-        conv_obj = list(compare_units(sample_unit, unit)),
-        convertible = conv_obj$convertible,
-        conv_factor = ifelse(convertible, conv_obj$conversion_factor, NA_real_),
-        value_converted = ifelse(convertible, value * conv_factor, value),
-        display_unit  = ifelse(convertible, sample_unit, unit)
-      ) %>%
-      ungroup()
+    sample_unit <- df %>% filter(!is.na(unit) & unit != "") %>% pull(unit) %>% first()
+    if (has_standard && !is.null(sample_unit) && !is.na(sample_unit)) {
+      param_stds <- param_stds %>%
+        rowwise() %>%
+        mutate(
+          conv_obj = list(compare_units(sample_unit, unit)),
+          convertible = conv_obj$convertible,
+          conv_factor = ifelse(convertible, conv_obj$conversion_factor, NA_real_),
+          value_converted = ifelse(convertible, value * conv_factor, value),
+          display_unit  = ifelse(convertible, sample_unit, unit)
+        ) %>%
+        ungroup()
+    }
   }
 
   # -------------------------------------------------------
   # 4. DAILY AVERAGES
   # -------------------------------------------------------
-  df_avg <- df %>%
-    group_by(date) %>%
-    summarise(avg_concentration = mean(concentration, na.rm = TRUE), .groups = "drop")
+  # df_avg <- df %>%
+  #   group_by(date) %>%
+  #   summarise(avg_concentration = mean(concentration, na.rm = TRUE), .groups = "drop")
 
   # -------------------------------------------------------
   # 5. DEFINE ALPHA VALUE SAFELY (ALWAYS CREATE alpha_value)
@@ -212,7 +187,7 @@ plot_pilcomayo_ts <- function(
       ),
       sed_text = if (media == "sediment") {
         paste0(
-          "Sieve: ", sieve_size %||% "N/A", "<br>",
+          "Sieve: ", ifelse(is.na(sieve_size), "N/A", sieve_size),
           "Dist. from bank: ", distance_from_bank %||% "N/A", "<br>"
         )
       } else "",
@@ -232,12 +207,12 @@ plot_pilcomayo_ts <- function(
   station_label = if_else(station %in% c("all", "All Stations"),"All Stations", station)
   
   p <- ggplot() +
-    geom_line(
-      data = df_avg,
-      aes(x = date, y = avg_concentration),
-      color = "black",
-      linewidth = 0.8
-    ) +
+    # geom_line(
+    #   data = df_avg,
+    #   aes(x = date, y = avg_concentration),
+    #   color = "black",
+    #   linewidth = 0.8
+    # ) +
     ggiraph::geom_point_interactive(
       data = df,
       aes(x = date, y = concentration, alpha = alpha_value, tooltip = hover_text),
@@ -299,18 +274,6 @@ plot_pilcomayo_ts <- function(
       opts_toolbar(saveaspng = FALSE)
     )
   )
-  # return(
-  #   htmltools::tagList(
-  #     HTML(no_standards_banner),
-  #     girafe(
-  #       ggobj = p,
-  #       options = list(
-  #         opts_hover(css = "stroke:orange;stroke-width:2px;"),
-  #         opts_toolbar(saveaspng = FALSE)
-  #       )
-  #     )
-  #   )
-  # )
 }
 
 

@@ -15,7 +15,7 @@ pacman::p_load(
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors
-options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
+options(ts_debug = FALSE) # specifically for debugging our own stuff, can use wherever
 
 #### State that we're starting ####
 message("Libraries imported and options set. Loading scripts...")
@@ -47,16 +47,6 @@ included_sed_files_path = "data/compiled/sed_data_list.csv"
 
 compiled_water_data_path = "data/compiled/water_compiled.csv"
 compiled_sed_data_path = "data/compiled/sed_compiled.csv"
-
-#### load pre-compiled data ####
-# initial_water_clean = readr::read_csv(here::here("data/processed/merged_water_clean.csv"))
-# initial_sed_clean = readr::read_csv(here::here("data/processed/merged_sed_clean.csv"))
-# 
-# initial_water_scored = readRDS(here::here("data/processed/water_scored.rds")) # with HQCRWL scores
-# initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
-# 
-# initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
-# initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
 
 #### load global values ####
 stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
