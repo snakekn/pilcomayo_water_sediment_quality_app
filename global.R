@@ -9,7 +9,7 @@ pacman::p_load(
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox
+  gstat, whitebox, memoise
 )
 
 options(shiny.trace = FALSE)
@@ -32,6 +32,15 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
 
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
+
+# hash some functions so we're saving time on repetitive calls
+compare_units <- memoise::memoise(compare_units)
+parse_unit <- memoise::memoise(parse_unit) # called in compare_units
+filter_to_border <- memoise::memoise(filter_to_border) # called each time we filter the border
+get_param_list <- memoise::memoise(get_param_list) # each time we populate the parameter dropdown
+plot_top_hq_params = memoise::memoise(plot_top_hq_params)
+plot_top_hq_stations = memoise::memoise(plot_top_hq_stations)
+plot_top_hq_sieve = memoise::memoise(plot_top_hq_sieve)
 
 #### define paths to things ####
 message("global.R: Defining paths and loading shared datasets (standards, constants)")

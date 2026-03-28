@@ -3,17 +3,22 @@ parse_unit <- function(u) {
   u0 <- as.character(u %||% "")
   u0 <- tolower(u0)
   # normalize micro symbols
-  u0 <- str_replace_all(u0, "\u00B5|µ|μ", "u")
-  u0 <- str_squish(u0)
+  ## older, slower
+  # u0 <- str_replace_all(u0, "\u00B5|µ|μ", "u")
+  # u0 <- str_squish(u0)
+  u0 <- chartr("µ", "u", u0)   # direct character-for-character swap, no regex
+  u0 <- trimws(u0)                # cheaper than str_squish for simple whitespace
   if (u0 == "") return(list(raw = u0, left = NA_character_, right = NA_character_, left_kind = NA_character_, prefix = NA_character_, gram_factor_g = NA_real_, denom_type = NA_character_, denom_scale = NA_real_))
   
   # normalize " per " into "/"
-  u0 <- str_replace_all(u0, "\\s+per\\s+", "/")
+  # u0 <- str_replace_all(u0, "\\s+per\\s+", "/") # slower
+  u0 <- gsub(" per ", "/", u0, fixed = TRUE)   # fixed=TRUE skips regex engine
+  
   
   # if we have a slash, split on the first slash
   if (str_detect(u0, "/")) {
-    parts <- str_split_fixed(u0, "/", n = 2)
-    left_raw <- str_trim(parts[1])
+    parts <- strsplit(u0, "/", fixed = TRUE)[[1]] # base R, fixed, returns vector
+    parts <- c(parts, "")[1:2]                    # ensure always length 2, like split_fixed    left_raw <- str_trim(parts[1])
     right_raw <- str_trim(parts[2])
   } else {
     # no slash: maybe token like "mg" or "ntu" or "ph unit" or "cfu/100 ml" baked into parentheses earlier

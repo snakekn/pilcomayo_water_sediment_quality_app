@@ -692,7 +692,7 @@ server <- function(input, output, session) {
     req(df)
     
     params_list = get_param_list(df)
-    cat("\n\n", params_list,"\n")
+    # cat("\n\n", params_list,"\n")
 
     updateSelectInput(inputId = "sieve_plot_param",
                       choices = c("All Parameters" = "all", params_list),
@@ -2058,7 +2058,7 @@ server <- function(input, output, session) {
                      "4.75 mm - N° 004"
                      )
     
-    cat("\n\nnames in df", names(df), "\n\n\n")
+    # cat("\n\nnames in df", names(df), "\n\n\n")
     
     param_cols <- df |>
       filter(!tolower(parameter) %in% tolower(exclude_cols)) |>        # remove metadata rows
@@ -3737,9 +3737,12 @@ server <- function(input, output, session) {
       
       # Fill boundary NAs - only 1-2 cells wide so small window sufficient
       repeat {
-        na_before <- sum(is.na(terra::values(eji_r)))
+        # na_before <- sum(is.na(terra::values(eji_r))) # costly
+        na_before <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
         eji_r <- terra::focal(eji_r, w = 3, fun = "modal", na.policy = "only", na.rm = TRUE)
-        na_after <- sum(is.na(terra::values(eji_r)))
+        # na_after <- sum(is.na(terra::values(eji_r))) # costly
+        na_after <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
+        
         message("NAs remaining: ", na_after)
         if (na_after == na_before || na_after == 0) break
       }
