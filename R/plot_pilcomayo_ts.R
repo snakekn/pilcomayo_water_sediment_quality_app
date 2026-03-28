@@ -48,18 +48,27 @@ plot_pilcomayo_ts <- function(
   reference_unit <- df %>% filter(!is.na(unit) & unit != "") %>% pull(unit) %>% first()
   
   if (!is.null(reference_unit) && !is.na(reference_unit) && nchar(reference_unit) > 0) {
-    df <- df %>%
-      rowwise() %>%
-      mutate(
-        conv_obj = list(compare_units(reference_unit, unit)),
-        concentration = ifelse(
-          conv_obj$convertible, 
-          concentration * conv_obj$conversion_factor, 
-          concentration
-        ),
-        unit = reference_unit  # Update unit to reference unit
-      ) %>%
-      ungroup()
+    unit_pairs <- unique(df$unit)
+    conversions <- lapply(unit_pairs, function(u) compare_units(reference_unit, u))
+    names(conversions) <- unit_pairs
+    
+    df$concentration <- mapply(function(conc, unit) {
+      cv <- conversions[[unit]]
+      if (cv$convertible) conc * cv$conversion_factor else conc
+    }, df$concentration, df$unit)
+    # 
+    # df <- df %>%
+    #   rowwise() %>%
+    #   mutate(
+    #     conv_obj = list(compare_units(reference_unit, unit)),
+    #     concentration = ifelse(
+    #       conv_obj$convertible, 
+    #       concentration * conv_obj$conversion_factor, 
+    #       concentration
+    #     ),
+    #     unit = reference_unit  # Update unit to reference unit
+    #   ) %>%
+    #   ungroup()
   }
 
   # -------------------------------------------------------
@@ -170,7 +179,6 @@ plot_pilcomayo_ts <- function(
   
   # -------------------------------------------------------
   # 6. HOVER TEXT
-  # (unchanged except that HQ logic still works)
   # -------------------------------------------------------
   df <- df %>%
     rowwise() %>%
@@ -206,6 +214,9 @@ plot_pilcomayo_ts <- function(
   # -------------------------------------------------------
   station_label = if_else(station %in% c("all", "All Stations"),"All Stations", station)
   
+  df_plot = df |>
+    select(date, concentration, alpha_value, hover_text, unit)
+  
   p <- ggplot() +
     # geom_line(
     #   data = df_avg,
@@ -214,7 +225,7 @@ plot_pilcomayo_ts <- function(
     #   linewidth = 0.8
     # ) +
     ggiraph::geom_point_interactive(
-      data = df,
+      data = df_plot,
       aes(x = date, y = concentration, alpha = alpha_value, tooltip = hover_text),
       color = "black",
       size = 2
@@ -239,12 +250,22 @@ plot_pilcomayo_ts <- function(
   if (has_standard) {
     std_dates <- seq(min(df$date), max(df$date), length.out = 200)
 
+    param_stds <- param_stds %>%
+      mutate(limit_rank = match(limit, CLASS_ORDER, nomatch = length(CLASS_ORDER) + 1)) %>%
+      group_by(value_converted) %>%
+      slice_min(limit_rank, n = 1, with_ties = FALSE) %>%
+      ungroup() %>%
+      select(-limit_rank)
+    
     for (i in seq_len(nrow(param_stds))) {
+      limit_text <- if (!is.na(param_stds$limit[i]) && param_stds$limit[i] != "") {
+        paste0("Class: ", param_stds$limit[i], "<br>")
+      } else ""
+      
       hover_text <- paste0(
         param_stds$regulator[i], "<br>",
-        "Standard: ",
-        round(param_stds$value_converted[i], 3), " ",
-        param_stds$display_unit[i]
+        limit_text,
+        "Standard: ", round(param_stds$value_converted[i], 3), " ", param_stds$display_unit[i]
       )
 
       std_df <- data.frame(

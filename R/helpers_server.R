@@ -796,7 +796,7 @@ merge_media_safely <- function(water_df, sediment_df) {
 }
 
 #### get_param_list(): extract valid parameter names for a media type ####
-get_param_list <- function(df, media_type = "all", need_std = FALSE) {
+get_param_list <- function(df, media_type = "all", need_std = FALSE, need_hq=FALSE) {
   
   # Require the expected columns
   required_cols <- c("media", "parameter")
@@ -843,7 +843,9 @@ get_param_list <- function(df, media_type = "all", need_std = FALSE) {
   # only filter by media if we don't want to see them all
   if(media_type != "all") df = df |> filter(media == media_type)
   # filter the entire list by those in the stds list, so we can only choose those that can calculate a HQ
-  if(need_std == TRUE) df = df |> filter(parameter %in% stds$parameter)
+  if(need_std) df = df |> filter(parameter %in% stds$parameter)
+  # filter for HQ if needed
+  if(need_hq) df = df |> filter(!is.na(HQ))
   
   df %>%
     filter(!parameter %in% exclude_cols) %>%
@@ -852,6 +854,117 @@ get_param_list <- function(df, media_type = "all", need_std = FALSE) {
     pull(parameter) %>%
     unique() %>%
     sort()
+}
+
+#### Compare concentrations to BOL standards ####
+# Returns the strictest class a concentration meets for a given parameter
+get_bol_class <- function(parameter, concentration, unit, stds) {
+  param_stds <- stds %>%
+    filter(
+      regulator == "Bolivian Law 1333",
+      media == "water",
+      .data$parameter == .env$parameter
+    ) %>%
+    rowwise() %>%
+    mutate(
+      conv       = list(compare_units(unit, .data$unit)),
+      value_conv = if (conv$convertible) value * conv$conversion_factor else value
+    ) %>%
+    ungroup() %>%
+    arrange(value_conv)  # Class A (strictest) first
+  
+  if (nrow(param_stds) == 0 || is.na(concentration)) return(NA_character_)
+  
+  # Find strictest class whose limit >= concentration
+  passed <- param_stds %>% filter(value_conv >= concentration)
+  if (nrow(passed) == 0) return("Unclassified")
+  
+  # Return the strictest (lowest rank) passing class
+  passed_classes <- passed$limit[passed$limit %in% CLASS_ORDER]
+  CLASS_ORDER[min(match(passed_classes, CLASS_ORDER), na.rm = TRUE)]
+}
+
+# cache results
+get_bol_class_cache <- memoise::memoise(
+  Vectorize(get_bol_class, vectorize.args = c("parameter", "concentration", "unit"))
+)
+
+### get bol 1333 standard classifications for samples
+classify_water_1333_bulk <- function(df, stds) {
+  # Get relevant standards once
+  bol_stds <- stds %>%
+    filter(regulator == "Bolivian Law 1333", media == "water") %>%
+    select(parameter, value, unit, limit)
+  
+  # Join standards to data by parameter
+  df_joined <- df %>%
+    left_join(bol_stds, by = "parameter", relationship = "many-to-many")
+  
+  cat("unique unit pairs:", df_joined %>% distinct(unit.x, unit.y) %>% nrow(), "\n")
+  print(df_joined %>% distinct(unit.x, unit.y))
+  
+  df_joined = df_joined |>
+    rowwise() %>%
+    mutate(
+      conv       = list(compare_units(unit.x, unit.y)),
+      value_conv = if (conv$convertible) value * conv$conversion_factor else value
+    ) %>%
+    ungroup() %>%
+    # Keep only standards the concentration passes
+    filter(is.na(value_conv) | concentration <= value_conv) %>%
+    # Pick strictest passing class per observation
+    mutate(limit_rank = match(limit, c("Class A","Class B","Class C","Class D","Unclassified")),
+           classification = limit) %>%
+    group_by(station, date, parameter, concentration) %>%
+    slice_min(limit_rank, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(station, date, parameter, concentration, classification)
+
+  # Join back — unmatched rows get "Unclassified"
+  df %>%
+    left_join(df_joined, by = c("station", "date", "parameter", "concentration")) %>%
+    mutate(classification = ifelse(is.na(classification), "Unclassified", classification))
+}
+
+### get usgs classes for sediment samples
+classify_sediment_usgs_bulk <- function(df, stds) {
+  usgs_stds <- stds %>%
+    filter(regulator == "USGS", media == "sediment") %>%
+    select(parameter, value, unit, limit)  # limit should be "TEL" or "PEL"
+  
+  if (nrow(usgs_stds) == 0 || !any(df$parameter %in% usgs_stds$parameter)) {
+    return(df %>% mutate(sed_class = "No Standard Available"))
+  }
+  
+  # Build unit conversion lookup on unique pairs only
+  unit_pairs <- df %>%
+    left_join(usgs_stds, by = "parameter", relationship = "many-to-many") %>%
+    distinct(unit.x, unit.y)
+  
+  unit_pairs$factor <- map2_dbl(
+    unit_pairs$unit.x, unit_pairs$unit.y,
+    ~ { res <- compare_units(.x, .y); if (res$convertible) res$conversion_factor else NA_real_ }
+  )
+  
+  df_joined <- df %>%
+    left_join(usgs_stds, by = "parameter", relationship = "many-to-many") %>%
+    left_join(unit_pairs, by = c("unit.x", "unit.y")) %>%
+    mutate(value_conv = if_else(!is.na(factor), value * factor, value)) %>%
+    mutate(limit_rank = match(limit, c("TEL", "PEL"))) %>%  # TEL stricter than PEL
+    # keep standards the concentration exceeds (opposite of water — above = worse)
+    filter(concentration > value_conv) %>%
+    group_by(station, date, parameter, concentration) %>%
+    slice_max(limit_rank, n = 1, with_ties = FALSE) %>%  # worst exceeded threshold
+    ungroup() %>%
+    select(station, date, parameter, concentration, sed_class = limit)
+  
+  df %>%
+    left_join(df_joined, by = c("station", "date", "parameter", "concentration")) %>%
+    mutate(sed_class = case_when(
+      sed_class == "PEL" ~ "Above PEL",
+      sed_class == "TEL" ~ "Above TEL",
+      TRUE               ~ "Below TEL"
+    ))
 }
 
 #### Figure development helpers ####

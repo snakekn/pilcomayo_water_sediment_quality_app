@@ -420,8 +420,13 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     )
   }
   
-  use_log = (ceiling(log10(max(top_stations$HQ))) - floor(log10(min(top_stations$HQ)))) >= 2
+  use_log <- {
+    hq_vals <- top_stations$HQ[is.finite(top_stations$HQ) & top_stations$HQ > 0]
+    if (length(hq_vals) == 0) FALSE else
+      (ceiling(log10(max(hq_vals))) - floor(log10(min(hq_vals)))) >= 2
+  }
   
+  # print("[plot_top_hq_stations] use_log:", use_log)
   if(graph_type == "boxplot") {
     
     # Reorder factor levels

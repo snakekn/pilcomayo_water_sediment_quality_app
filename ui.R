@@ -261,7 +261,8 @@ html, body {
                 "sed_value_type",
                 "Symbolize by:",
                 choices = c(
-                  "Measured Concentration (mg/kg)" = "sed_value",
+                  "Measured Concentration" = "sed_value",
+                  "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
                   "Hazard Quotient (HQ)" = "hq"
                 ),
                 selected = "sed_value"
@@ -366,30 +367,11 @@ html, body {
                       ),
                       selected = "none"
           ),
-          
-          # Descriptive text for each time series tab
-          conditionalPanel(
-            condition = "input.ts_tabs == 'Water Samples'",
-            info_callout(
-              "Water Quality Time Series",
-              "This plot displays the temporal variation of water quality parameters
-                                    at the selected monitoring station. Points represent individual measurements,
-                                    while the line shows the trend over time. Reference standards from Bolivian Ley No. 1333
-                                    are shown as dashed horizontal lines (where applicable). Data is sourced from www2.pilcomayo.net."
-            )
-          ),
-          
-          conditionalPanel(
-            condition = "input.ts_tabs == 'Sediment Samples'",
-            info_callout(
-              "Sediment Quality Time Series",
-              "This plot displays the temporal variation of sediment quality parameters
-                                    at the selected monitoring station. Individual points show measurements,
-                                    with the connecting line representing daily averages when multiple samples
-                                    exist per date. Darker points represent samples taken further from the river bank (when variable).
-                                    USGS Sediment Quality Guidelines (TEL/PEL) are shown as dashed horizontal lines (where applicable).
-                                    Data is sourced from www2.pilcomayo.net."
-            )
+          info_callout(
+            "Time Series",
+            "These plots display all selected sampled concentrations
+                at the selected monitoring station. Points represent individual measurements. 
+                You can select which regulatory standards you'd like to visualize."
           )
         ),
         mainPanel(

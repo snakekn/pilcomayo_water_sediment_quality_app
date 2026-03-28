@@ -9,7 +9,7 @@ pacman::p_load(
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox, memoise
+  gstat, whitebox, memoise, htmltools
 )
 
 options(shiny.trace = FALSE)
@@ -104,5 +104,16 @@ HQ_STATION_BINS = list(
              "High Priority" = "#FF9800",      # Orange
              "Extreme Priority" = "#C62828")   # Dark red
 )
+
+# FIXED COLOR SCALE - hardcoded breaks at 1 and 10
+# Create 300 total colors distributed across the three zones
+RISK_ZONE1_COLORS <- colorRampPalette(c("#1a9850", "#91cf60", "#d9ef8b", "#ffffbf"))(100)
+RISK_ZONE2_COLORS <- colorRampPalette(c("#ffffbf", "#fee08b", "#fc8d59", "#e34a33", "#d73027"))(100)
+RISK_ZONE3_COLORS <- colorRampPalette(c("#d73027", "#a50026", "#67001f", "#000000"))(100)
+RISK_ALL_COLORS   <- c(RISK_ZONE1_COLORS, RISK_ZONE2_COLORS, RISK_ZONE3_COLORS)
+
+# for setting up standard hover text in TS plots
+CLASS_ORDER <- c("Class A", "Class B", "Class C", "Class D", "Unclassified")
+
 
 message("Completed global.R")

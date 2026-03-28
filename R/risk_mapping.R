@@ -130,9 +130,6 @@ plot_risk_map <- function(risk_map_result,
                           show_river = TRUE,
                           opacity = 0.7,
                           high_risk_threshold = 10) {
-  
-  library(htmltools)
-  library(leaflet)
 
   # Extract components
   risk_raster <- risk_map_result$risk_raster
@@ -167,32 +164,21 @@ plot_risk_map <- function(risk_map_result,
       single_hq <- TRUE
     }
     
+    temporal_str <- switch(temporal_aggregation_method,
+                           "recent"   = "most recent data",
+                           "mean"     = "averaged over time",
+                           "weighted" = "averaged over time (weighted for recency)",
+                           temporal_aggregation_method
+    )
+    
+    
     if (length(parameters_used) == 1) {
-      if (temporal_aggregation_method == "recent") {
-        hq_label <- paste0(parameters_used, " HQ<br>Using most recent data<br>")
-      } else if (temporal_aggregation_method == "mean") {
-        hq_label <- paste0(parameters_used, " HQ<br>Averaged over time<br>")
-      } else if (temporal_aggregation_method == "weighted") {
-        hq_label <- paste0(parameters_used, " HQ<br>Averaged over time<br>(weighted for recency)<br>")
-      }
+      hq_label <- paste0(parameters_used, " HQ<br>Using ", temporal_str, "<br>")
+    } else if (param_aggregation_method == "sum") {
+      hq_label <- paste0("Total HI<br>Sum of HQ across ", n_params, " parameters<br>using ", temporal_str, "<br>")
     } else {
-      if (param_aggregation_method == "sum") {
-        if (temporal_aggregation_method == "recent") {
-          hq_label <- paste0("Total HI<br>Sum of HQ across ", n_params, " parameters<br>using most recent data<br>")
-        } else if (temporal_aggregation_method == "mean") {
-          hq_label <- paste0("Aggregated HI =<br>Sum of HQ across ", n_params, " parameters<br>averaged over time<br>")
-        } else if (temporal_aggregation_method == "weighted") {
-          hq_label <- paste0("Aggregated HI =<br>Sum of HQ across ", n_params, " parameters<br>averaged over time<br>(weighted for recency)<br>")
-        }
-      } else {
-        if (temporal_aggregation_method == "recent") {
-          hq_label <- paste0("Aggregated HQ =<br>", tools::toTitleCase(param_aggregation_method), " HQ across ", n_params, " parameters<br>using most recent data<br>")
-        } else if(temporal_aggregation_method == "mean") {
-          hq_label <- paste0("Aggregated HQ =<br>", tools::toTitleCase(param_aggregation_method), " HQ across ", n_params, " parameters<br>averaged over time<br>")
-        } else if (temporal_aggregation_method == "weighted") {
-          hq_label <- paste0("Aggregated HQ =<br>", tools::toTitleCase(param_aggregation_method), " HQ across ", n_params, " parameters<br>averaged over time<br>(weighted for recency)<br>")
-        }
-      }
+      hq_label <- paste0("Aggregated HQ =<br>", tools::toTitleCase(param_aggregation_method),
+                         " HQ across ", n_params, " parameters<br>using ", temporal_str, "<br>")
     }
     
     # if (length(parameters_used) == 1 && temporal_aggregation_method == "recent") {
@@ -248,18 +234,13 @@ plot_risk_map <- function(risk_map_result,
   message(sprintf("Raster value range: %.3f to %.3f", min(risk_values), actual_max))
   
   # Clamp raster values to 50 (everything above 50 is black)
-  risk_raster_wgs84_clamped <- risk_raster_wgs84
-  raster_vals <- values(risk_raster_wgs84_clamped)
-  raster_vals[!is.na(raster_vals) & raster_vals > 50] <- 50
-  values(risk_raster_wgs84_clamped) <- raster_vals
+  risk_raster_wgs84_clamped <- terra::clamp(risk_raster_wgs84, upper = 50, values = TRUE)
   
-  # FIXED COLOR SCALE - hardcoded breaks at 1 and 10
-  # Create 300 total colors distributed across the three zones
-  zone1_colors <- colorRampPalette(c("#1a9850", "#91cf60", "#d9ef8b", "#ffffbf"))(100)
-  zone2_colors <- colorRampPalette(c("#ffffbf", "#fee08b", "#fc8d59", "#e34a33", "#d73027"))(100)
-  zone3_colors <- colorRampPalette(c("#d73027", "#a50026", "#67001f", "#000000"))(100)
-  
-  all_colors <- c(zone1_colors, zone2_colors, zone3_colors)
+  ## older code
+  # risk_raster_wgs84_clamped <- risk_raster_wgs84
+  # raster_vals <- values(risk_raster_wgs84_clamped)
+  # raster_vals[!is.na(raster_vals) & raster_vals > 50] <- 50
+  # values(risk_raster_wgs84_clamped) <- raster_vals
   
   # Create explicit bins with breaks at 0, 1, 10, 50
   # Generate fine-grained breaks within each zone for smooth gradients
@@ -271,7 +252,7 @@ plot_risk_map <- function(risk_map_result,
   
   # Use colorBin with explicit bins
   pal <- colorBin(
-    palette = all_colors,
+    palette = RISK_ALL_COLORS,
     domain = c(0, 50),
     bins = bins,
     na.color = "transparent"
@@ -286,17 +267,17 @@ plot_risk_map <- function(risk_map_result,
         # 0-1: green to yellow
         idx <- round((val / 1) * 99) + 1
         idx <- max(1, min(100, idx))
-        zone1_colors[idx]
+        RISK_ZONE1_COLORS[idx]
       } else if (val <= 10) {
         # 1-10: yellow to red
         idx <- round(((val - 1) / 9) * 99) + 1
         idx <- max(1, min(100, idx))
-        zone2_colors[idx]
+        RISK_ZONE2_COLORS[idx]
       } else {
         # 10-50: red to black
         idx <- round(((val - 10) / 40) * 99) + 1
         idx <- max(1, min(100, idx))
-        zone3_colors[idx]
+        RISK_ZONE3_COLORS[idx]
       }
     })
   }
@@ -342,45 +323,29 @@ plot_risk_map <- function(risk_map_result,
     # Apply the SAME color function to stations
     stations_wgs84$station_color <- get_color_for_hq(stations_wgs84$HQ)
     
+
     # Create popup text
+    lim_values <- HQ_STATION_BINS$breaks
+    names_vec  <- HQ_STATION_BINS$labels
+    
     stations_wgs84$popup_text <- sapply(1:nrow(stations_wgs84), function(i) {
-      hq <- stations_wgs84$HQ[i]
+      hq      <- stations_wgs84$HQ[i]
       station <- stations_wgs84$station[i]
-      date <- stations_wgs84$date[i]
-      min_date <- if("min_date" %in% names(stations_wgs84)) stations_wgs84$min_date[i] else date
+      date    <- stations_wgs84$date[i]
+      min_date <- if ("min_date" %in% names(stations_wgs84)) stations_wgs84$min_date[i] else date
       
-      # Bins set up on 1/19/26 in meeting
-      hq_lims = c("Below Regulatory Limits" = 1, 
-                  "Low Risk" = 1.5,
-                  "Moderate Risk" = 2.5, 
-                  "High Risk" = 5,
-                  "Very High Risk" = 12.5, 
-                  "Extreme Risk" = 35000, 
-                  "Higher than Limits Support" = 1e10)
-      lim_values = as.numeric(hq_lims)
-      names_vec = names(hq_lims)
+      warning_text <- names_vec[findInterval(hq, lim_values, rightmost.closed = TRUE) + 1]
+      warning_text <- if (is.na(warning_text)) "Unknown" else warning_text
       
-      warning_text = names_vec[findInterval(hq, lim_values, rightmost.closed=TRUE)+1]
-      
-      # 
-      # if (hq > high_risk_threshold) {
-      #   warning_text <- paste0(" <span style='color:darkred; font-weight:bold;'>(EXTREME RISK)</span>")
-      # } else if (hq > 1) {
-      #   warning_text <- paste0(" <span style='color:red;'>(High Risk)</span>")
-      # } else {
-      #   warning_text <- " <span style='color:green;'>(Safe)</span>"
-      # }
-      
-      # Format date range
-      if (temporal_aggregation_method == "recent") {
-        date_display <- paste0("<b>Date:</b> ", date)
+      date_display <- if (temporal_aggregation_method == "recent") {
+        paste0("<b>Date:</b> ", date)
       } else {
-        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+        paste0("<b>Date Range:</b> ", min_date, " to ", date)
       }
       
       popup <- paste0(
         "<b>Station:</b> ", station, "<br>",
-        "<b>", hq_label_short, ":</b> ", round(hq, 3), warning_text, "<br>",
+        "<b>", hq_label_short, ":</b> ", round(hq, 3), " — ", warning_text, "<br>",
         date_display
       )
       
@@ -523,16 +488,16 @@ plot_risk_map <- function(risk_map_result,
     addLegend(
       position = "bottomright",
       colors = c(
-        zone1_colors[1],    # Dark green at 0
-        zone1_colors[50],   # Mid green at 0.5
-        zone1_colors[100],  # Yellow at 1
-        zone2_colors[20],   # Light orange at ~2-3
-        zone2_colors[50],   # Orange at ~5
-        zone2_colors[100],  # Red at 10
-        zone3_colors[25],   # Dark red at ~20
-        zone3_colors[50],   # Very dark red at ~30
-        zone3_colors[75],   # Almost black at ~40
-        zone3_colors[100]   # Black at 50
+        RISK_ZONE1_COLORS[idx][1],    # Dark green at 0
+        RISK_ZONE1_COLORS[idx][50],   # Mid green at 0.5
+        RISK_ZONE1_COLORS[idx][100],  # Yellow at 1
+        RISK_ZONE2_COLORS[idx][20],   # Light orange at ~2-3
+        RISK_ZONE2_COLORS[50],   # Orange at ~5
+        RISK_ZONE2_COLORS[100],  # Red at 10
+        RISK_ZONE3_COLORS[25],   # Dark red at ~20
+        RISK_ZONE3_COLORS[50],   # Very dark red at ~30
+        RISK_ZONE3_COLORS[75],   # Almost black at ~40
+        RISK_ZONE3_COLORS[100]   # Black at 50
       ),
       labels = c("0", "0.5", "1", "3", "5", "10", "20", "30", "40", "50+"),
       title = HTML(paste0("Risk Score:<br><small style='color: #888;'>", hq_label, "</small><br>",
