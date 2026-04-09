@@ -9,7 +9,7 @@ pacman::p_load(
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox, memoise, htmltools
+  gstat, whitebox, memoise, htmltools, qs2
 )
 
 options(shiny.trace = FALSE)
