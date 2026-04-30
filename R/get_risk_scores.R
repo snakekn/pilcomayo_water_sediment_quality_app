@@ -98,15 +98,15 @@ score_to_loc_year <- function(scored_data, loc_col = "station", year_col = "year
 
 ### Put together an easy-to-load standards list
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
-make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
+# make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
 #stds_location = here::here("data/standards/strict_standards.csv")
-stds_location = here::here("data/standards/strict_standards_1_7_2026.csv") # need to review both for inconsistencies
+# stds_location = here::here("data/standards/strict_standards_1_7_2026.csv") # need to review both for inconsistencies
 
-stds = readr::read_csv(stds_location) |>
-  mutate(.key = make_key(parameter, media, hqcr)) |>
-  filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
-std_map <- split(stds, stds$.key)
+# stds = readr::read_csv(stds_location) |>
+#   mutate(.key = make_key(parameter, media, hqcr)) |>
+#   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
+# std_map <- split(stds, stds$.key)
 
 # create a standardized set of exposure factors for simple CR calculations
 EXPOSURE_FACTORS <- list(

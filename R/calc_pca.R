@@ -44,7 +44,7 @@ calc_pca = function(data, params, media_selection = "all", station_selection = "
   df <- df %>% select(where(~ !all(is.na(.))))
   
   cat("\nPCA data dims:", nrow(df), "x", ncol(df), "\n")
-  print(names(df))
+  # print(names(df))
   
   # Ensure we have enough observations after filtering to attempt a PCA
   if(nrow(df) < 3) {

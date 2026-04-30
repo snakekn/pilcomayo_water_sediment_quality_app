@@ -1,11 +1,12 @@
 # True Upstream Mining Exposure Analysis in R
 # Handles points snapped to river segments (not nodes) by splitting segments
 
-library(sf)           # For spatial data handling
-library(dplyr)        # For data manipulation
-library(igraph)       # For network analysis
-library(ggplot2)      # For plotting
-library(lwgeom)       # For advanced geometric operations
+library(pacman) # just in case
+p_load(sf)           # For spatial data handling
+p_load(dplyr)        # For data manipulation
+p_load(igraph)       # For network analysis
+p_load(ggplot2)      # For plotting
+p_load(lwgeom)       # For advanced geometric operations
 
 # =============================================================================
 # SEGMENT-SPLITTING APPROACH FOR POINTS ON RIVER SEGMENTS
@@ -575,16 +576,5 @@ run_upstream_mining_analysis_split <- function(max_upstream_km = 200, run_diagno
 # =============================================================================
 # USAGE
 # =============================================================================
-
-cat("UPSTREAM MINING ANALYSIS - SEGMENT SPLITTING APPROACH\n")
-cat("====================================================\n\n")
-cat("This version handles points snapped to river segments by:\n")
-cat("1. Finding which segment each point lies on\n") 
-cat("2. Calculating the position along that segment (0-1)\n")
-cat("3. Splitting segments at point locations\n")
-cat("4. Creating new intermediate nodes where points are located\n")
-cat("5. Building a new network graph with these split segments\n")
-cat("6. Tracing upstream through the split network\n\n")
-cat("RUN ANALYSIS:\n")
-cat("results <- run_upstream_mining_analysis_split()\n\n")
-cat("This should accurately identify upstream mines!\n")
+# This should accurately identify upstream mines
+# results <- run_upstream_mining_analysis_split()

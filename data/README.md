@@ -2,7 +2,7 @@
 Various types of data were included in this analysis, and are available to include in continued reporting of the Pilcomayo Basin.
 
 ## Regulatory Standards
-The project pulled regulatory standards from a variety of sources, including the Bolivian Law 1333, WHO, USEPA, USGS, FAO, and others. Those standards are compiled into all_standards.csv. Additional standards can be included in this document and loaded into the application using the `load_base_data` and/or `set_strict_stds` functions. 
+The project pulled regulatory standards from a variety of sources, including the Bolivian Law 1333, WHO, USEPA, USGS, FAO, and others. Those standards are compiled into all_standards.csv. Additional standards can be included in this document and loaded into the application using the `set_strict_stds` function. 
 
 ## Reported Concentrations Data
 All pollutant concentration data (in both sediment and water media) was collected from the [Trinational Commission for the Development of the Pilcomayo River basin](https://www.pilcomayo.net/). The agency did not offer this project permission to host their data, but the data can be freely accessed online from their website: [https://www.pilcomayo.net/calidaddeaguas](https://www.pilcomayo.net/calidaddeaguas).

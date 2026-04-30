@@ -7,7 +7,7 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
                                  return_data = FALSE,
                                  recent_range = 0,
                                  ggplot_output = FALSE,
-                                 graph_type = "ranking") {
+                                 graph_type = "boxplot") {
   cat("\n[plot_top_hq_stations]: Values: ", media_type, " - ", param, " - ", fraction, " - ", temporal_aggregation, " - ", param_aggregation, "\n")
   
   hq_classification_sys = list(
@@ -77,15 +77,14 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
   # Skip for pH and other field parameters
   # Only do this step for water data (sediment is not broken into fractions for any parameters)
   if (media_type == "water") {
-    # Skip fraction filtering if using "all" or if param is pH
-    if (!(length(param) == 1 && tolower(param) == "all") && 
-        !(length(param) == 1 && param == "pH") && 
-        any(data$fraction == fraction)) {
+    # Skip fraction filtering if using "any" fraction or if param is pH
+    if (!(tolower(fraction) == "any" || param == "pH")) {
       df <- df |>
         filter(is.na(fraction) | fraction == !!fraction)
     }
   }
-  if(nrow(df) == 0) stop(paste("No data found using the current filters. Please update your filters."))
+  if(nrow(df) == 0) return(no_data_callout("filtered")) 
+    # stop(paste("No data found using the current filters. Please update your filters."))
   
   # Determine if fraction was applied (for title labeling)
   fraction_applied <- (media_type == "water" && 
@@ -421,8 +420,13 @@ plot_top_hq_stations <- function(data, media_type, param, fraction = "Total",
     )
   }
   
-  use_log = (ceiling(log10(max(top_stations$HQ))) - floor(log10(min(top_stations$HQ)))) >= 2
+  use_log <- {
+    hq_vals <- top_stations$HQ[is.finite(top_stations$HQ) & top_stations$HQ > 0]
+    if (length(hq_vals) == 0) FALSE else
+      (ceiling(log10(max(hq_vals))) - floor(log10(min(hq_vals)))) >= 2
+  }
   
+  # print("[plot_top_hq_stations] use_log:", use_log)
   if(graph_type == "boxplot") {
     
     # Reorder factor levels

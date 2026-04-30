@@ -1,35 +1,42 @@
 #### parse a unit string into structured components ####
 parse_unit <- function(u) {
   u0 <- as.character(u %||% "")
+  if(is.na(u0)) u0 = "" # prepare for NAs
   u0 <- tolower(u0)
   # normalize micro symbols
-  u0 <- str_replace_all(u0, "\u00B5|µ|μ", "u")
-  u0 <- str_squish(u0)
+  ## older, slower
+  # u0 <- str_replace_all(u0, "\u00B5|µ|μ", "u")
+  # u0 <- str_squish(u0)
+  u0 <- chartr("µ", "u", u0)   # direct character-for-character swap, no regex
+  u0 <- trimws(u0)                # cheaper than str_squish for simple whitespace
   if (u0 == "") return(list(raw = u0, left = NA_character_, right = NA_character_, left_kind = NA_character_, prefix = NA_character_, gram_factor_g = NA_real_, denom_type = NA_character_, denom_scale = NA_real_))
   
   # normalize " per " into "/"
-  u0 <- str_replace_all(u0, "\\s+per\\s+", "/")
+  # u0 <- str_replace_all(u0, "\\s+per\\s+", "/") # slower
+  u0 <- gsub(" per ", "/", u0, fixed = TRUE)   # fixed=TRUE skips regex engine
+  
   
   # if we have a slash, split on the first slash
   if (str_detect(u0, "/")) {
-    parts <- str_split_fixed(u0, "/", n = 2)
+    parts <- strsplit(u0, "/", fixed = TRUE)[[1]] # base R, fixed, returns vector
+    parts <- c(parts, "")[1:2]                    # ensure always length 2, like split_fixed    
     left_raw <- str_trim(parts[1])
-    right_raw <- str_trim(parts[2])
+    right_raw <- trimws(parts[2])
   } else {
     # no slash: maybe token like "mg" or "ntu" or "ph unit" or "cfu/100 ml" baked into parentheses earlier
-    left_raw <- str_trim(u0)
+    left_raw = trimws(u0)
     right_raw <- ""
   }
   
   # identify left kind and prefix
   # counts / indicators
-  if (str_detect(left_raw, "\\b(cfu|mpn|coliform|mesophilic|cfu\\)|mpn\\)|coliform)")) {
-    left_kind <- "count"
+  if (grepl("\\b(cfu|mpn|coliform|mesophilic)", left_raw, ignore.case = TRUE)) {    left_kind <- "count"
     gram_factor_g <- NA_real_
     prefix <- NA_character_
   } else {
     # attempt to detect prefix (pg, ng, ug, mg, g, kg) at start of token
-    prefix_match <- str_match(left_raw, "^(pg|ng|u?g|mg|g|kg)")[,1]
+    m <- regexpr("^(pg|ng|ug|mg|g|kg)", left_raw)
+    prefix_match <- if (m > 0) regmatches(left_raw, m) else NA_character_
     # normalize µg patterns "ug" already
     prefix_match <- ifelse(prefix_match == "ug" | prefix_match == "ug", "ug", prefix_match)
     if (!is.na(prefix_match) && nzchar(prefix_match)) {
@@ -42,11 +49,11 @@ parse_unit <- function(u) {
       left_kind <- "mass"
     } else {
       # left didn't include a mass prefix - it might be "ph", "ntu", "ohm.cm" or other textual unit like "mg/l Zn" (we'll treat it as mass if "mg" appears anywhere)
-      if (str_detect(left_raw, "mg|ug|ng|g|kg")) {
+      if (grepl("mg|ug|ng|g|kg", left_raw, perl = TRUE)) {
         # find first matching prefix anywhere
-        prefix_match <- str_extract(left_raw, "pg|ng|ug|mg|g|kg")
-        prefix <- prefix_match
-        gram_factor_g <- .prefix_to_g[[prefix]]
+        m <- regexpr("pg|ng|ug|mg|g|kg", left_raw)
+        prefix_match <- if (m > 0) regmatches(left_raw, m) else NA_character_
+        gram_factor_g <- .prefix_to_g[[prefix_match]]
         left_kind <- "mass"
       } else {
         # it's probably a non-mass token (NTU, mV, pH, etc) or a count token without explicit CFU
@@ -63,8 +70,8 @@ parse_unit <- function(u) {
   }
   
   # parse right (denominator) -> detect numeric multiplier (like "100 ml")
-  denom_num <- suppressWarnings(as.numeric(str_extract(right_raw, "\\d+")))
-  if (is.na(denom_num)) denom_num <- 1
+  denom_num_raw <- regmatches(right_raw, regexpr("[0-9]+", right_raw))
+  denom_num <- if (length(denom_num_raw)) as.numeric(denom_num_raw) else 1
   
   # detect denom unit type and compute denom_scale:
   # denom_scale is the numeric size of the denominator in base units:
@@ -73,31 +80,35 @@ parse_unit <- function(u) {
   denom_type <- NA_character_
   denom_scale <- NA_real_
   
-  if (str_detect(right_raw, "ml")) {
-    denom_type <- "L"
-    denom_scale <- denom_num * 0.001
-  } else if (str_detect(right_raw, "\\bdl\\b|deciliter|dL")) {
-    denom_type <- "L"
-    denom_scale <- denom_num * 0.1
-  } else if (str_detect(right_raw, "\\bl\\b|liter|litre")) {
-    denom_type <- "L"
-    denom_scale <- denom_num * 1
-  } else if (str_detect(right_raw, "m3|m\\^3")) {
-    denom_type <- "L"
-    denom_scale <- denom_num * 1000  # 1 m3 = 1000 L
-  } else if (str_detect(right_raw, "kg|kilogram")) {
-    denom_type <- "kg"
-    denom_scale <- denom_num * 1
-  } else if (str_trim(right_raw) == "") {
-    denom_type <- NA_character_
+  # single pass to extract denom unit token
+  denom_unit_match <- regmatches(right_raw, regexpr("ml|dl|deciliter|m3|m\\^3|\\bl\\b|liter|litre|kg|kilogram", right_raw, perl = TRUE, ignore.case = TRUE))
+  denom_unit_token <- if (length(denom_unit_match)) tolower(denom_unit_match) else ""
+  
+  # lookup table for denominators
+  denom_lookup <- list(
+    ml         = list(type = "L",  scale_per_unit = 0.001),
+    dl         = list(type = "L",  scale_per_unit = 0.1),
+    deciliter  = list(type = "L",  scale_per_unit = 0.1),
+    l          = list(type = "L",  scale_per_unit = 1),
+    liter      = list(type = "L",  scale_per_unit = 1),
+    litre      = list(type = "L",  scale_per_unit = 1),
+    m3         = list(type = "L",  scale_per_unit = 1000),
+    `m^3`      = list(type = "L",  scale_per_unit = 1000),
+    kg         = list(type = "kg", scale_per_unit = 1),
+    kilogram   = list(type = "kg", scale_per_unit = 1)
+  )
+  
+  entry <- denom_lookup[[denom_unit_token]]
+  
+  if (!is.null(entry)) {
+    denom_type  <- entry$type
+    denom_scale <- denom_num * entry$scale_per_unit
+  } else if (trimws(right_raw) == "") {
+    denom_type  <- NA_character_
     denom_scale <- NA_real_
   } else {
-    # fallback: look for "100 ml" or 'per 100 ml' already normalized -> handled by ml, but keep fallback
-    if (str_detect(right_raw, "100\\s*ml")) {
-      denom_type <- "L"; denom_scale <- 100 * 0.001
-    } else {
-      denom_type <- "other"; denom_scale <- NA_real_
-    }
+    denom_type  <- "other"
+    denom_scale <- NA_real_
   }
   
   # if left kind is count, treat gram_factor_g as NA but useful for computations we set gram_factor_g = 1 (counts are unit-less in mass sense)

@@ -136,7 +136,7 @@ plot_top_hq_params <- function(data,
       }
       
       station_temporal <- param_df_exceedances |>
-        group_by(station) |>
+        group_by(station, parameter) |>
         mutate(
           days_ago = as.numeric(target_date - date),
           weight = exp(-decay_per_day * days_ago)
@@ -152,7 +152,7 @@ plot_top_hq_params <- function(data,
       } else if (temporal_aggregation == "max") {
       # Maximum HQ across all time points for each station
       station_temporal <- param_df_exceedances |>
-        group_by(station) |>
+        group_by(station, parameter) |>
         summarise(
           date = date[which.max(HQ)],
           HQ = max(HQ, na.rm = TRUE),
@@ -166,7 +166,7 @@ plot_top_hq_params <- function(data,
 
       # Mean HQ across all time points for each station
       station_temporal <- param_df_exceedances |>
-        group_by(station) |>
+        group_by(station, parameter) |>
         summarise(
           date = date[which.max(HQ)],
           HQ = mean(HQ, na.rm = TRUE),

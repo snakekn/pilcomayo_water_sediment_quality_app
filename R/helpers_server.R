@@ -1,6 +1,6 @@
 # helpers_server.R - many helper functions
-library(sf)
 
+# Update names across data formats
 .reconcile_legacy_names <- function(df) {
   rename_map <- c(
     "Decimal latitude"  = "Latitude Decimal",
@@ -122,6 +122,47 @@ get_file_type <- function(path) {
 
 
 #### Manage File Uploads ####
+# check if master_data$all_media_scored is ready to utilize
+app_has_data <- function(master_data) {
+  !is.null(master_data$all_media_scored) &&
+    is.data.frame(master_data$all_media_scored) &&
+    nrow(master_data$all_media_scored) > 0
+}
+
+# check if data is ready and provide notifications otherwise
+has_data <- function(
+    df,
+    cols = c("station", "media", "parameter", "date"),
+    notify = TRUE,
+    msg = "No data loaded yet. Add data in Data Preparation before moving ahead.",
+    id = "feature_data_status",
+    suppress_when_app_empty = TRUE,
+    master_data = NULL,
+    session = shiny::getDefaultReactiveDomain()
+) {
+  ok <- !is.null(df) &&
+    is.data.frame(df) &&
+    nrow(df) > 0 &&
+    all(cols %in% names(df))
+  
+  app_empty <- suppress_when_app_empty &&
+    !is.null(master_data) &&
+    !app_has_data(master_data)
+  
+  if (!ok && isTRUE(notify) && !app_empty && !is.null(session)) {
+    showNotification(
+      msg,
+      id = id,
+      type = "message",
+      duration = NULL,
+      closeButton = FALSE,
+      session = session
+    )
+  }
+  
+  ok
+}
+
 # take data in either of 2 formats, format & score, merge
 # Output: locyear and scored files in master_data
 dataUploadServer <- function(id, base_data, master_data) {
@@ -167,10 +208,12 @@ dataUploadServer <- function(id, base_data, master_data) {
           
           incProgress(1/n_files, message = paste("Processing", fname_i))
           
+          step <- "read_uploaded_file"
           tryCatch({
             file_data_i <- read_uploaded_file(fpath_i)
-            print(paste0("[dataUploadServer]: ", fname_i))
+            print(paste0("[dataUploadServer]: ", fname_i, " | ", step))
             
+            step <- "upload_sampled_data"
             df_i <- upload_sampled_data(
               file_data_i,
               media = src_media,
@@ -179,32 +222,41 @@ dataUploadServer <- function(id, base_data, master_data) {
               src_lang = src_lang,
               target_lang = src_target_lang
             )
-            print("completed upload_sampled_data")
+            print(paste0("[dataUploadServer]: completed ", step))
             
-            # Check for duplicate names
+            step <- "duplicate checks"
             dup_names <- names(df_i)[duplicated(names(df_i))]
             if (length(dup_names)) {
-              warning(sprintf("File '%s' has duplicate column names: %s", 
-                              fname_i, paste(unique(dup_names), collapse=", ")))
+              warning(sprintf("File '%s' has duplicate column names: %s",
+                              fname_i, paste(unique(dup_names), collapse = ", ")))
               print(names(df_i))
             }
             
-            # Clean column names
+            step <- "clean names"
             if (any(duplicated(names(df_i)))) {
               names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
             }
             
+            step <- "add data_source"
             df_i$data_source <- fname_i
             
+            step <- "score_data"
             upload_scored_i <- score_data(df_i)
             print("[dataUploadServer]: finished score_data")
             
-            scored_merged <- merge_scored(scored_merged, upload_scored_i)
-            print("[dataUploadServer]: finished merge_scored")
+            step <- "merge_scored"
+            scored_merged <- merge_scored(
+              scored_merged,
+              upload_scored_i,
+              key_cols = c("station", "date", "media", "fraction", "time", "parameter", "latitude_decimal", "longitude_decimal"),
+              param_key_cols = c("parameter", "media", "unit", "cr_route"),
+              replace = TRUE
+            )
+            message("[dataUploadServer]: finished merge_scored")
             
           }, error = function(e) {
             showNotification(
-              paste("Error processing", fname_i, ":", e$message),
+              paste("Error in", step, "for", fname_i, ":", e$message),
               type = "error"
             )
           })
@@ -600,7 +652,67 @@ ts_get_standards <- function(param_name, media, mode = "all") {
 # RANKING PLOT HELPERS
 # ============================================================================
 
+year_range_slider_ui <- function(id, label = "Year Range") {
+  ns <- NS(id)
+  
+  tagList(
+    sliderInput(
+      ns("year_range"),
+      label = label,
+      min = 0, max = 1, value = 1,
+      sep = "",  # no comma separators
+      width = "100%"
+    ),
+    verbatimTextOutput(ns("year_display"))
+  )
+}
 
+year_range_slider_server <- function(id, data, year_col = "year") {
+  moduleServer(id, function(input, output, session) {
+    
+    # Extract available years from data
+    available_years <- reactive({
+      req(data())
+      df <- data()
+      if (!year_col %in% names(df)) {
+        return(integer(0))
+      }
+      r = sort(unique(df[[year_col]]))
+      # print("[available_years]:")
+      # print(r)
+      r
+    })
+    
+    # Default: last 5 years excluding most recent (e.g., 2018-2022 if max=2023)
+    default_range <- reactive({
+      yrs <- available_years()
+      req(length(yrs) >= 6)  # need at least 6 years for 5‑year window
+      max_yr <- max(yrs)
+      min_yr <- max_yr - 6  # 5 years back from year‑before‑last
+      c(min_yr, max_yr - 1)
+    })
+    
+    # Update slider bounds + default
+    observeEvent(available_years(), {
+      yrs <- available_years()
+      if (length(yrs) == 0) return()
+      
+      updateSliderInput(session, "year_range",
+                        min = min(yrs), max = max(yrs),
+                        value = default_range()
+      )
+    })
+    
+    # Display current range (e.g., "2018‑2023")
+    output$year_display <- renderText({
+      range <- input$year_range
+      paste0("Showing: ", range[1], "–", range[2])
+    })
+    
+    # Return reactive year range for use in filtering
+    return(reactive(input$year_range))
+  })
+}
 
 # ============================================================================
 # TIME SERIES HELPERS
@@ -736,7 +848,7 @@ merge_media_safely <- function(water_df, sediment_df) {
 }
 
 #### get_param_list(): extract valid parameter names for a media type ####
-get_param_list <- function(df, media_type = "all", need_std = FALSE) {
+get_param_list <- function(df, media_type = "all", need_std = FALSE, need_hq=FALSE) {
   
   # Require the expected columns
   required_cols <- c("media", "parameter")
@@ -783,7 +895,9 @@ get_param_list <- function(df, media_type = "all", need_std = FALSE) {
   # only filter by media if we don't want to see them all
   if(media_type != "all") df = df |> filter(media == media_type)
   # filter the entire list by those in the stds list, so we can only choose those that can calculate a HQ
-  if(need_std == TRUE) df = df |> filter(parameter %in% stds$parameter)
+  if(need_std) df = df |> filter(parameter %in% stds$parameter)
+  # filter for HQ if needed
+  if(need_hq) df = df |> filter(!is.na(HQ))
   
   df %>%
     filter(!parameter %in% exclude_cols) %>%
@@ -792,6 +906,117 @@ get_param_list <- function(df, media_type = "all", need_std = FALSE) {
     pull(parameter) %>%
     unique() %>%
     sort()
+}
+
+#### Compare concentrations to BOL standards ####
+# Returns the strictest class a concentration meets for a given parameter
+get_bol_class <- function(parameter, concentration, unit, stds) {
+  param_stds <- stds %>%
+    filter(
+      regulator == "Bolivian Law 1333",
+      media == "water",
+      .data$parameter == .env$parameter
+    ) %>%
+    rowwise() %>%
+    mutate(
+      conv       = list(compare_units(unit, .data$unit)),
+      value_conv = if (conv$convertible) value * conv$conversion_factor else value
+    ) %>%
+    ungroup() %>%
+    arrange(value_conv)  # Class A (strictest) first
+  
+  if (nrow(param_stds) == 0 || is.na(concentration)) return(NA_character_)
+  
+  # Find strictest class whose limit >= concentration
+  passed <- param_stds %>% filter(value_conv >= concentration)
+  if (nrow(passed) == 0) return("Unclassified")
+  
+  # Return the strictest (lowest rank) passing class
+  passed_classes <- passed$limit[passed$limit %in% CLASS_ORDER]
+  CLASS_ORDER[min(match(passed_classes, CLASS_ORDER), na.rm = TRUE)]
+}
+
+# cache results
+get_bol_class_cache <- memoise::memoise(
+  Vectorize(get_bol_class, vectorize.args = c("parameter", "concentration", "unit"))
+)
+
+### get bol 1333 standard classifications for samples
+classify_water_1333_bulk <- function(df, stds) {
+  # Get relevant standards once
+  bol_stds <- stds %>%
+    filter(regulator == "Bolivian Law 1333", media == "water") %>%
+    select(parameter, value, unit, limit)
+  
+  # Join standards to data by parameter
+  df_joined <- df %>%
+    left_join(bol_stds, by = "parameter", relationship = "many-to-many")
+  
+  cat("unique unit pairs:", df_joined %>% distinct(unit.x, unit.y) %>% nrow(), "\n")
+  print(df_joined %>% distinct(unit.x, unit.y))
+  
+  df_joined = df_joined |>
+    rowwise() %>%
+    mutate(
+      conv       = list(compare_units(unit.x, unit.y)),
+      value_conv = if (conv$convertible) value * conv$conversion_factor else value
+    ) %>%
+    ungroup() %>%
+    # Keep only standards the concentration passes
+    filter(is.na(value_conv) | concentration <= value_conv) %>%
+    # Pick strictest passing class per observation
+    mutate(limit_rank = match(limit, c("Class A","Class B","Class C","Class D","Unclassified")),
+           classification = limit) %>%
+    group_by(station, date, parameter, concentration) %>%
+    slice_min(limit_rank, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    select(station, date, parameter, concentration, classification)
+
+  # Join back — unmatched rows get "Unclassified"
+  df %>%
+    left_join(df_joined, by = c("station", "date", "parameter", "concentration")) %>%
+    mutate(classification = ifelse(is.na(classification), "Unclassified", classification))
+}
+
+### get usgs classes for sediment samples
+classify_sediment_usgs_bulk <- function(df, stds) {
+  usgs_stds <- stds %>%
+    filter(regulator == "USGS", media == "sediment") %>%
+    select(parameter, value, unit, limit)  # limit should be "TEL" or "PEL"
+  
+  if (nrow(usgs_stds) == 0 || !any(df$parameter %in% usgs_stds$parameter)) {
+    return(df %>% mutate(sed_class = "No Standard Available"))
+  }
+  
+  # Build unit conversion lookup on unique pairs only
+  unit_pairs <- df %>%
+    left_join(usgs_stds, by = "parameter", relationship = "many-to-many") %>%
+    distinct(unit.x, unit.y)
+  
+  unit_pairs$factor <- map2_dbl(
+    unit_pairs$unit.x, unit_pairs$unit.y,
+    ~ { res <- compare_units(.x, .y); if (res$convertible) res$conversion_factor else NA_real_ }
+  )
+  
+  df_joined <- df %>%
+    left_join(usgs_stds, by = "parameter", relationship = "many-to-many") %>%
+    left_join(unit_pairs, by = c("unit.x", "unit.y")) %>%
+    mutate(value_conv = if_else(!is.na(factor), value * factor, value)) %>%
+    mutate(limit_rank = match(limit, c("TEL", "PEL"))) %>%  # TEL stricter than PEL
+    # keep standards the concentration exceeds (opposite of water — above = worse)
+    filter(concentration > value_conv) %>%
+    group_by(station, date, parameter, concentration) %>%
+    slice_max(limit_rank, n = 1, with_ties = FALSE) %>%  # worst exceeded threshold
+    ungroup() %>%
+    select(station, date, parameter, concentration, sed_class = limit)
+  
+  df %>%
+    left_join(df_joined, by = c("station", "date", "parameter", "concentration")) %>%
+    mutate(sed_class = case_when(
+      sed_class == "PEL" ~ "Above PEL",
+      sed_class == "TEL" ~ "Above TEL",
+      TRUE               ~ "Below TEL"
+    ))
 }
 
 #### Figure development helpers ####
@@ -880,10 +1105,12 @@ standardize_raster <- function(r, template, fill_nas = FALSE) {
   }
   if (fill_nas) {
     repeat {
-      na_before <- sum(is.na(terra::values(r)))
+      # na_before <- sum(is.na(terra::values(r)))
+      na_before <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
       if (na_before == 0) break
       r <- terra::focal(r, w = 3, fun = "modal", na.policy = "only", na.rm = TRUE)
-      na_after <- sum(is.na(terra::values(r)))
+      # na_after <- sum(is.na(terra::values(r)))
+      na_after <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
       if (na_after == na_before) break
     }
   }

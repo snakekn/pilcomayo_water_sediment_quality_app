@@ -5,7 +5,7 @@ plot_top_hq_sieve = function(data,
                              station_selection="all", 
                              temporal_aggregation = "recent", 
                              recent_range = 5,
-                             graph_type = "ranking"
+                             graph_type = "boxplot"
                              ) {
   # Demonstrate what we're working with
   cat("\n[plot_top_hq_sieve] Params: ")
@@ -14,7 +14,11 @@ plot_top_hq_sieve = function(data,
     station = station_selection,
     param = param_selection
   )
-  print(params_callout)  
+  # print(params_callout)  
+  
+  # remove all HQ=NA
+  data = data |>
+    filter(!is.na(HQ))
   
   if(station_selection != "all") {
     cat("\n[plot_top_hq_sieve] Filtering using station \"", station_selection, "\". Measurements: ", nrow(data))
@@ -26,10 +30,10 @@ plot_top_hq_sieve = function(data,
   }
   
   if(param_selection != "all") {
-    cat("\n[plot_top_hq_sieve] Filtering using parameter \"", param_selection, "\". Measurements: ", nrow(data))
+    cat(sprintf("\n[plot_top_hq_sieve] Filtering using parameter \"%s\". Pre-filter measurements: %g", param_selection, nrow(data)))
     data = data |> 
       filter(parameter == param_selection)
-    cat("\nAfter filtering: ", nrow(data))
+    cat("\nAfter filtering:", nrow(data))
   } else {
     cat("\nNot filtering on parameter")
   }
@@ -76,7 +80,7 @@ plot_top_hq_sieve = function(data,
   }
   
   sieve_options = unique(data$sieve_size)
-  print(sieve_options)
+  # print(sieve_options)
 
   sieve_order = c("Very Fine (<0.063mm)", 
                   "Fine Silt (0.063-0.125mm)", 
@@ -89,6 +93,10 @@ plot_top_hq_sieve = function(data,
   data = data |> 
     mutate(sieve_size = factor(sieve_map(sieve_size), levels=sieve_order)) |>
     filter(!is.na(sieve_size))
+  
+  cat("\n") # make a new message
+  message("plot_top_hq_sieve plot_df preparation:")
+  message(sprintf("Mean HQ: %f. Max HQ: %f.", mean(data$HQ,na.rm=TRUE), max(data$HQ,na.rm=TRUE)))
   
   plot_df = data |>
     group_by(sieve_size) |>
@@ -112,18 +120,42 @@ plot_top_hq_sieve = function(data,
                            param_aggregation == "avg" ~ "Mean",
                            param_aggregation == "pct95" ~ "95th Percentile")
   
-  use_log = (ceiling(log10(max(data$HQ))) - floor(log10(min(data$HQ)))) >= 2
+  # determine whether we should graph on a log-transformed axis
+  data_no_hq0 = data |> filter(!is.na(HQ), HQ>0)
+  use_log = (ceiling(log10(max(data_no_hq0$HQ, na.rm=TRUE))) - floor(log10(min(data_no_hq0$HQ, na.rm=TRUE)))) >= 2
+  # print(sprintf("Max log10: %f. Min log10: %f. use_log: %s", ceiling(log10(max(data_no_hq0$HQ, na.rm=TRUE))),floor(log10(min(data_no_hq0$HQ, na.rm=TRUE))), use_log))
   
   if(graph_type == "boxplot") {
 
     data_bp <- data
-
+    
+    # DEBUG
+    message("data_bp summary:\n")
+    print(summary(data_bp$HQ))
+    cat("NAs:", sum(is.na(data_bp$HQ)), "\n")
+    cat("Infs:", sum(is.infinite(data_bp$HQ)), "\n")
+    cat("Negatives:", sum(data_bp$HQ <= 0, na.rm = TRUE), "\n")
+    
+    cat("\nsieve_size unique values:", unique(data_bp$sieve_size), "\n")
+    
+    
     title_text <- paste0(
-      "Sieve Sizes: HQ Distributions (", param_aggregation_label, " Highlighted)",
+      "Sieve Sizes: HQ Distributions",
       if (param_selection != "all") paste0(" — ", param_selection) else ""
     )
     
-    p <- ggplot(data_bp, aes(x = sieve_size, y = HQ)) +
+    p <- ggplot(data_bp, aes(x = sieve_size, y = HQ))
+    
+    # message("use_log value: ", use_log)
+    if (!is.na(use_log) & use_log) {
+      p <- p +
+        scale_y_log10(
+          breaks = scales::breaks_log(10),
+          labels = scales::label_number(accuracy = 1, big.mark = ",")
+        )
+    }
+    
+    p = p +
       geom_boxplot(
         outlier.shape = 16,
         outlier.size  = 1.5,
@@ -136,7 +168,8 @@ plot_top_hq_sieve = function(data,
         fun  = median,
         geom = "point",
         color = "darkred",
-        size  = 1.5
+        size  = 1.5,
+        fun.args = list(na.rm=TRUE)
       ) +
       geom_point(
         data = plot_df,
@@ -179,14 +212,6 @@ plot_top_hq_sieve = function(data,
       labs(title = paste0("Sieve Sizes Ranked by ", param_aggregation_label, " Value: ", param_selection),
            x = "Sieve Size", y = paste0("Hazard Quotient (", param_aggregation_label, ")")) +
       theme_minimal()
-  }
-  
-  if (use_log) {
-    p <- p +
-      scale_y_log10(
-        breaks = scales::breaks_log(10),
-        labels = scales::label_number(accuracy = 1, big.mark = ",")
-      )
   }
   
   ply = ggplotly(p, tooltip = "text")

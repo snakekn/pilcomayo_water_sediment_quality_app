@@ -1,19 +1,24 @@
 ## global.R runs before ui.R and server.R. All of them replace app.R to make for easier reading & finding code
 # app will run automatically using shiny::runApp("."), which happens when you click the "Run App" function
+# Note: this means that refreshing the page does not re-run global.R, just server.R and ui.R
+message("Starting global.R")
 
 ## Import libraries
 pacman::p_load(
-  shiny, tidyverse, leaflet, leaflet.extras, sf, rsconnect,
+  shiny, tidyverse, leaflet, sf, rsconnect,
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox
+  gstat, whitebox, memoise, htmltools, qs2, here, janitor
 )
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)
 options(warn = 1)   # make warnings into errors
-options(ts_debug = TRUE) # specifically for debugging our own stuff, can use wherever
+options(ts_debug = FALSE) # specifically for debugging our own stuff, can use wherever
+
+#### State that we're starting ####
+message("Libraries imported and options set. Loading scripts...")
 
 #### load all scripts  ####
 load_scripts <- function(dir = "scripts/risk_analysis") {
@@ -22,13 +27,25 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
   for (f in files) {
     # source into the *current* app environment to avoid globals
     sys.source(f, envir = globalenv()) 
+    message("Loaded: ", f)
   }
 }
 
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
+message("All scripts loaded.")
+
+# hash some functions so we're saving time on repetitive calls
+compare_units <- memoise::memoise(compare_units)
+parse_unit <- memoise::memoise(parse_unit) # called in compare_units
+filter_to_border <- memoise::memoise(filter_to_border) # called each time we filter the border
+get_param_list <- memoise::memoise(get_param_list) # each time we populate the parameter dropdown
+plot_top_hq_params = memoise::memoise(plot_top_hq_params)
+plot_top_hq_stations = memoise::memoise(plot_top_hq_stations)
+plot_top_hq_sieve = memoise::memoise(plot_top_hq_sieve)
 
 #### define paths to things ####
+message("global.R: Defining paths and loading shared datasets (standards, constants)")
 ## Define file paths to data
 sed_data_path_usgs <- "data/sed/usgs"
 water_data_path_1333 <- "data/water/1333"
@@ -42,26 +59,17 @@ included_sed_files_path = "data/compiled/sed_data_list.csv"
 compiled_water_data_path = "data/compiled/water_compiled.csv"
 compiled_sed_data_path = "data/compiled/sed_compiled.csv"
 
-#### load pre-compiled data ####
-# initial_water_clean = readr::read_csv(here::here("data/processed/merged_water_clean.csv"))
-# initial_sed_clean = readr::read_csv(here::here("data/processed/merged_sed_clean.csv"))
-# 
-# initial_water_scored = readRDS(here::here("data/processed/water_scored.rds")) # with HQCRWL scores
-# initial_sed_scored = readRDS(here::here("data/processed/sed_scored.rds"))
-# 
-# initial_water_locyear = readRDS(here::here("data/processed/water_locyear.rds")) # scores are nested by location for easy access
-# initial_sed_locyear = readRDS(here::here("data/processed/sed_locyear.rds"))
-
 #### load global values ####
 stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
 ### Put together an easy-to-load standards list
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
 make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
 
-stds = readr::read_csv(here::here("data/standards/all_standards.csv")) |>
+stds = stds |>
   mutate(.key = make_key(parameter, media, hqcr)) |>
   filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
 std_map <- split(stds, stds$.key)
+strict_stds <<- set_strict_stds()
 
 # these are kept centrally to help us easily redefine if needed
 
@@ -98,3 +106,16 @@ HQ_STATION_BINS = list(
              "High Priority" = "#FF9800",      # Orange
              "Extreme Priority" = "#C62828")   # Dark red
 )
+
+# FIXED COLOR SCALE - hardcoded breaks at 1 and 10
+# Create 300 total colors distributed across the three zones
+RISK_ZONE1_COLORS <- colorRampPalette(c("#1a9850", "#91cf60", "#d9ef8b", "#ffffbf"))(100)
+RISK_ZONE2_COLORS <- colorRampPalette(c("#ffffbf", "#fee08b", "#fc8d59", "#e34a33", "#d73027"))(100)
+RISK_ZONE3_COLORS <- colorRampPalette(c("#d73027", "#a50026", "#67001f", "#000000"))(100)
+RISK_ALL_COLORS   <- c(RISK_ZONE1_COLORS, RISK_ZONE2_COLORS, RISK_ZONE3_COLORS)
+
+# for setting up standard hover text in TS plots
+CLASS_ORDER <- c("Class A", "Class B", "Class C", "Class D", "Unclassified")
+
+
+message("Completed global.R")
