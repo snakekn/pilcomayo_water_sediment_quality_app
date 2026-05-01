@@ -3,11 +3,6 @@
 # Version: 10/21/25
 # ---
 
-### Packages
-library(tidyverse)
-library(here)
-library(janitor)
-
 ### Data Import
 set_strict_stds = function(FILE_LOCATION = "data/standards/all_standards.csv", SAVE_LOCATION = "data/standards/strict_standards.csv") {
   

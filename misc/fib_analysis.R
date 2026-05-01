@@ -293,3 +293,18 @@ wastewater_indication = function(data, limits) {
   print(sprintf("Total date-station samples reviewed: %g", sum(station_compliance$total_samples)))
   return(result)
 }
+
+drinking_water_samples_all = bol_media_scored |>
+  filter(!is.na(HQ)) |>
+  group_by(media, date, station) |>
+  summarize(param_met = sum(HQ<=1,na.rm=TRUE),
+            param_above = sum(HQ>1, na.rm=TRUE),
+            total = n(),
+            .groups = "drop")
+
+drinking_water_samples_summary = drinking_water_samples_all |>
+  group_by(media) |>
+  summarize(total_in = sum(param_above == 0),
+            total = n(),
+            pct_in = total_in / total)
+

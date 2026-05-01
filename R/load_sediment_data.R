@@ -1,4 +1,8 @@
 load_sediment_data <- function(path, is.clean = FALSE, translate_to = NULL) {
+  message("[load_sediment_data] Parameters: ")
+  message("path: ", path)
+  message("is.clean: ", is.clean)
+  message("translate_to: ", translate_to)
   
   file_path <- path
   
@@ -7,7 +11,7 @@ load_sediment_data <- function(path, is.clean = FALSE, translate_to = NULL) {
   if (str_detect(file_path, ".xls")) data_raw <- suppressMessages(readxl::read_excel(file_path, col_names = FALSE))
   
   if (!is.clean) {
-    data <- clean_sediment_data(data_raw)
+    data <- clean_sediment_data(data_raw, source = "load_sediment_data")
   } else {
     data <- data_raw
   }

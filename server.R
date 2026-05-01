@@ -19,66 +19,115 @@ server <- function(input, output, session) {
     all_media_loctime = NULL
   )
   
+  app_initialized = reactiveVal(FALSE) # check if we tried including master_data from prior data
+  
   # to print out the new master_data
   observe({
     message("Loading Master Data...")
     
     master_data$water_scored <- if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() }
-    master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.qs2")) qs_read("data/processed/all_water_locyear.qs2") else { print("no all_water_locyear.qs2"); tibble() }
     master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() }
-    master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.qs2")) qs_read("data/processed/all_sed_locyear.qs2") else { print("no all_sed_locyear.qs2"); tibble() }
-    master_data$sed_loctime <<- if(file.exists("data/processed/all_sed_loctime.qs2")) qs_read("data/processed/all_sed_loctime.qs2") else { print("no all_sed_loctime.qs2"); tibble() }
-    master_data$water_loctime <<- if(file.exists("data/processed/all_water_loctime.qs2")) qs_read("data/processed/all_water_loctime.qs2") else { print("no all_water_loctime.qs2"); tibble() }
-    
     master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.qs2")) qs_read("data/processed/all_media_scored.qs2") else { print("no all_media_scored.qs2"); tibble() }
-    master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.qs2")) qs_read("data/processed/all_media_locyear.qs2") else { print("no all_media_locyear.qs2"); tibble() }
-    master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.qs2")) qs_read("data/processed/all_media_loctime.qs2") else { print("no all_media_loctime.qs2"); tibble() }
+
+    app_initialized(TRUE) # we tried loading the data in
     message("Master Data Loaded.")
-    # 
-    # cat("\n========================================\n")
-    # cat("MASTER DATA LOADED\n")
-    # cat("========================================\n")
-    # 
-    # cat("water_scored:", nrow(master_data$water_scored), "rows\n")
-    # cat("water_locyear:", nrow(master_data$water_locyear), "rows\n")
-    # cat("water_loctime:", nrow(master_data$water_loctime), "rows\n")
-    # cat("sed_scored:", nrow(master_data$sed_scored), "rows\n")
-    # cat("sed_locyear:", nrow(master_data$sed_locyear), "rows\n")
-    # cat("sed_loctime:", nrow(master_data$sed_loctime), "rows\n")
-    # 
-    # cat("all_media_scored:", nrow(master_data$all_media_scored), "rows\n")
-    # cat("all_media_locyear:", nrow(master_data$all_media_locyear), "rows\n")
-    # cat("all_media_loctime:", nrow(master_data$all_media_loctime), "rows\n")
-    # 
-    # cat("\nwater_scored columns:", ncol(master_data$water_scored), "\n")
-    # cat("sed_scored columns:", ncol(master_data$sed_scored), "\n")
-    # 
-    # cat("========================================\n\n")
+    
   }) |> bindEvent(TRUE) # Only run once on startup
   
-  output$sed_data_ready <- reactive({
-    !is.null(master_data$sed_scored) && nrow(master_data$sed_scored) > 0
-  })
-  outputOptions(output, "sed_data_ready", suspendWhenHidden = FALSE)
-
-  # Combined data ready check
-  output$map_data_ready <- reactive({
+  # check if we have data available
+  output$data_ready <- reactive({
     water_ready <- !is.null(master_data$water_scored) && nrow(master_data$water_scored) > 0
-    sed_ready <- !is.null(master_data$sed_scored) && nrow(master_data$sed_scored) > 0
-    water_ready || sed_ready  # At least one must be ready
+    sed_ready   <- !is.null(master_data$sed_scored) && nrow(master_data$sed_scored) > 0
+    all_media_ready = !is.null(master_data$all_media_scored) && nrow(master_data$all_media_scored) > 0
+    water_ready || sed_ready || all_media_ready
   })
-  outputOptions(output, "map_data_ready", suspendWhenHidden = FALSE)
+  outputOptions(output, "data_ready", suspendWhenHidden = FALSE)
   
+  observe({
+    message("[DEBUG] Data Update Trigger")
+    message(" - Water Scored Rows: ", nrow(master_data$water_scored))
+    message(" - Sed Scored Rows: ", nrow(master_data$sed_scored))
+  })
+  
+  # one-liner wrapper to check whether we have the data required to run a section
+  guard_data <- function(
+    df,
+    cols = c("station", "media", "parameter", "date"),
+    notify = TRUE,
+    msg = "No data loaded yet. Add data in Data Preparation before using the application."
+  ) {
+    has_data(
+      df = df,
+      cols = cols,
+      notify = notify,
+      msg = msg,
+      master_data = master_data,
+      session = session
+    )
+  }
+
+  # send the user to the data prep tab if they select the overlay button
+  observeEvent(input$go_data_prep, {
+    updateTabsetPanel(session, "main_tab", selected = "data_prep")
+  })
+  
+  output$water_data_tab <- renderUI({
+    has_water <- !is.null(master_data$water_scored) &&
+      is.data.frame(master_data$water_scored) &&
+      nrow(master_data$water_scored) > 0
+    
+    if (!has_water) {
+      return(
+        div(
+          style = "padding: 20px; color: #666;",
+          h4("No water data loaded"),
+          p("Upload or prepare water data in the Data Preparation tab to view these tables.")
+        )
+      )
+    }
+    
+    tagList(
+      h4("Yearly Summary"),
+      DT::DTOutput("data_prep_water_table"),
+      br(),
+      h4("Complete Dataset"),
+      DT::DTOutput("full_water_table")
+    )
+  })
+  
+  output$sed_data_tab <- renderUI({
+    has_sed <- !is.null(master_data$sed_scored) &&
+      is.data.frame(master_data$sed_scored) &&
+      nrow(master_data$sed_scored) > 0
+    
+    if (!has_sed) {
+      return(
+        div(
+          style = "padding: 20px; color: #666;",
+          h4("No sediment data loaded"),
+          p("Upload or prepare sediment data in the Data Preparation tab to view these tables.")
+        )
+      )
+    }
+    
+    tagList(
+      h4("Yearly Summary"),
+      DT::DTOutput("data_prep_sed_table"),
+      br(),
+      h4("Complete Dataset"),
+      DT::DTOutput("full_sed_table")
+    )
+  })
   # Unified campaign/date range UI that works for both
   output$map_campaign_ui <- renderUI({
     cat("\n=== DEBUG map_campaign_ui ===\n")
     
     # Get data based on selected media
     df <- if (!is.null(input$plot_media) && input$plot_media == "water") {
-      req(master_data$water_scored)
+      req(guard_data(master_data$water_scored))
       master_data$water_scored
     } else {
-      req(master_data$sed_scored)
+      req(guard_data(master_data$sed_scored))
       master_data$sed_scored
     }
     
@@ -118,7 +167,32 @@ server <- function(input, output, session) {
     )
   })
   
-  ## For importing data
+  #### Managing Data Uploads ####
+  
+  ### Remove notification that data is required if it's ready
+  observe({
+    ready <- !is.null(master_data$all_media_scored) &&
+      nrow(master_data$all_media_scored) > 0
+    
+    if (ready) {
+      removeNotification("data_status")
+    }
+  })
+  
+  ### Add notification for startup on lacking data
+  observe({
+    if (app_has_data(master_data)) {
+      removeNotification("app_data_status")
+    } else {
+      showNotification(
+        "No data loaded yet. Add data in Data Preparation before moving ahead.",
+        id = "app_data_status",
+        type = "message",
+        duration = NULL,
+        closeButton = FALSE
+      )
+    }
+  })
   
   # Upload button
   upload_result <- dataUploadServer(
@@ -127,23 +201,41 @@ server <- function(input, output, session) {
     master_data = master_data
     )  
   
-  # save upload to master_data file for all to access
+  # save upload to master_data for all downstream app components
   observe({
     result <- upload_result$parsed()
     req(result)
     
     if (result$media == "water") {
       master_data$water_scored <- result$scored
-      master_data$water_locyear <- result$locyear
-    } else { # assuming it's sediment
+    } else if (result$media == "sediment") {
       master_data$sed_scored <- result$scored
-      master_data$sed_locyear <- result$locyear
+    } else {
+      showNotification(
+        paste("Unknown uploaded media type:", result$media),
+        type = "error"
+      )
+      return()
     }
+    
+    # Rebuild combined scored data so plots/maps/selectors update
+    master_data$all_media_scored <- merge_media_safely(
+      master_data$water_scored %||% tibble(),
+      master_data$sed_scored %||% tibble()
+    )
+    
+    message("master_data$all_media_scored merged safely: ", nrow(master_data$all_media_scored), " rows")
     
     showNotification(
       paste("Updated", result$media, "data in master_data"),
       type = "message"
     )
+    
+    #DEBUG
+    message("Debug: showing master_data$all_media_scored")
+    View(master_data$all_media_scored)
+    message("sed_scored dims: ", nrow(master_data$sed_scored), "x", ncol(master_data$sed_scored))
+    message("water_scored dims: ", nrow(master_data$water_scored), "x", ncol(master_data$water_scored))
   })
   
   output$import_meta <- renderPrint({
@@ -157,7 +249,7 @@ server <- function(input, output, session) {
   
   # Read and combine water data (clean version)
   all_water_clean <- reactive({
-    req(master_data$water_scored)
+    req(guard_data(master_data$water_scored))
     return(master_data$water_scored) # skip all the other combining work...
     
   })
@@ -179,7 +271,7 @@ server <- function(input, output, session) {
     ### 4. All maps showing data use this single dataset
     ### 5. Users can still download pre-loaded datasets, or filter as needed
     
-    req(master_data$water_scored)
+    req(guard_data(master_data$water_scored))
     return(master_data$water_scored) 
   })
   
@@ -331,7 +423,8 @@ server <- function(input, output, session) {
   
   observe({
     df = master_data$all_media_scored
-    req(df, input$pca_media)
+    req(guard_data(df), input$pca_media)
+    
     
     updateSelectizeInput(inputId = "pca_parameters",
                          choices = get_param_list(df, media_type = input$pca_media),
@@ -620,7 +713,7 @@ server <- function(input, output, session) {
   # Compute available years
   observe({
     df <- master_data$all_media_scored
-    req(df)
+    req(guard_data(df))
     
     years <- sort(unique(df$year))  # or year(df$date)
     if (length(years) == 0) return()
@@ -664,6 +757,8 @@ server <- function(input, output, session) {
   
   observe({
     df = master_data$all_media_scored
+    req(guard_data(df))
+    
     #View(stds)
     param_list = get_param_list(df, need_std = TRUE, need_hq=TRUE) # only show those with HQ
     #View(param_list)
@@ -689,7 +784,7 @@ server <- function(input, output, session) {
   
   observe({
     df = master_data$sed_scored
-    req(df)
+    req(df, guard_data(df))
     
     params_list = get_param_list(df)
     # cat("\n\n", params_list,"\n")
@@ -865,7 +960,7 @@ server <- function(input, output, session) {
   # Reactive that counts unique years
   all_available_years <- reactive({
     df <- master_data$all_media_scored  # or your data reactive
-    req(df)
+    req(df, guard_data(df))
     
     year_min = min(df$year, na.rm=TRUE)
     year_max = max(df$year, na.rm=TRUE)
@@ -915,7 +1010,7 @@ server <- function(input, output, session) {
     req(n_years)
     
     df <- master_data$all_media_scored
-    req(df)
+    req(guard_data(df))
     
     recent_years <- tail(sort(unique(year(df$date))), n_years)
     df |> filter(year(date) %in% recent_years)
@@ -927,7 +1022,7 @@ server <- function(input, output, session) {
         input$station_plot_media,
         input$station_plot_method_parameter, 
         input$station_plot_method_temporal, 
-        master_data$all_media_scored)
+        guard_data(master_data$all_media_scored))
     
     data = master_data$all_media_scored
     nyears = 0 # null case - function won't consider it if we're not using recent
@@ -1118,7 +1213,7 @@ server <- function(input, output, session) {
   # --- Step 3: Assign unique colors ---
   
   output$param_scores_plot <- renderPlotly({
-    req(master_data$all_media_scored,
+    req(guard_data(master_data$all_media_scored),
         input$param_plot_station, 
         input$param_plot_media, 
         input$param_plot_method_temporal)
@@ -1164,7 +1259,7 @@ server <- function(input, output, session) {
     req(input$sieve_plot_method, 
         input$sieve_plot_param, 
         input$sieve_plot_station, 
-        master_data$sed_scored)
+        guard_data(master_data$sed_scored))
     
     data = master_data$sed_scored
     nyears = 0 # null case - function won't consider it if we're not using recent
@@ -1235,7 +1330,7 @@ server <- function(input, output, session) {
   # Chronologically sorted Campaigns (uses current active dataset)
   unique_campaigns <- reactive({
     df <- current_data()
-    req(nrow(df) > 0)
+    req(guard_data(df))
     
     campaigns <- unique(df$Campaign)
     campaigns <- campaigns[!is.na(campaigns)]
@@ -1677,7 +1772,7 @@ server <- function(input, output, session) {
     }
     
     df = master_data$all_media_scored
-    req(df)
+    req(guard_data(df))
     cat("\nall_media_scored observer triggered")
     
     cat("\nall_media_scored class: ", class(master_data$all_media_scored)[1])
@@ -1767,7 +1862,7 @@ server <- function(input, output, session) {
   ts_filtered_data_water <- reactive({
     df = master_data$water_scored
     cat("\n\nnrows master_data", nrow(df))
-    req(df)
+    req(guard_data(df))
     cat(paste0("\nmaster_data$water_scored rows: ", nrow(master_data$water_scored)))
     
     ts_station = input$ts_station
@@ -1945,9 +2040,8 @@ server <- function(input, output, session) {
   # Populate campaign dropdown for map
   output$sed_campaign_ui <- renderUI({
     # checks that our data works as expected
-    req(master_data$sed_scored)
-    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
-    
+    req(guard_data(master_data$sed_scored))
+
     # get date range
     # Get min and max dates from data
     dates <- master_data$sed_scored$date
@@ -1976,11 +2070,11 @@ server <- function(input, output, session) {
   })
   
   output$water_campaign_ui <- renderUI({
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
-    
-    date_col <- if ("date" %in% names(master_data$water_scored)) "date" else "date"
-    dates <- master_data$water_scored[[date_col]]
+    df = master_data$water_scored 
+    req(guard_data(df))
+
+    date_col <- if ("date" %in% names(df)) "date" else "date"
+    dates <- df[[date_col]]
     dates <- dates[!is.na(dates)]
     
     if (!inherits(dates, "date")) {
@@ -2004,10 +2098,10 @@ server <- function(input, output, session) {
   
   # Populate sieve size dropdown for map
   output$tamiz_ui <- renderUI({
-    req(master_data$sed_scored)
-    req(nrow(master_data$sed_scored) > 0)  # Make sure it has data
-    
-    tamiz <- unique(master_data$sed_scored$sieve_size)
+    df = master_data$sed_scored
+    req(guard_data(df))
+
+    tamiz <- unique(df$sieve_size)
     tamiz <- tamiz[!is.na(tamiz)]
     tamiz <- sort(tamiz)
     
@@ -2017,11 +2111,11 @@ server <- function(input, output, session) {
   
   # Populate metal dropdown dynamically for map
   observe({
-    req(master_data$sed_scored)
-    req(nrow(master_data$sed_scored) > 0)
+    df = master_data$sed_scored
+    req(guard_data(df))
     
     # Get unique parameters from the long-format data
-    sed_params <- unique(master_data$sed_scored$parameter)
+    sed_params <- unique(df$parameter)
     sed_params <- sed_params[!is.na(sed_params)]
     
     # Filter out parameters that start with a digit (sieve sizes)
@@ -2036,11 +2130,11 @@ server <- function(input, output, session) {
   
   observe({
     # cat("\n=== DEBUG new water param dropdown filler based on existing sed_data ===\n")
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
+    df = master_data$water_scored
+    req(guard_data(df))
     
     # Get unique parameters from the long-format data
-    water_params <- unique(master_data$water_scored$parameter)
+    water_params <- unique(df$parameter)
     water_params <- water_params[!is.na(water_params)]
     water_params <- sort(water_params)
     
@@ -2054,10 +2148,10 @@ server <- function(input, output, session) {
   # for updatin the water parameter select option
   # Server
   observe({
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
+    df = master_data$water_scored
+    req(guard_data(df))
     
-    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
+    water_params <- sort(unique(na.omit(df$parameter)))
     
     choices <- c(
       "All Parameters" = "all",
@@ -2105,10 +2199,10 @@ server <- function(input, output, session) {
   
   # Populate parameter choices for water and sediment risk map creation
   output$water_params_ui <- renderUI({
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
+    df = master_data$water_scored
+    req(guard_data(df))
     
-    water_params <- sort(unique(na.omit(master_data$water_scored$parameter)))
+    water_params <- sort(unique(na.omit(df$parameter)))
     
     choices <- c(
       "All Parameters" = "all",
@@ -2137,10 +2231,10 @@ server <- function(input, output, session) {
   })
   
   output$sed_params_ui <- renderUI({
-    req(master_data$sed_scored)
-    req(nrow(master_data$sed_scored) > 0)
+    df = master_data$sed_scored
+    req(guard_data(df))
     
-    sed_params <- sort(unique(na.omit(master_data$sed_scored$parameter)))
+    sed_params <- sort(unique(na.omit(df$parameter)))
     
     choices <- c(
       "All Parameters" = "all",
@@ -2168,14 +2262,12 @@ server <- function(input, output, session) {
   
   # Filtered data based on all inputs
   sed_filtered_data <- reactive({
-    cat("\n=== DEBUG sed_filtered_data ===\n")
+    df <- master_data$sed_scored
+    req(guard_data(df))
     
-    req(master_data$sed_scored)
     req(input$plot_media == "sediment")  # Only run for sediment
     
-    cat("  Initial rows:", nrow(master_data$sed_scored), "\n")
-    
-    df <- master_data$sed_scored
+    cat("  Initial rows:", nrow(df), "\n")
     
     date_col <- if ("date" %in% names(df)) "date" else "date"
     
@@ -2243,7 +2335,7 @@ server <- function(input, output, session) {
     
     # filter out some columns for better viewing
     df = df |>
-      select(-c(fraction, media, cr_route, converted_from_mg_kg, CR, WL, std_info, CR_cases_10k, has_HQ, has_CR, has_WL, has_standard)) |>
+      select(-c(fraction, media, converted_from_mg_kg, CR, WL, std_info, CR_cases_10k, has_HQ, has_CR, has_WL, has_standard)) |>
       relocate(year, .before = station) |>
       relocate(c(latitude_decimal, longitude_decimal), .after=last_col())
     
@@ -2252,10 +2344,10 @@ server <- function(input, output, session) {
   
   # Create similar water_filtered_data reactive for water maps
   water_filtered_data <- reactive({
-    req(master_data$water_scored)
+    df <- master_data$water_scored
+    req(guard_data(df))
     req(input$plot_media == "water")
     
-    df <- master_data$water_scored
     date_col <- if ("date" %in% names(df)) "date" else "date"
     
     # Bolivia filter
@@ -2315,17 +2407,15 @@ server <- function(input, output, session) {
   })
   
   observe({
-    cat("\n=== DEBUG sed_map update ===\n")
-    
     sed_df <- sed_filtered_data()
+  
+    req(nrow(sed_df) > 0) # replace with guard_data()?
+    req(input$sed_metal)
+    req(input$sed_value_type)
     
     if (isTRUE(input$sed_value_type == "sed_class")) {
       sed_df <- classify_sediment_usgs_bulk(sed_df, stds)
     }
-    
-    req(nrow(sed_df) > 0)
-    req(input$sed_metal)
-    req(input$sed_value_type)
     
     cat("  Updating map with", nrow(sed_df), "points\n")
     
@@ -2567,8 +2657,6 @@ server <- function(input, output, session) {
   
   # Use observe() with leafletProxy to update water markers
   observe({
-    cat("\n=== DEBUG water_map update ===\n")
-    
     # Check if water is selected
     if (is.null(input$plot_media)) {
       cat("  plot_media is NULL\n")
@@ -2579,8 +2667,6 @@ server <- function(input, output, session) {
       cat("  Not water media, skipping\n")
       return()
     }
-    
-    cat("  Water media confirmed\n")
     
     # Get filtered data
     water_df <- water_filtered_data()
@@ -2908,10 +2994,10 @@ server <- function(input, output, session) {
   
   # In server.R - populate water_params choices
   observe({
-    req(master_data$water_scored)
-    req(nrow(master_data$water_scored) > 0)
+    df = master_data$water_scored
+    req(guard_data(df))
     
-    water_params <- unique(master_data$water_scored$parameter)
+    water_params <- unique(df$parameter)
     water_params <- water_params[!is.na(water_params)]
     water_params <- sort(water_params)
     
@@ -3044,8 +3130,8 @@ server <- function(input, output, session) {
   # Add to map on creation
   observeEvent(water_stations_data(), {
     df <- water_stations_data()
-    req(df, nrow(df) > 0, "HQ" %in% names(df))
-    
+    req(guard_data(df, cols = c("HQ")))
+
     hq_vals   <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
     bin_colors <- c("#2c7bb6", "#abd9e9", "#ffffbf", "#fc8d59", "#d73027", "#67001f")
     
@@ -3216,7 +3302,7 @@ server <- function(input, output, session) {
   # Add to map on creation
   observeEvent(sed_stations_data(), {
     df <- sed_stations_data()
-    req(df, nrow(df) > 0, "HQ" %in% names(df))
+    req(guard_data(df, cols = c("HQ")))
     
     hq_vals    <- df$HQ[!is.na(df$HQ) & is.finite(df$HQ)]
     bin_colors <- c("#1a9850", "#d9ef8b", "#ffffbf", "#fc8d59", "#d73027", "#67001f")
@@ -4613,7 +4699,7 @@ observeEvent(combined_risk_raster(), {
   # - Data Preparation tab
   
   data_prep_water <- reactive({
-    req(master_data$water_scored)
+    req(guard_data(master_data$water_scored))
     
     df <- master_data$water_scored |>
       group_by(year) |>
@@ -4630,7 +4716,7 @@ observeEvent(combined_risk_raster(), {
   })
   
   data_prep_sed <- reactive({
-    req(master_data$sed_scored)
+    req(guard_data(master_data$sed_scored))
     
     df <- master_data$sed_scored |>
       group_by(year) |>

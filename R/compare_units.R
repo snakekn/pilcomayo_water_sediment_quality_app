@@ -189,7 +189,7 @@ compare_units <- function(sample_unit, standard_unit) {
     factor <- (t$gram_factor_g / t$denom_scale) / (s$gram_factor_g / s$denom_scale)
     
     # debugging
-    # cat("\n[calculate_hqcr]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
+    # cat("\n[calculate_hq]: HQ values:\nInitial val: ",val," (",unit,")\nStd val: ",
     #     std$value, " (",std$unit,")\nHQ: ", hq, "\nConversion Factor: ", unit_check_hq$conversion_factor)
     # 
     

@@ -9,7 +9,7 @@ pacman::p_load(
   readxl, plotly, DT, zoo, missMDA, ggfortify,
   FactoMineR, factoextra, shinyWidgets, bslib, terra,
   ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox, memoise, htmltools, qs2
+  gstat, whitebox, memoise, htmltools, qs2, here, janitor
 )
 
 options(shiny.trace = FALSE)
@@ -27,11 +27,13 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
   for (f in files) {
     # source into the *current* app environment to avoid globals
     sys.source(f, envir = globalenv()) 
+    message("Loaded: ", f)
   }
 }
 
 load_scripts(dir = "R")
 load_scripts(dir = "scripts/risk_analysis")
+message("All scripts loaded.")
 
 # hash some functions so we're saving time on repetitive calls
 compare_units <- memoise::memoise(compare_units)
@@ -44,30 +46,27 @@ plot_top_hq_sieve = memoise::memoise(plot_top_hq_sieve)
 
 #### define paths to things ####
 message("global.R: Defining paths and loading shared datasets (standards, constants)")
-## Define file paths to data
-sed_data_path_usgs <- "data/sed/usgs"
-water_data_path_1333 <- "data/water/1333"
-
-sed_data_path_clean <- "data/sed/clean"
-water_data_path_clean <- "data/water/clean"
-
-included_water_files_path = "data/compiled/water_data_list.csv"
-included_sed_files_path = "data/compiled/sed_data_list.csv"
-
-compiled_water_data_path = "data/compiled/water_compiled.csv"
-compiled_sed_data_path = "data/compiled/sed_compiled.csv"
-
 #### load global values ####
 stds = readr::read_csv(here::here("data/standards/all_standards.csv"))
 ### Put together an easy-to-load standards list
 # Load csv's & prepare for standards & weights. STDs include Cancer Risk
-make_key = function(parameter, media, std_type) paste0(parameter, "||", media, "||", std_type)
+make_key <- function(parameter, media, std_type) {
+  paste0(parameter, "||", media, "||", std_type)
+}
 
-stds = stds |>
-  mutate(.key = make_key(parameter, media, hqcr)) |>
-  filter(!is.na(value)) # skip any values that we don't have data for, HQ/CR/WL
-std_map <- split(stds, stds$.key)
-strict_stds <<- set_strict_stds()
+stds <- readr::read_csv(here::here("data/standards/all_standards.csv")) |>
+  janitor::clean_names()
+
+strict_stds <- set_strict_stds()
+
+strict_stds <- strict_stds |>
+  dplyr::mutate(
+    hqcr = "hq",
+    .key = make_key(parameter, media, hqcr)
+  )
+
+std_map <- split(strict_stds, strict_stds$.key)
+
 
 # these are kept centrally to help us easily redefine if needed
 
