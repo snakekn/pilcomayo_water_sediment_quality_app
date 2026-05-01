@@ -6,7 +6,7 @@ library(rlang)
 # ---------- Helpers ----------
 safe_num <- function(x) as.numeric(gsub("[,\\s()]", "", as.character(x)))
 
-make_param_id <- function(df, param_key_cols = c("parameter","media","unit","cr_route")) {
+make_param_id <- function(df, param_key_cols = c("parameter","media","unit")) {
   df2 <- df %>% mutate(across(all_of(param_key_cols), ~ as.character(.x)))
   apply(df2[, param_key_cols, drop = FALSE], 1, function(r) paste0(replace(r, is.na(r), ""), collapse = "|"))
 }
@@ -17,8 +17,8 @@ make_param_id <- function(df, param_key_cols = c("parameter","media","unit","cr_
 merge_scored <- function(existing,
                          uploaded,
                          key_cols = c("station", "year"),
-                         param_key_cols = c("parameter", "media", "unit", "cr_route"),
-                         replace = FALSE,          # if TRUE uploaded rows replace matching existing rows
+                         param_key_cols = c("parameter", "media", "unit"),
+                         replace = TRUE,          # if TRUE uploaded rows replace matching existing rows
                          keep_param_id = FALSE) { # whether to keep helper param_id column in returned df
   
   # basic checks

@@ -104,10 +104,10 @@ read_uploaded_file = function(path) {
   
   # read the data
   switch(ftype,
-         "csv" = readr::read_csv(path),
-         "tsv" = readr::read_tsv(path),
-         "xls" = readxl::read_xls(path),
-         "xlsx" = readxl::read_xlsx(path),
+         "csv" = readr::read_csv(path, show_col_types = FALSE),
+         "tsv" = readr::read_tsv(path, show_col_types = FALSE),
+         "xls" = readxl::read_xls(path, .name_repair = "unique_quiet"),
+         "xlsx" = readxl::read_xlsx(path, .name_repair = "unique_quiet"),
          abort("Unsupported file type: ", ftype)
   )
 }
@@ -124,9 +124,15 @@ get_file_type <- function(path) {
 #### Manage File Uploads ####
 # check if master_data$all_media_scored is ready to utilize
 app_has_data <- function(master_data) {
-  !is.null(master_data$all_media_scored) &&
-    is.data.frame(master_data$all_media_scored) &&
-    nrow(master_data$all_media_scored) > 0
+  any(vapply(
+    list(
+      master_data$water_scored,
+      master_data$sed_scored,
+      master_data$all_media_scored
+    ),
+    function(x) is.data.frame(x) && nrow(x) > 0,
+    logical(1)
+  ))
 }
 
 # check if data is ready and provide notifications otherwise
@@ -146,8 +152,7 @@ has_data <- function(
     all(cols %in% names(df))
   
   app_empty <- suppress_when_app_empty &&
-    !is.null(master_data) &&
-    !app_has_data(master_data)
+    !is.null(master_data)
   
   if (!ok && isTRUE(notify) && !app_empty && !is.null(session)) {
     showNotification(
@@ -163,6 +168,46 @@ has_data <- function(
   ok
 }
 
+# Helper function: 
+process_uploaded_pilco_file <- function(path, media, src_lang, target_lang) {
+  message("\n[process_uploaded_pilco_file] START")
+  message("[process_uploaded_pilco_file] path = ", path)
+  message("[process_uploaded_pilco_file] media = ", media)
+  
+  message("[1] Loading file")
+  loaded <- if (media == "water") {
+    load_water_data(path, is.clean = FALSE, translate_to = target_lang)
+  } else if (media == "sediment") {
+    load_sediment_data(path, is.clean = FALSE, translate_to = target_lang)
+  } else {
+    stop("[process_uploaded_pilco_file] media must be 'water' or 'sediment'")
+  }
+  
+  message("[1] loaded dim = ", nrow(loaded), " x ", ncol(loaded))
+  message("[1] loaded names = ", paste(names(loaded), collapse = ", "))
+  
+  message("[2] Pivoting using pivot_pilcomayo_data()")
+  pivoted <- pivot_pilcomayo_data(loaded, media_type = media)
+  
+  message("[2] pivoted dim = ", nrow(pivoted), " x ", ncol(pivoted))
+  # message("[2] pivoted names = ", paste(names(pivoted), collapse = ", "))
+  
+  if ("station" %in% names(pivoted)) {
+    message("[2] station non-NA = ", sum(!is.na(pivoted$station)))
+  }
+  if ("concentration" %in% names(pivoted)) {
+    message("[2] concentration non-NA = ", sum(!is.na(pivoted$concentration)))
+  }
+  
+  message("[3] Scoring with existing score_data()")
+  scored <- score_data(pivoted)
+  
+  message("[3] scored dim = ", nrow(scored), " x ", ncol(scored))
+  message("[process_uploaded_pilco_file] END")
+  
+  scored
+}
+
 # take data in either of 2 formats, format & score, merge
 # Output: locyear and scored files in master_data
 dataUploadServer <- function(id, base_data, master_data) {
@@ -170,134 +215,101 @@ dataUploadServer <- function(id, base_data, master_data) {
     parsed_upload <- reactiveVal(NULL)
     
     observeEvent(input$upload_data, {
-      
-      # Validation
       if (is.null(input$files) || nrow(input$files) == 0) {
-        showNotification("Please select a file before processing.", type="error")
-        return()  # ✅ This return() exits the observeEvent, not the module
+        showNotification("Please select a file before processing.", type = "error")
+        return()
       }
       
-      src_format <- input$source_format
-      src_lang <- input$current_lang
       src_media <- input$media_type
       src_target_lang <- input$translate_to
+      n_files <- nrow(input$files)
       
-      print(paste("Format:", src_format,
-                  "Lang:", src_lang,
-                  "Media:", src_media,
-                  "Target:", src_target_lang))
+      message("\n[dataUploadServer] START")
+      message("[dataUploadServer] files = ", n_files)
+      message("[dataUploadServer] media = ", src_media)
       
-      req(input$files)
-      fpath <- input$files$datapath[1]
-      fname <- input$files$name[1]
-      
-      showNotification(paste("Processing:", fname), type="message")
+      existing_scored <- if (src_media == "water") {
+        isolate(master_data$water_scored)
+      } else {
+        isolate(master_data$sed_scored)
+      }
+      if (is.null(existing_scored)) existing_scored <- tibble::tibble()
       
       withProgress(message = "Processing uploads...", value = 0, {
-        n_files <- nrow(input$files)
-        existing_scored <- if (src_media == "water") {
-          isolate(master_data$water_scored)
-        } else {
-          isolate(master_data$sed_scored)
-        }
-        scored_merged <- existing_scored
+        scored_parts <- vector("list", n_files)
+        names(scored_parts) <- input$files$name
         
         for (i in seq_len(n_files)) {
           fname_i <- input$files$name[i]
           fpath_i <- input$files$datapath[i]
           
-          incProgress(1/n_files, message = paste("Processing", fname_i))
+          incProgress(1 / n_files, message = paste("Processing", fname_i))
+          message("\n[dataUploadServer] ------------------------------")
+          message("[dataUploadServer] file ", i, "/", n_files, " = ", fname_i)
           
-          step <- "read_uploaded_file"
-          tryCatch({
-            file_data_i <- read_uploaded_file(fpath_i)
-            print(paste0("[dataUploadServer]: ", fname_i, " | ", step))
-            
-            step <- "upload_sampled_data"
-            df_i <- upload_sampled_data(
-              file_data_i,
+          scored_parts[[i]] <- tryCatch({
+            out <- process_uploaded_pilco_file(
+              path = fpath_i,
               media = src_media,
-              format = src_format,
-              debug_prepped = FALSE,
-              src_lang = src_lang,
+              src_lang = input$current_lang,
               target_lang = src_target_lang
             )
-            print(paste0("[dataUploadServer]: completed ", step))
             
-            step <- "duplicate checks"
-            dup_names <- names(df_i)[duplicated(names(df_i))]
-            if (length(dup_names)) {
-              warning(sprintf("File '%s' has duplicate column names: %s",
-                              fname_i, paste(unique(dup_names), collapse = ", ")))
-              print(names(df_i))
-            }
+            out$data_source <- fname_i
             
-            step <- "clean names"
-            if (any(duplicated(names(df_i)))) {
-              names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
-            }
-            
-            step <- "add data_source"
-            df_i$data_source <- fname_i
-            
-            step <- "score_data"
-            upload_scored_i <- score_data(df_i)
-            print("[dataUploadServer]: finished score_data")
-            
-            step <- "merge_scored"
-            scored_merged <- merge_scored(
-              scored_merged,
-              upload_scored_i,
-              key_cols = c("station", "date", "media", "fraction", "time", "parameter", "latitude_decimal", "longitude_decimal"),
-              param_key_cols = c("parameter", "media", "unit", "cr_route"),
-              replace = TRUE
-            )
-            message("[dataUploadServer]: finished merge_scored")
-            
+            message("[dataUploadServer] processed rows for ", fname_i, " = ", nrow(out))
+            out
           }, error = function(e) {
+            message("[dataUploadServer] ERROR in ", fname_i, ": ", e$message)
             showNotification(
-              paste("Error in", step, "for", fname_i, ":", e$message),
+              paste("Error processing", fname_i, ":", e$message),
               type = "error"
             )
+            NULL
           })
         }
         
-        # ✅ Update the reactiveVal
-        print("updating parsed_upload")
+        valid_parts <- Filter(Negate(is.null), scored_parts)
+        
+        if (!length(valid_parts)) {
+          stop("[dataUploadServer] no files were successfully processed")
+        }
+        
+        message("[dataUploadServer] combining processed uploads")
+        uploaded_scored <- dplyr::bind_rows(valid_parts)
+        message("[dataUploadServer] uploaded_scored dim = ", nrow(uploaded_scored), " x ", ncol(uploaded_scored))
+        
+        message("[dataUploadServer] merging uploaded_scored with existing media data")
+        final_scored <- merge_scored(existing_scored, uploaded_scored)
+        message("[dataUploadServer] final_scored dim = ", nrow(final_scored), " x ", ncol(final_scored))
+        
+        if (src_media == "water") {
+          master_data$water_scored <- final_scored
+        } else {
+          master_data$sed_scored <- final_scored
+        }
+        
+        current_water <- master_data$water_scored
+        current_sed   <- master_data$sed_scored
+        if (is.null(current_water)) current_water <- tibble::tibble()
+        if (is.null(current_sed))   current_sed   <- tibble::tibble()
+        
+        message("[dataUploadServer] rebuilding all_media_scored")
+        master_data$all_media_scored <- merge_media_safely(current_water, current_sed)
+        message("[dataUploadServer] all_media_scored rows = ", nrow(master_data$all_media_scored))
+
         parsed_upload(list(
-          scored = scored_merged,
-          locyear = score_to_loc_year(scored_merged),
+          scored = final_scored,
           media = src_media
         ))
         
-        # Optional persistence
-        save_path <- if (src_media == "water") {
-          "data/processed/water_scored_user_update.rds"
-        } else {
-          "data/processed/sed_scored_user_updated.rds"
-        }
-        saveRDS(scored_merged, save_path)
-        
         showNotification("Upload processing complete!", type = "message")
+        message("[dataUploadServer] END")
       })
-      
     }, ignoreInit = TRUE)
     
-    # ✅ Debug REACTIVELY (optional)
-    observe({
-      result <- parsed_upload()
-      if (!is.null(result)) {
-        cat("parsed_upload contains:\n")
-        cat("  - media:", result$media, "\n")
-        cat("  - scored rows:", nrow(result$scored), "\n")
-        cat("  - locyear rows:", nrow(result$locyear), "\n")
-      }
-    })
-    
-    # ✅ Return the reactiveVal (NOT inside observeEvent)
     return(list(parsed = parsed_upload))
-    
-  })  
+  })
 }
 
 # ============================================================================
@@ -320,41 +332,97 @@ dataUploadServer <- function(id, base_data, master_data) {
   df
 }
 
+# df schema
+DF_SCHEMA <- c(
+  "parameter"          = "character",
+  "media"              = "character",
+  "unit"               = "character",
+  "data_source"        = "character",
+  "station"            = "character",
+  "date"               = "Date",
+  "time"               = "character",
+  "campaign"           = "character",
+  "institution"        = "character",
+  "river"              = "character",
+  "latitude_decimal"   = "numeric",
+  "longitude_decimal"  = "numeric",
+  "year"               = "integer",
+  "distance_from_bank" = "numeric",
+  "sieve_size"         = "character",
+  "fraction"           = "character",
+  "concentration"      = "numeric",
+  "HQ"                 = "numeric",
+  "has_HQ"             = "logical",
+  "converted_from_mg_kg" = "logical"
+  
+)
+
 # coerce key columns to stable types so bind_rows never clashes
 .coerce_key_types <- function(df) {
-  # Station
-  if ("Station" %in% names(df)) df$Station <- as.character(df$Station)
-  # Date / Year
-  if ("Date" %in% names(df) && !inherits(df$Date, "Date")) {
-    suppressWarnings({
-      a <- try(as.Date(df$Date, "%Y-%m-%d"))
-      b <- try(as.Date(df$Date, "%d/%m/%Y"))
-      df$Date <- if (all(!is.na(a))) a else if (all(!is.na(b))) b else as.Date(df$Date)
-    })
-  }
-  if ("Date" %in% names(df) && !"Year" %in% names(df)) {
-    df$Year <- as.integer(format(df$Date, "%Y"))
-  }
-  if ("Year" %in% names(df)) df$Year <- suppressWarnings(as.integer(df$Year))
-  # Coordinates
-  for (nm in c("Latitude Decimal","Longitude Decimal","Lat_dd","Long_dd","Lat_dd","Long_dd")) {
-    if (nm %in% names(df) && !is.numeric(df[[nm]])) {
-      df[[nm]] <- suppressWarnings(as.numeric(df[[nm]]))
+  
+  # 1. Apply strict schema for known columns
+  for (col_name in names(DF_SCHEMA)) {
+    if (col_name %in% names(df)) {
+      target <- DF_SCHEMA[[col_name]]
+      
+      df[[col_name]] <- switch(target,
+                               "character" = as.character(df[[col_name]]),
+                               "numeric"   = suppressWarnings(as.numeric(df[[col_name]])),
+                               "integer"   = suppressWarnings(as.integer(df[[col_name]])),
+                               "logical"   = as.logical(df[[col_name]]),
+                               "Date"      = {
+                                 # Attempt multi-format parse for Dates
+                                 suppressWarnings({
+                                   val <- df[[col_name]]
+                                   if (!inherits(val, "Date")) {
+                                     a <- try(as.Date(val, "%Y-%m-%d"), silent = TRUE)
+                                     b <- try(as.Date(val, "%d/%m/%Y"), silent = TRUE)
+                                     val <- if (all(!is.na(a))) a else if (all(!is.na(b))) b else as.Date(val)
+                                   }
+                                   val
+                                 })
+                               },
+                               df[[col_name]]
+      )
     }
   }
+  
+  # 2. Final Fallback: Convert unknown logical placeholders to character
+  # This prevents bind_rows() from crashing on placeholder-only columns
+  df <- df %>%
+    dplyr::mutate(
+      dplyr::across(
+        where(~ is.logical(.x) && all(is.na(.x))),
+        as.character
+      )
+    )
+  
   df
 }
 
 # align list of dfs to same columns (union) with the column order of the first
 .align_cols <- function(dfs) {
   all_cols <- Reduce(union, lapply(dfs, names))
-  lapply(dfs, function(df) {
+  
+  dfs <- lapply(dfs, function(df) {
     miss <- setdiff(all_cols, names(df))
-    for (m in miss) df[[m]] <- NA
+    for (m in miss) {
+      if (m %in% c("parameter", "media", "unit", "fraction", "Station")) {
+        df[[m]] <- NA_character_
+      } else if (m %in% c("HQ", "concentration", "Latitude Decimal", "Longitude Decimal",
+                          "latitude_decimal", "longitude_decimal", "Lat_dd", "Long_dd")) {
+        df[[m]] <- NA_real_
+      } else if (m %in% c("Year", "year")) {
+        df[[m]] <- NA_integer_
+      } else {
+        df[[m]] <- NA
+      }
+    }
     df[, all_cols, drop = FALSE]
   })
+  
+  dfs
 }
-
 
 # Load spatial data
 pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
@@ -782,69 +850,65 @@ clip_to_bolivia <- function(df, lon_col, lat_col, bol_border) {
 )
 #### Safely merge file types ####
 merge_media_safely <- function(water_df, sediment_df) {
-  
-  message("\n========== merge_media_safely() ==========")
+  message("\n[merge_media_safely]")
   message("[1] Starting safe merge of water + sediment data.")
   
-  # ---- 1. Capture names ----
+  # Check if one side is empty and return the other (coerced)
+  if (nrow(water_df) == 0) return(.coerce_key_types(sediment_df))
+  if (nrow(sediment_df) == 0) return(.coerce_key_types(water_df))
+  
+  drop_cols <- c()
+  
+  water_df <- water_df %>% dplyr::select(-dplyr::any_of(drop_cols))
+  sediment_df <- sediment_df %>% dplyr::select(-dplyr::any_of(drop_cols))
+  
   w_names <- names(water_df)
   s_names <- names(sediment_df)
   
-  message("\n[2] Column sets before merging:")
-  message("  • Water columns (", length(w_names), "): ", paste(w_names, collapse = ", "))
-  message("  • Sediment columns (", length(s_names), "): ", paste(s_names, collapse = ", "))
+  message("[2] Column sets after dropping deprecated fields")
+  message("Water columns (", length(w_names), "): ", paste(w_names, collapse = ", "))
+  message("Sediment columns (", length(s_names), "): ", paste(s_names, collapse = ", "))
   
-  # ---- 2. Compute missing column sets ----
   missing_in_water <- setdiff(s_names, w_names)
-  missing_in_sed   <- setdiff(w_names, s_names)
+  missing_in_sed <- setdiff(w_names, s_names)
   
-  message("\n[3] Columns *only* in sediment: ", 
-          ifelse(length(missing_in_water) == 0, "none", paste(missing_in_water, collapse=", ")))
+  message("[3] Columns only in sediment: ",
+          ifelse(length(missing_in_water) == 0, "none", paste(missing_in_water, collapse = ", ")))
+  message("[4] Columns only in water: ",
+          ifelse(length(missing_in_sed) == 0, "none", paste(missing_in_sed, collapse = ", ")))
   
-  message("[4] Columns *only* in water: ", 
-          ifelse(length(missing_in_sed) == 0, "none", paste(missing_in_sed, collapse=", ")))
-  
-  # ---- 3. Add missing sediment columns to water ----
   if (length(missing_in_water) > 0) {
-    message("\n[5] Adding ", length(missing_in_water), " missing columns to WATER:")
+    message("[5] Adding missing columns to WATER")
     for (col in missing_in_water) {
-      message("    → Adding ", col, " (filled with NA)")
+      message("  - ", col)
       water_df[[col]] <- NA
     }
-  } else {
-    message("\n[5] No missing columns to add to water.")
   }
   
-  # ---- 4. Add missing water columns to sediment ----
   if (length(missing_in_sed) > 0) {
-    message("\n[6] Adding ", length(missing_in_sed), " missing columns to SEDIMENT:")
+    message("[6] Adding missing columns to SEDIMENT")
     for (col in missing_in_sed) {
-      message("    → Adding ", col, " (filled with NA)")
+      message("  - ", col)
       sediment_df[[col]] <- NA
     }
-  } else {
-    message("\n[6] No missing columns to add to sediment.")
   }
   
-  # ---- 5. Reorder columns consistently ----
-  # use the WATER column order as canonical
   final_col_order <- names(water_df)
+  message("[7] Applying consistent column order (", length(final_col_order), " columns).")
   
-  message("\n[7] Applying consistent column order (", length(final_col_order), " columns).")
+  water_aligned <- water_df[, final_col_order, drop = FALSE]
+  sediment_aligned <- sediment_df[, final_col_order, drop = FALSE]
   
-  water_aligned <- water_df[, final_col_order]
-  sediment_aligned <- sediment_df[, final_col_order]
+  water_aligned <- .coerce_key_types(water_aligned)
+  sediment_aligned <- .coerce_key_types(sediment_aligned)
   
-  # ---- 6. Final merge ----
-  message("\n[8] Binding rows…")
+  message("[8] Binding rows...")
   merged <- dplyr::bind_rows(water_aligned, sediment_aligned)
   
-  message("[9] Merge complete. Final dimensions: ", 
-          nrow(merged), " rows × ", ncol(merged), " columns.")
+  message("[9] Merge complete. Final dimensions: ",
+          nrow(merged), " rows x ", ncol(merged), " columns.")
   
-  message("============================================\n")
-  
-  return(merged)
+  merged
 }
 
 #### get_param_list(): extract valid parameter names for a media type ####

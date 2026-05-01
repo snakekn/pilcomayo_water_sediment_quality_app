@@ -10,7 +10,7 @@ layer_row <- function(checkbox_id, switch_id, label) {
 # ensure tabs can't be interacted with when data isn't prepared
 locked_tab_body <- function(...,
                             message = "No data loaded yet. Upload data in Data Preparation before using this tool.",
-                            condition = "!output.map_data_ready") {
+                            condition = "!output.data_ready") {
   div(
     class = "locked-tab-wrap",
     ...,
@@ -227,31 +227,13 @@ ui <- fluidPage(
       ),
       mainPanel(
         conditionalPanel(
-          condition = "output.map_data_ready",
+          condition = "output.data_ready",
           tabsetPanel(
-            tabPanel("Water Data",
-                     checkboxInput("show_summary_water", "Show Yearly Summary Table"),
-                     conditionalPanel(
-                       condition = "input.show_summary_water",
-                       dataTableOutput("data_prep_water_table")
-                     ),
-                     checkboxInput("show_full_water", "Show Complete Dataset"),
-                     conditionalPanel(
-                       condition = "input.show_full_water",
-                       dataTableOutput("full_water_table")
-                     )),
-            tabPanel("Sediment Data",
-                     checkboxInput("show_summary_sed", "Show Yearly Summary Table"),
-                     conditionalPanel(
-                       condition = "input.show_summary_sed",
-                       dataTableOutput("data_prep_sed_table")
-                     ),
-                     checkboxInput("show_full_sed", "Show Complete Dataset"),
-                     conditionalPanel(
-                       condition = "input.show_full_sed",
-                       dataTableOutput("full_sed_table")
-                     ))
-        )
+            tabsetPanel(
+              tabPanel("Water Data", uiOutput("water_data_tab")),
+              tabPanel("Sediment Data", uiOutput("sed_data_tab"))
+            )
+          )
         )
       )
     ),
@@ -262,7 +244,7 @@ ui <- fluidPage(
         sidebarLayout(
           sidebarPanel(
             conditionalPanel(
-              condition = "!output.map_data_ready",
+              condition = "!output.data_ready",
               div(
                 style = "text-align: center; padding: 20px;",
                 icon("spinner", class = "fa-spin fa-3x"),
@@ -271,7 +253,7 @@ ui <- fluidPage(
             ),
             
             conditionalPanel(
-              condition = "output.map_data_ready",
+              condition = "output.data_ready",
               
               # MEDIA SELECTOR - at the top
               radioButtons(
@@ -672,7 +654,7 @@ ui <- fluidPage(
         sidebarLayout(
           sidebarPanel(
             conditionalPanel(
-              condition = "!output.map_data_ready",
+              condition = "!output.data_ready",
               div(
                 style = "text-align: center; padding: 20px;",
                 icon("spinner", class = "fa-spin fa-3x"),
@@ -681,7 +663,7 @@ ui <- fluidPage(
             ),
             
             conditionalPanel(
-              condition = "output.map_data_ready",
+              condition = "output.data_ready",
               
               tags$details(
                 tags$summary(

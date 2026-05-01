@@ -10,103 +10,154 @@ ID_COLS = c("data_source",
             "River","Latitude","Longitude","Latitude Decimal","Longitude Decimal",
             "Year", "Distance from Bank", "Sieve Size")
 
-upload_sampled_data = function(sample_data, media = NA, debug_prepped = FALSE, format = NA, src_lang = NA, target_lang = NA) {
-
-  # in case we have weird non-UTF-8 characters
-  names(sample_data) <- fix_headers(names(sample_data))
-
-  # take raw pilco data and turn it into prepped clean version
-  # will only not run if we're sending in pre-cleaned data, which shouldn't happen in production
+upload_sampled_data <- function(sample_data,
+                                media = NA,
+                                debug_prepped = FALSE,
+                                format = NA,
+                                src_lang = NA,
+                                target_lang = NA) {
   
-  print("[upload_sampled_data] about to clean_water_data")
-  if(format=="pilco" && !debug_prepped && media=="water") {
-    sample_data = clean_water_data(sample_data, source=format)
-  } else if (format=="pilco" && !debug_prepped && media=="sediment") {
-    sample_data = clean_sediment_data(sample_data, source=format)
-  } else { message("[upload_sampled_data] Reached an unexpected else") }
+  message("[upload_sampled_data] START")
+  message("[upload_sampled_data] format = ", format,
+          " | media = ", media,
+          " | debug_prepped = ", debug_prepped,
+          " | src_lang = ", src_lang,
+          " | target_lang = ", target_lang)
   
-  # translate file to appropriate language - should probably make everything english, handle, then revert to es as desired in the front-facing app
-  # english for backend work, es/en for front-end
-  translated_data = translate_pilco_data(sample_data, src_lang, target_lang, media)
-  # View(translated_data) 
-  
-  if(format=="pilco") {
-    formatted_data = pivot_pilcomayo_data(translated_data, media_type = media)
-  } else if (format=="parameter_long") { formatted_data = translated_data} # we can just start from per-parameter if someone has it
-  else { abort("Data format not recognized. Please check your file and try again")
+  if (is.null(sample_data) || !is.data.frame(sample_data)) {
+    stop("[upload_sampled_data] sample_data is NULL or not a data.frame")
   }
-  print("showing notification that upload processed successfully")
-  showNotification("Upload processed successfully!", type = "message")
-  return(formatted_data)
+  
+  names(sample_data) <- fix_headers(names(sample_data))
+  message("[upload_sampled_data] fixed headers")
+  message("[upload_sampled_data] input dim = ", nrow(sample_data), " x ", ncol(sample_data))
+  message("[upload_sampled_data] input names = ", paste(names(sample_data), collapse = ", "))
+  
+  cleaned_data <- sample_data
+  
+  if (identical(format, "pilco") && !isTRUE(debug_prepped) && identical(media, "water")) {
+    message("[upload_sampled_data] running clean_water_data()")
+    cleaned_data <- clean_water_data(cleaned_data, source = format)
+    message("[upload_sampled_data] clean_water_data() done")
+    
+  } else if (identical(format, "pilco") && !isTRUE(debug_prepped) && identical(media, "sediment")) {
+    message("[upload_sampled_data] running clean_sediment_data()")
+    cleaned_data <- clean_sediment_data(cleaned_data, source = format)
+    message("[upload_sampled_data] clean_sediment_data() done")
+    
+  } else if (identical(format, "parameter_long")) {
+    message("[upload_sampled_data] parameter_long: skipping raw cleaner")
+    
+  } else {
+    stop("[upload_sampled_data] unsupported format/media/debug_prepped combination")
+  }
+  
+  if (nrow(cleaned_data) == 0 || ncol(cleaned_data) == 0) {
+    stop("[upload_sampled_data] cleaned_data is empty")
+  }
+  
+  message("[upload_sampled_data] cleaned dim = ", nrow(cleaned_data), " x ", ncol(cleaned_data))
+  message("[upload_sampled_data] cleaned names = ", paste(names(cleaned_data), collapse = ", "))
+  
+  message("[upload_sampled_data] running translate_pilco_data()")
+  translated_data <- translate_pilco_data(cleaned_data, src_lang, target_lang, media)
+  message("[upload_sampled_data] translate_pilco_data() done")
+  
+  if (is.null(translated_data) || !is.data.frame(translated_data)) {
+    stop("[upload_sampled_data] translated_data is NULL or not a data.frame")
+  }
+  if (nrow(translated_data) == 0 || ncol(translated_data) == 0) {
+    stop("[upload_sampled_data] translated_data is empty")
+  }
+  
+  message("[upload_sampled_data] translated dim = ", nrow(translated_data), " x ", ncol(translated_data))
+  message("[upload_sampled_data] translated names = ", paste(names(translated_data), collapse = ", "))
+  
+  if (identical(format, "pilco")) {
+    message("[upload_sampled_data] running pivot_pilcomayo_data()")
+    formatted_data <- pivot_pilcomayo_data(translated_data, media_type = media)
+    message("[upload_sampled_data] pivot_pilcomayo_data() done")
+  } else if (identical(format, "parameter_long")) {
+    formatted_data <- translated_data
+  } else {
+    stop("[upload_sampled_data] Data format not recognized")
+  }
+  
+  if (nrow(formatted_data) == 0 || ncol(formatted_data) == 0) {
+    stop("[upload_sampled_data] formatted_data is empty")
+  }
+  
+  message("[upload_sampled_data] formatted dim = ", nrow(formatted_data), " x ", ncol(formatted_data))
+  message("[upload_sampled_data] formatted names = ", paste(names(formatted_data), collapse = ", "))
+  message("[upload_sampled_data] END")
+  
+  formatted_data
 }
 
-pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type = NA, date_format = "mdy") {
-  if (is.null(df) || !is.data.frame(df)) stop("df NULL/not data.frame")
+pivot_pilcomayo_data <- function(df, media_type = NA, date_format = "mdy") {
+  
+  message("[pivot_pilcomayo_data] START | media_type = ", media_type)
+  
+  if (is.null(df) || !is.data.frame(df)) stop("[pivot_pilcomayo_data] df NULL/not data.frame")
+  if (nrow(df) == 0 || ncol(df) == 0) stop("[pivot_pilcomayo_data] df empty")
+  
+  message("[pivot_pilcomayo_data] input dim = ", nrow(df), " x ", ncol(df))
+  message("[pivot_pilcomayo_data] input names = ", paste(names(df), collapse = ", "))
+  
   if (!"data_source" %in% names(df)) df$data_source <- NA_character_
-  # force data_source to be first so id_cols catches it easily
   df <- dplyr::relocate(df, data_source, .before = 1)
   
-  if(media_type == "sediment") {
-    # replace ID_COLS with sediment specific one
-    ID_COLS = c("data_source",
-                "Station","Date","Time","Campaign","Institution",
-                "River","Latitude","Longitude","Latitude Decimal","Longitude Decimal",
-                "Year", "Distance from Bank", "Sieve Size")
-    
-    # also: replace g/100 with %, get decimal location, 
+  if (!"Latitude Decimal" %in% names(df) && "Latitude" %in% names(df)) {
+    df$`Latitude Decimal` <- to_decimal_loc(df$Latitude)
+    message("[pivot_pilcomayo_data] created Latitude Decimal")
   }
-  # create lat & lon in decimal if it doesn't already exist
-  if(!"Latitude Decimal" %in% names(df) || !"Longitude Decimal" %in% names(df)) {
-    df$"Latitude Decimal" = to_decimal_loc(df$Latitude)
-    df$"Longitude Decimal" = to_decimal_loc(df$Longitude)
-  }
-  # recalc id columns (ensure data_source included)
-  present_ids <- intersect(ID_COLS, names(df))
-  missing_ids <- setdiff(ID_COLS, names(df))
-  
-  src_label <- if (!is.na(unique(df$data_source)[1])) paste0(" [", unique(df$data_source)[1], "]") else ""
-  if (length(missing_ids)) {
-    message("[pivot_pilcomayo_data]", src_label, " — missing ID columns: ", paste(missing_ids, collapse = ", "))
-    # create missing ID cols (NA) so schema is consistent
-    for (nm in missing_ids) df[[nm]] <- NA
-  } else {
-    message("[pivot_pilcomayo_data]", src_label, " — all ID columns present")
+  if (!"Longitude Decimal" %in% names(df) && "Longitude" %in% names(df)) {
+    df$`Longitude Decimal` <- to_decimal_loc(df$Longitude)
+    message("[pivot_pilcomayo_data] created Longitude Decimal")
   }
   
-  # final id column order (data_source kept first)
-  id_cols <- unique(c("data_source", ID_COLS))
-  # reorder df so ID columns are first, then everything else in original order
-  other_cols <- setdiff(names(df), id_cols)
-  df <- df[, c(id_cols, other_cols), drop = FALSE]
-  
-  # value columns = everything after the id block
-  value_cols <- other_cols
-  if (!length(value_cols)) abort("[pivot_pilcomayo_data] No value columns to pivot")
-
-  # coerce numeric on value columns (safely)
-  df2 <- df %>%
-    mutate(across(any_of(value_cols), ~ suppressWarnings(as.numeric(as.character(.)))))
-  
-  # prep CR route
-  cr_route = switch(media_type,
-                    "water" = "oral",
-                    "sediment" = "oral",
-                    default = NA
+  id_cols <- c(
+    "data_source",
+    "Station", "Date", "Time", "Year", "Campaign", "Institution", "River",
+    "Latitude", "Longitude", "Latitude Decimal", "Longitude Decimal",
+    "Decimal latitude", "Decimal longitude",
+    "Distance from Bank", "Sieve Size"
   )
   
-  # pivot
+  missing_ids <- setdiff(id_cols, names(df))
+  if (length(missing_ids)) {
+    message("[pivot_pilcomayo_data] missing ID cols: ", paste(missing_ids, collapse = ", "))
+    for (nm in missing_ids) df[[nm]] <- NA
+  }
+  
+  other_cols <- setdiff(names(df), id_cols)
+  
+  non_analyte_cols <- EXCLUDED_COLS
+  
+  value_cols <- setdiff(other_cols, non_analyte_cols)
+  value_cols <- intersect(value_cols, names(df))
+  
+  message("[pivot_pilcomayo_data] value_cols count = ", length(value_cols))
+  if (!length(value_cols)) stop("[pivot_pilcomayo_data] no value columns to pivot")
+  
+  df <- df[, c(id_cols, value_cols), drop = FALSE]
+  
+  df2 <- df %>%
+    mutate(across(all_of(value_cols), ~ suppressWarnings(as.numeric(as.character(.)))))
+  
   df_long <- df2 %>%
-    pivot_longer(cols = any_of(value_cols),
-                 names_to = "raw_name",
-                 values_to = "concentration",
-                 values_drop_na = TRUE)
+    pivot_longer(
+      cols = all_of(value_cols),
+      names_to = "raw_name",
+      values_to = "concentration",
+      values_drop_na = TRUE
+    )
   
-  date_lubridated = switch(media_type,
-                              "water" = df_long$Date,
-                              "sediment" = lubridate::ymd(df_long$Date),
-                              .default = NULL)
+  message("[pivot_pilcomayo_data] after pivot_longer dim = ", nrow(df_long), " x ", ncol(df_long))
+  if (nrow(df_long) == 0) stop("[pivot_pilcomayo_data] pivot_longer produced 0 rows")
   
-  # parse and tidy
+  parsed_dates <- safe_parse_dates(df_long$Date)
+  
   df_long <- df_long %>%
     mutate(
       fraction = case_when(
@@ -117,35 +168,85 @@ pivot_pilcomayo_data <- function(df, id_cols_num = length(ID_COLS), media_type =
       ),
       clean_name = str_remove_all(raw_name, regex("\\b(Total|Suspended|Dissolved)\\b", ignore_case = TRUE)),
       parameter = str_squish(str_remove(clean_name, "\\(.*\\)$")),
-      unit_blob = stringr::str_match(clean_name, "\\((.*)\\)")[,2] %>% coalesce(""),
+      unit_blob = dplyr::coalesce(stringr::str_match(clean_name, "\\((.*)\\)")[, 2], ""),
       unit = str_extract(unit_blob, "^[^ ]+(/[^ ]+)?"),
       media = media_type,
-      Date = date_lubridated, ## NOTE: ymd ONLY WORKS WITH SED DATA. WATER DATA USES MDY. CAN'T IFELSE :/
-      Year = lubridate::year(Date),
+      date = parsed_dates,
+      year = suppressWarnings(lubridate::year(date)),
       unit = case_when(
-        str_detect(parameter, regex("^pH$", ignore_case = TRUE)) & is.na(unit) ~ "pH units",
+        str_detect(parameter, regex("^pH$", ignore_case = TRUE)) & (is.na(unit) | unit == "") ~ "pH units",
         TRUE ~ unit
       ),
       unit = str_replace_all(unit, fixed("°"), ""),
       unit = str_trim(unit),
       unit = case_when(
-        str_detect(unit, regex("astm\\)", ignore_case = TRUE))            ~ "%",
         str_detect(unit, regex("g\\s*/\\s*100|g\\s*per\\s*100", ignore_case = TRUE)) ~ "%",
-                         TRUE ~ unit  # fallback: keep original cleaned string
+        TRUE ~ unit
       ),
       unit = str_trim(unit),
-      cr_route = cr_route
+      station = .data[["Station"]],
+      latitude_decimal = .data[["Latitude Decimal"]],
+      longitude_decimal = .data[["Longitude Decimal"]],
+      time = .data[["Time"]],
+      campaign = .data[["Campaign"]],
+      institution = .data[["Institution"]],
+      river = .data[["River"]],
+      distance_from_bank = .data[["Distance from Bank"]],
+      sieve_size = .data[["Sieve Size"]]
+    ) %>%
+    filter(
+      !parameter %in% non_analyte_cols,
+      !is.na(parameter),
+      parameter != ""
     )
   
-  # remove odd parameters that aren't supposed to be there, manually.
-  df_long |> filter(!parameter %in% c("Lat_dd", "Long_dd"))
+  message("[pivot_pilcomayo_data] unique parameters:")
+  params <- sort(unique(df_long$parameter))
+  print(params)
   
+  bad_params <- params[params %in% c(
+    "Lat_dd", "Long_dd",
+    "Latitude Decimal", "Longitude Decimal",
+    "Decimal latitude", "Decimal longitude",
+    "Latitude", "Longitude",
+    "Station", "Date", "Time", "Campaign", "Institution",
+    "River", "Year", "Distance from Bank", "Sieve Size",
+    "data_source"
+  )]
   
-  # keep id cols + standardized columns, preserve data_source
-  keep <- c(intersect(id_cols, names(df_long)), "Date", "Year", "parameter", "fraction", "media", "concentration", "unit", "cr_route")
-  df_long %>% select(all_of(keep)) %>% janitor::clean_names()
+  if (length(bad_params) > 0) {
+    message("[pivot_pilcomayo_data] suspicious parameters detected:")
+    print(bad_params)
+  }
+  
+  message("[pivot_pilcomayo_data] after cleanup dim = ", nrow(df_long), " x ", ncol(df_long))
+  if (nrow(df_long) == 0) stop("[pivot_pilcomayo_data] no rows remain after cleanup")
+  
+  message("[pivot_pilcomayo_data] unique parameters:")
+  print(sort(unique(df_long$parameter)))
+  
+  out <- df_long %>%
+    select(
+      any_of(c(
+        "data_source", "station", "date", "time", "campaign", "institution",
+        "river", "latitude_decimal", "longitude_decimal", "year",
+        "distance_from_bank", "sieve_size",
+        "parameter", "fraction", "media", "concentration", "unit"
+      ))
+    ) %>%
+    janitor::clean_names()
+  
+  message("[pivot_pilcomayo_data] output dim = ", nrow(out), " x ", ncol(out))
+  message("[pivot_pilcomayo_data] output names = ", paste(names(out), collapse = ", "))
+  
+  if (!all(c("station", "year", "parameter", "media", "concentration", "unit") %in% names(out))) {
+    stop("[pivot_pilcomayo_data] missing required output columns")
+  }
+  if (nrow(out) == 0) stop("[pivot_pilcomayo_data] output has 0 rows")
+  
+  message("[pivot_pilcomayo_data] END")
+  out
 }
-
 #### Helpers
 
 # fix to UTF-8
