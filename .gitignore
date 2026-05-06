@@ -2,4 +2,19 @@
 .Rhistory
 .RData
 .Ruserdata
+.RDataTmp
 docs/app.json
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Generated/derived data files (rebuilt on app startup)
+data/standards/strict_standards.csv
+
+# Temporary user upload cache
+data/processed/water_scored_user_update.rds
+data/processed/sed_scored_user_updated.rds
+
+# Backup directories
+backup_temp/
