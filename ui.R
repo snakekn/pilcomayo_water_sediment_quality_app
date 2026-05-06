@@ -220,9 +220,46 @@ ui <- fluidPage(
       "Data Preparation",
       value = "data_prep",
       sidebarPanel(
-        div(
-          h4(strong("Upload Data"), style = "margin: 0 0 12px 0;"),
-          dataUploadUI("upload_data")
+        conditionalPanel(
+          condition = "!output.map_data_ready",
+          div(
+            style = "text-align: center; padding: 20px;",
+            icon("spinner", class = "fa-spin fa-3x"),
+            h4("Loading data...", style = "margin-top: 20px;")
+          )
+        ),
+        conditionalPanel(
+          condition = "output.map_data_ready",
+          tags$details(
+            tags$summary(
+              h4(strong("Upload Data"), style = "margin: 0;")
+            ),
+            tabPanel("Import", dataUploadUI("upload_data"))
+          ),
+          tags$hr(),
+          tags$details(
+            tags$summary(
+              h4(strong("Filter Data"), style = "margin: 0;")
+            ),
+            div(
+              style = "padding: 4px 2px;",
+              p("Filters apply across all tabs. Leave stations blank to include all.",
+                style = "font-size: 12px; color: #666; margin: 4px 0 8px 0;"),
+              checkboxInput(
+                "filter_bolivia_only", "Bolivia locations only",
+                value = FALSE
+              ),
+              uiOutput("filter_water_ui"),
+              uiOutput("filter_sed_ui"),
+              uiOutput("filter_status_ui"),
+              br(),
+              actionButton(
+                "reset_filters", "Reset All Filters",
+                icon  = icon("rotate-left"),
+                class = "btn-default btn-sm btn-block"
+              )
+            )
+          )
         )
       ),
       mainPanel(

@@ -135,54 +135,33 @@ score_data <- function(sample_data) {
   scored
 }
 
-# for quickly retrieving standards 
-get_std = function(parameter, std_type, media) {
+# for quickly retrieving standards
+get_std <- function(parameter, std_type, media) {
   key <- make_key(parameter, media, std_type)
-  
   std <- std_map[[key]]
 
-  if (is.null(std)) {
-    return(NULL)
-  }
-  
+  if (is.null(std)) return(NULL)
+
   if (!is.data.frame(std)) {
-    warning(
-      paste0(
-        "[get_std] expected data.frame for key '", key,
-        "', got ", class(std)[1], ". Returning NULL."
-      )
-    )
+    warning(paste0("[get_std] expected data.frame for key '", key,
+                   "', got ", class(std)[1], ". Returning NULL."))
     return(NULL)
   }
-  
-  if (nrow(std) == 0) {
-    return(NULL)
-  }
-  
+
+  if (nrow(std) == 0) return(NULL)
+
   needed_cols <- c("value", "unit", "regulator")
   missing_cols <- setdiff(needed_cols, names(std))
-  
   if (length(missing_cols) > 0) {
-    warning(
-      paste0(
-        "[get_std] missing required columns for key '", key,
-        "': ", paste(missing_cols, collapse = ", "),
-        ". Returning NULL."
-      )
-    )
+    warning(paste0("[get_std] missing required columns for key '", key,
+                   "': ", paste(missing_cols, collapse = ", "), ". Returning NULL."))
     return(NULL)
   }
-  
-  if (nrow(std) > 1) {
-    warning(
-      paste0(
-        "[get_std] multiple rows found for key '", key,
-        "'. Using first row."
-      )
-    )
-  }
-  
-  std[1, , drop = FALSE]
+
+  # When multiple standards exist for the same key, use the most stringent (lowest value)
+  if (nrow(std) > 1) std <- std[which.min(std$value), , drop = FALSE]
+
+  std
 }
 
 # confirms the std is valid to refer to

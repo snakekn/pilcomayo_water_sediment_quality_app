@@ -18,6 +18,12 @@ server <- function(input, output, session) {
     all_media_locyear = NULL,
     all_media_loctime = NULL
   )
+
+  # Raw (unfiltered) data — always holds the full loaded/uploaded dataset.
+  # filtered_water() / filtered_sed() read from these, so there's no circular dependency
+  # when the sync observe writes filtered results back into master_data.
+  raw_water <- reactiveVal(NULL)
+  raw_sed   <- reactiveVal(NULL)
   
   app_initialized = reactiveVal(FALSE) # check if we tried including master_data from prior data
   
@@ -25,9 +31,15 @@ server <- function(input, output, session) {
   observe({
     message("Loading Master Data...")
     
-    master_data$water_scored <- if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() }
-    master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() }
-    master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.qs2")) qs_read("data/processed/all_media_scored.qs2") else { print("no all_media_scored.qs2"); tibble() }
+    raw_water(if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() })
+    raw_sed(if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() })
+    master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.qs2")) qs_read("data/processed/all_water_locyear.qs2") else { print("no all_water_locyear.qs2"); tibble() }
+    master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.qs2")) qs_read("data/processed/all_sed_locyear.qs2") else { print("no all_sed_locyear.qs2"); tibble() }
+    master_data$sed_loctime <<- if(file.exists("data/processed/all_sed_loctime.qs2")) qs_read("data/processed/all_sed_loctime.qs2") else { print("no all_sed_loctime.qs2"); tibble() }
+    master_data$water_loctime <<- if(file.exists("data/processed/all_water_loctime.qs2")) qs_read("data/processed/all_water_loctime.qs2") else { print("no all_water_loctime.qs2"); tibble() }
+    # all_media_scored is derived from water + sed via the filter sync observe below
+    master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.qs2")) qs_read("data/processed/all_media_locyear.qs2") else { print("no all_media_locyear.qs2"); tibble() }
+    master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.qs2")) qs_read("data/processed/all_media_loctime.qs2") else { print("no all_media_loctime.qs2"); tibble() }
 
     app_initialized(TRUE) # we tried loading the data in
     message("Master Data Loaded.")
@@ -42,13 +54,13 @@ server <- function(input, output, session) {
     water_ready || sed_ready || all_media_ready
   })
   outputOptions(output, "data_ready", suspendWhenHidden = FALSE)
-  
+
   observe({
     message("[DEBUG] Data Update Trigger")
     message(" - Water Scored Rows: ", nrow(master_data$water_scored))
     message(" - Sed Scored Rows: ", nrow(master_data$sed_scored))
   })
-  
+
   # one-liner wrapper to check whether we have the data required to run a section
   guard_data <- function(
     df,
@@ -70,12 +82,12 @@ server <- function(input, output, session) {
   observeEvent(input$go_data_prep, {
     updateTabsetPanel(session, "main_tab", selected = "data_prep")
   })
-  
+
   output$water_data_tab <- renderUI({
     has_water <- !is.null(master_data$water_scored) &&
       is.data.frame(master_data$water_scored) &&
       nrow(master_data$water_scored) > 0
-    
+
     if (!has_water) {
       return(
         div(
@@ -85,7 +97,7 @@ server <- function(input, output, session) {
         )
       )
     }
-    
+
     tagList(
       h4("Yearly Summary"),
       DT::DTOutput("data_prep_water_table"),
@@ -94,12 +106,12 @@ server <- function(input, output, session) {
       DT::DTOutput("full_water_table")
     )
   })
-  
+
   output$sed_data_tab <- renderUI({
     has_sed <- !is.null(master_data$sed_scored) &&
       is.data.frame(master_data$sed_scored) &&
       nrow(master_data$sed_scored) > 0
-    
+
     if (!has_sed) {
       return(
         div(
@@ -109,7 +121,7 @@ server <- function(input, output, session) {
         )
       )
     }
-    
+
     tagList(
       h4("Yearly Summary"),
       DT::DTOutput("data_prep_sed_table"),
@@ -118,6 +130,206 @@ server <- function(input, output, session) {
       DT::DTOutput("full_sed_table")
     )
   })
+
+  output$sed_data_ready <- reactive({
+    !is.null(raw_sed()) && nrow(raw_sed()) > 0
+  })
+  outputOptions(output, "sed_data_ready", suspendWhenHidden = FALSE)
+
+  # Combined data ready check — uses raw data so filtering to zero rows doesn't break the UI
+  output$map_data_ready <- reactive({
+    water_ready <- !is.null(raw_water()) && nrow(raw_water()) > 0
+    sed_ready   <- !is.null(raw_sed())   && nrow(raw_sed())   > 0
+    water_ready || sed_ready
+  })
+  outputOptions(output, "map_data_ready", suspendWhenHidden = FALSE)
+
+  # ── Global Data Filters ─────────────────────────────────────────────────────
+  # filtered_water / filtered_sed read from raw_water / raw_sed (not master_data),
+  # so the sync observe below that writes back to master_data creates no circularity.
+
+  filtered_water <- reactive({
+    df <- raw_water()
+    if (is.null(df) || nrow(df) == 0) return(df)
+    # Bolivia filter runs first so that station choices are always a Bolivia-subset
+    if (isTRUE(input$filter_bolivia_only)) {
+      df <- filter_to_border(df, "longitude_decimal", "latitude_decimal", bol_border)
+    }
+    if (!is.null(input$filter_water_dates) && !anyNA(input$filter_water_dates)) {
+      df <- df |> filter(date >= input$filter_water_dates[1],
+                         date <= input$filter_water_dates[2])
+    }
+    # Only apply station filter for stations that still exist after Bolivia clip
+    valid_stations <- if (isTRUE(input$filter_bolivia_only)) unique(df$station) else NULL
+    sel <- input$filter_water_stations
+    if (!is.null(sel) && length(sel) > 0) {
+      if (!is.null(valid_stations)) sel <- intersect(sel, valid_stations)
+      if (length(sel) > 0) df <- df |> filter(station %in% sel)
+    }
+    df
+  })
+
+  filtered_sed <- reactive({
+    df <- raw_sed()
+    if (is.null(df) || nrow(df) == 0) return(df)
+    if (isTRUE(input$filter_bolivia_only)) {
+      df <- filter_to_border(df, "longitude_decimal", "latitude_decimal", bol_border)
+    }
+    if (!is.null(input$filter_sed_dates) && !anyNA(input$filter_sed_dates)) {
+      df <- df |> filter(date >= input$filter_sed_dates[1],
+                         date <= input$filter_sed_dates[2])
+    }
+    valid_stations <- if (isTRUE(input$filter_bolivia_only)) unique(df$station) else NULL
+    sel <- input$filter_sed_stations
+    if (!is.null(sel) && length(sel) > 0) {
+      if (!is.null(valid_stations)) sel <- intersect(sel, valid_stations)
+      if (length(sel) > 0) df <- df |> filter(station %in% sel)
+    }
+    df
+  })
+
+  filtered_all_media <- reactive({
+    w <- filtered_water() %||% tibble()
+    s <- filtered_sed()   %||% tibble()
+    # sieve_size is NA (logical) in water data, character in sediment — coerce before binding
+    if ("sieve_size" %in% names(w)) w$sieve_size <- as.character(w$sieve_size)
+    if ("sieve_size" %in% names(s)) s$sieve_size <- as.character(s$sieve_size)
+    bind_rows(w, s)
+  })
+
+  # Sync filtered data into master_data so every existing consumer is automatically filtered.
+  observe({
+    master_data$water_scored    <- filtered_water()
+    master_data$sed_scored      <- filtered_sed()
+    master_data$all_media_scored <- filtered_all_media()
+  })
+
+  # Filter UI for Water
+  output$filter_water_ui <- renderUI({
+    df <- raw_water()
+    req(df, nrow(df) > 0)
+    dates    <- df$date[!is.na(df$date)]
+    stations <- sort(unique(df$station))
+    tagList(
+      h5("Water", style = "margin: 10px 0 4px 0; font-weight: 600;"),
+      dateRangeInput(
+        "filter_water_dates", "Date range:",
+        start = min(dates), end = max(dates),
+        min   = min(dates), max = max(dates),
+        format = "yyyy-mm-dd", separator = " to "
+      ),
+      selectizeInput(
+        "filter_water_stations", "Stations:",
+        choices  = stations,
+        selected = NULL,
+        multiple = TRUE,
+        options  = list(placeholder = "All stations")
+      )
+    )
+  })
+
+  # Filter UI for Sediment
+  output$filter_sed_ui <- renderUI({
+    df <- raw_sed()
+    req(df, nrow(df) > 0)
+    dates    <- df$date[!is.na(df$date)]
+    stations <- sort(unique(df$station))
+    tagList(
+      h5("Sediment", style = "margin: 10px 0 4px 0; font-weight: 600;"),
+      dateRangeInput(
+        "filter_sed_dates", "Date range:",
+        start = min(dates), end = max(dates),
+        min   = min(dates), max = max(dates),
+        format = "yyyy-mm-dd", separator = " to "
+      ),
+      selectizeInput(
+        "filter_sed_stations", "Stations:",
+        choices  = stations,
+        selected = NULL,
+        multiple = TRUE,
+        options  = list(placeholder = "All stations")
+      )
+    )
+  })
+
+  # Filter status badge shown under the filter controls
+  output$filter_status_ui <- renderUI({
+    n_raw_w  <- nrow(raw_water()  %||% tibble())
+    n_filt_w <- nrow(filtered_water() %||% tibble())
+    n_raw_s  <- nrow(raw_sed()    %||% tibble())
+    n_filt_s <- nrow(filtered_sed()   %||% tibble())
+
+    water_active <- n_filt_w < n_raw_w
+    sed_active   <- n_filt_s < n_raw_s
+
+    if (!water_active && !sed_active) {
+      p("No filters active — showing all data.",
+        style = "color: #666; font-size: 12px; margin: 6px 0 0 0;")
+    } else {
+      div(
+        style = "color: #c0392b; font-size: 12px; font-weight: 600; margin: 6px 0 0 0;",
+        if (water_active) p(paste0("Water: ", n_filt_w, " / ", n_raw_w, " rows shown"),
+                            style = "margin: 2px 0;"),
+        if (sed_active)   p(paste0("Sediment: ", n_filt_s, " / ", n_raw_s, " rows shown"),
+                            style = "margin: 2px 0;")
+      )
+    }
+  })
+
+  # Reset all filters back to full date range + no station selection
+  observeEvent(input$reset_filters, {
+    updateCheckboxInput(session, "filter_bolivia_only", value = FALSE)
+    df_w <- raw_water()
+    df_s <- raw_sed()
+    if (!is.null(df_w) && nrow(df_w) > 0) {
+      dates_w <- df_w$date[!is.na(df_w$date)]
+      updateDateRangeInput(session, "filter_water_dates",
+                           start = min(dates_w), end = max(dates_w))
+      updateSelectizeInput(session, "filter_water_stations", selected = character(0))
+    }
+    if (!is.null(df_s) && nrow(df_s) > 0) {
+      dates_s <- df_s$date[!is.na(df_s$date)]
+      updateDateRangeInput(session, "filter_sed_dates",
+                           start = min(dates_s), end = max(dates_s))
+      updateSelectizeInput(session, "filter_sed_stations", selected = character(0))
+    }
+  })
+  # When Bolivia-only checkbox toggles, restrict (or restore) station picker choices
+  observeEvent(input$filter_bolivia_only, {
+    df_w <- raw_water()
+    df_s <- raw_sed()
+
+    if (isTRUE(input$filter_bolivia_only)) {
+      if (!is.null(df_w) && nrow(df_w) > 0) {
+        bol_w   <- filter_to_border(df_w, "longitude_decimal", "latitude_decimal", bol_border)
+        choices <- sort(unique(bol_w$station))
+        updateSelectizeInput(session, "filter_water_stations",
+                             choices  = choices,
+                             selected = intersect(input$filter_water_stations, choices))
+      }
+      if (!is.null(df_s) && nrow(df_s) > 0) {
+        bol_s   <- filter_to_border(df_s, "longitude_decimal", "latitude_decimal", bol_border)
+        choices <- sort(unique(bol_s$station))
+        updateSelectizeInput(session, "filter_sed_stations",
+                             choices  = choices,
+                             selected = intersect(input$filter_sed_stations, choices))
+      }
+    } else {
+      if (!is.null(df_w) && nrow(df_w) > 0) {
+        updateSelectizeInput(session, "filter_water_stations",
+                             choices  = sort(unique(df_w$station)),
+                             selected = input$filter_water_stations)
+      }
+      if (!is.null(df_s) && nrow(df_s) > 0) {
+        updateSelectizeInput(session, "filter_sed_stations",
+                             choices  = sort(unique(df_s$station)),
+                             selected = input$filter_sed_stations)
+      }
+    }
+  })
+
+  # ── End Global Data Filters ──────────────────────────────────────────────────
+
   # Unified campaign/date range UI that works for both
   output$map_campaign_ui <- renderUI({
     cat("\n=== DEBUG map_campaign_ui ===\n")
@@ -196,10 +408,12 @@ server <- function(input, output, session) {
   
   # Upload button
   upload_result <- dataUploadServer(
-    id = "upload_data",
+    id        = "upload_data",
     base_data = initial_water,
-    master_data = master_data
-    )  
+    master_data = master_data,
+    raw_water = raw_water,
+    raw_sed   = raw_sed
+  )
   
   # save upload to master_data for all downstream app components
   observe({
@@ -207,35 +421,14 @@ server <- function(input, output, session) {
     req(result)
     
     if (result$media == "water") {
-      master_data$water_scored <- result$scored
-    } else if (result$media == "sediment") {
-      master_data$sed_scored <- result$scored
-    } else {
-      showNotification(
-        paste("Unknown uploaded media type:", result$media),
-        type = "error"
-      )
-      return()
+      raw_water(result$scored)
+      master_data$water_locyear <- result$locyear
+    } else { # assuming it's sediment
+      raw_sed(result$scored)
+      master_data$sed_locyear <- result$locyear
     }
-    
-    # Rebuild combined scored data so plots/maps/selectors update
-    master_data$all_media_scored <- merge_media_safely(
-      master_data$water_scored %||% tibble(),
-      master_data$sed_scored %||% tibble()
-    )
-    
-    message("master_data$all_media_scored merged safely: ", nrow(master_data$all_media_scored), " rows")
-    
-    showNotification(
-      paste("Updated", result$media, "data in master_data"),
-      type = "message"
-    )
-    
-    #DEBUG
-    message("Debug: showing master_data$all_media_scored")
-    View(master_data$all_media_scored)
-    message("sed_scored dims: ", nrow(master_data$sed_scored), "x", ncol(master_data$sed_scored))
-    message("water_scored dims: ", nrow(master_data$water_scored), "x", ncol(master_data$water_scored))
+    # all_media_scored is automatically rebuilt by the filter sync observe
+    message("Upload applied: ", result$media, " — ", nrow(result$scored), " rows")
   })
   
   output$import_meta <- renderPrint({
