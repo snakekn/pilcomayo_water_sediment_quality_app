@@ -136,6 +136,7 @@ STRINGS_EN <- list(
   risk_other_heading   = "Other",
   risk_combined_heading = "Combined Risk Scoring",
 
+  risk_clip_to_basin   = "Clip to basin",
   risk_sampling_sta    = "Sampling Stations",
   risk_score_btn       = "Score Stations",
   risk_interp_label    = "Interpolated Risk",
@@ -234,7 +235,21 @@ STRINGS_EN <- list(
   modal_replace_desc      = "Uploaded rows overwrite the matching existing rows. Unmatched new rows are also added.",
   modal_keep_both_btn     = "Keep Both",
   modal_keep_both_desc    = "Append all uploaded rows without any deduplication. The dataset may contain duplicate entries.",
-  modal_cancel_btn        = "Cancel"
+  modal_cancel_btn        = "Cancel",
+
+  # ── Map popups ───────────────────────────────────────────────────────────────
+  popup_station         = "Station",
+  popup_agg_hq          = "Aggregated HQ",
+  popup_date            = "Date",
+  popup_date_range      = "Date Range",
+  popup_param_dist      = "Parameter Distribution",
+  popup_params_unique   = "unique parameters",
+  popup_min             = "Min",
+  popup_max             = "Max",
+
+  # ── Legend ───────────────────────────────────────────────────────────────────
+  legend_water_score    = "Water Score",
+  legend_sed_score      = "Sediment Score"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -374,6 +389,7 @@ STRINGS_ES <- list(
   risk_other_heading   = "Otros",
   risk_combined_heading = "Puntuación de Riesgo Combinado",
 
+  risk_clip_to_basin   = "Recortar a la cuenca",
   risk_sampling_sta    = "Estaciones de Muestreo",
   risk_score_btn       = "Puntuar Estaciones",
   risk_interp_label    = "Riesgo Interpolado",
@@ -472,5 +488,19 @@ STRINGS_ES <- list(
   modal_replace_desc      = "Las filas cargadas sobreescriben las filas existentes coincidentes. Las filas nuevas no coincidentes también se agregan.",
   modal_keep_both_btn     = "Mantener Ambas",
   modal_keep_both_desc    = "Agregar todas las filas cargadas sin deduplicación. El conjunto de datos puede contener entradas duplicadas.",
-  modal_cancel_btn        = "Cancelar"
+  modal_cancel_btn        = "Cancelar",
+
+  # ── Map popups ───────────────────────────────────────────────────────────────
+  popup_station         = "Estación",
+  popup_agg_hq          = "CI Agregado",
+  popup_date            = "Fecha",
+  popup_date_range      = "Rango de Fechas",
+  popup_param_dist      = "Distribución de Parámetros",
+  popup_params_unique   = "parámetros únicos",
+  popup_min             = "Mín",
+  popup_max             = "Máx",
+
+  # ── Legend ───────────────────────────────────────────────────────────────────
+  legend_water_score    = "Puntuación de Agua",
+  legend_sed_score      = "Puntuación de Sedimento"
 )

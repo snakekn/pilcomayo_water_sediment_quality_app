@@ -52,10 +52,7 @@ server <- function(input, output, session) {
     updateSelectInput(session,   "pca_station",      label = s[["select_station"]])
     updateSelectizeInput(session, "pca_parameters",  label = s[["pca_params_label"]])
 
-    # Data scope (shared across Time Series / Ranking / PCA tabs)
-    updateRadioButtons(session, "plot_data_scope",
-                       label   = s[["scope_label"]],
-                       choices = ch(c("scope_bol", "scope_all"), c("bol", "all")))
+    # Data scope — label/choices use data-i18n spans in ui.R; no server update needed
 
     # Time Series tab
     updateSelectInput(session, "ts_standard_mode",
@@ -3501,15 +3498,15 @@ server <- function(input, output, session) {
       date    <- df$date[i]
       
       if (input$water_temp_ag == "recent") {
-        date_display <- paste0("<b>Date:</b> ", date)
+        date_display <- paste0("<b>", tr("popup_date"), ":</b> ", date)
       } else {
         min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
-        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+        date_display <- paste0("<b>", tr("popup_date_range"), ":</b> ", min_date, " to ", date)
       }
-      
+
       popup <- paste0(
-        "<b>Station:</b> ", station, "<br>",
-        "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+        "<b>", tr("popup_station"), ":</b> ", station, "<br>",
+        "<b>", tr("popup_agg_hq"), ":</b> ", round(hq, 3), "<br>",
         date_display
       )
       
@@ -3543,15 +3540,15 @@ server <- function(input, output, session) {
           
           hist_html <- paste0(
             "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
-            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+            "<small><b>", tr("popup_param_dist"), " (n=", length(param_hqs_unique), " ", tr("popup_params_unique"), "):</b></small><br>",
             "<div style='display: flex; align-items: flex-end; height: ", container_height,
             "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
           )
-          
+
           for (j in seq_along(bin_labels)) {
             count    <- as.numeric(bin_counts[j])
             bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
-            
+
             if (count > 0) {
               params_in_bin <- param_names_unique[bin_mask]
               hqs_in_bin    <- param_hqs_unique[bin_mask]
@@ -3560,9 +3557,9 @@ server <- function(input, output, session) {
             } else {
               tooltip_text <- paste0(bin_labels[j], ": no parameters")
             }
-            
+
             bar_height <- count * pixels_per_count
-            
+
             hist_html <- paste0(hist_html,
                                 "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
                                 "<div style='width: 100%; background-color: ", bin_colors[j],
@@ -3572,7 +3569,7 @@ server <- function(input, output, session) {
                                 "</div>"
             )
           }
-          
+
           hist_html <- paste0(hist_html,
                               "</div>",
                               "<div style='display: flex; justify-content: space-between;'>",
@@ -3583,18 +3580,18 @@ server <- function(input, output, session) {
                               "<small style='font-size: 8px; color: #666;'>5</small>",
                               "<small style='font-size: 8px; color: #666;'>10+</small>",
                               "</div>",
-                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
-                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+                              "<small style='color: #666;'>", tr("popup_min"), ": ", round(min(param_hqs_unique), 2),
+                              " | ", tr("popup_max"), ": ", round(max(param_hqs_unique), 2), "</small>",
                               "</div>"
           )
-          
+
           popup <- paste0(popup, hist_html)
         }
       }
-      
+
       return(popup)
     })
-    
+
     water_stations_df(df)
     
     # Use water_bin_breaks() directly — no dependency on raster display
@@ -3673,15 +3670,15 @@ server <- function(input, output, session) {
       date    <- df$date[i]
       
       if (input$sed_temp_ag == "recent") {
-        date_display <- paste0("<b>Date:</b> ", date)
+        date_display <- paste0("<b>", tr("popup_date"), ":</b> ", date)
       } else {
         min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
-        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+        date_display <- paste0("<b>", tr("popup_date_range"), ":</b> ", min_date, " to ", date)
       }
-      
+
       popup <- paste0(
-        "<b>Station:</b> ", station, "<br>",
-        "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+        "<b>", tr("popup_station"), ":</b> ", station, "<br>",
+        "<b>", tr("popup_agg_hq"), ":</b> ", round(hq, 3), "<br>",
         date_display
       )
       
@@ -3715,15 +3712,15 @@ server <- function(input, output, session) {
           
           hist_html <- paste0(
             "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
-            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+            "<small><b>", tr("popup_param_dist"), " (n=", length(param_hqs_unique), " ", tr("popup_params_unique"), "):</b></small><br>",
             "<div style='display: flex; align-items: flex-end; height: ", container_height,
             "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
           )
-          
+
           for (j in seq_along(bin_labels)) {
             count    <- as.numeric(bin_counts[j])
             bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
-            
+
             if (count > 0) {
               params_in_bin <- param_names_unique[bin_mask]
               hqs_in_bin    <- param_hqs_unique[bin_mask]
@@ -3732,9 +3729,9 @@ server <- function(input, output, session) {
             } else {
               tooltip_text <- paste0(bin_labels[j], ": no parameters")
             }
-            
+
             bar_height <- count * pixels_per_count
-            
+
             hist_html <- paste0(hist_html,
                                 "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
                                 "<div style='width: 100%; background-color: ", bin_colors[j],
@@ -3744,7 +3741,7 @@ server <- function(input, output, session) {
                                 "</div>"
             )
           }
-          
+
           hist_html <- paste0(hist_html,
                               "</div>",
                               "<div style='display: flex; justify-content: space-between;'>",
@@ -3755,18 +3752,18 @@ server <- function(input, output, session) {
                               "<small style='font-size: 8px; color: #666;'>5</small>",
                               "<small style='font-size: 8px; color: #666;'>10+</small>",
                               "</div>",
-                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
-                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+                              "<small style='color: #666;'>", tr("popup_min"), ": ", round(min(param_hqs_unique), 2),
+                              " | ", tr("popup_max"), ": ", round(max(param_hqs_unique), 2), "</small>",
                               "</div>"
           )
-          
+
           popup <- paste0(popup, hist_html)
         }
       }
-      
+
       return(popup)
     })
-    
+
     sed_stations_df(df)
     
     # Use sed_bin_breaks() directly — no dependency on raster display
@@ -4555,17 +4552,17 @@ server <- function(input, output, session) {
           n    <- length(breaks) - 1
           bins <- as.character(seq_len(n))
           pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")), domain = bins)
-          html <- paste0(html, legend_color_bar(pal, "Water Score (binned)", NULL, NULL, bins = bins))
+          html <- paste0(html, legend_color_bar(pal, paste0(tr("legend_water_score"), " (binned)"), NULL, NULL, bins = bins))
         } else {
           pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
-          html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+          html <- paste0(html, legend_color_bar(pal, tr("legend_water_score"), water_hq_range()[1], water_hq_range()[2]))
         }
       } else {
         pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
-        html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+        html <- paste0(html, legend_color_bar(pal, tr("legend_water_score"), water_hq_range()[1], water_hq_range()[2]))
       }
     }
-    
+
     # Sediment (stations or raster)
     if (isTRUE(input$risk_sediment) || isTRUE(input$risk_sed_stations)) {
       is_binned <- isTRUE(input$bin_sediment) && !is.null(input$apply_sed_bins) && input$apply_sed_bins > 0
@@ -4575,14 +4572,14 @@ server <- function(input, output, session) {
           n    <- length(breaks) - 1
           bins <- as.character(seq_len(n))
           pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")), domain = bins)
-          html <- paste0(html, legend_color_bar(pal, "Sediment Score (binned)", NULL, NULL, bins = bins))
+          html <- paste0(html, legend_color_bar(pal, paste0(tr("legend_sed_score"), " (binned)"), NULL, NULL, bins = bins))
         } else {
           pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
-          html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+          html <- paste0(html, legend_color_bar(pal, tr("legend_sed_score"), sed_hq_range()[1], sed_hq_range()[2]))
         }
       } else {
         pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
-        html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+        html <- paste0(html, legend_color_bar(pal, tr("legend_sed_score"), sed_hq_range()[1], sed_hq_range()[2]))
       }
     }
     

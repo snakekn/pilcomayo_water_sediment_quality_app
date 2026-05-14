@@ -218,6 +218,28 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
       strings <- if (l == "es") STRINGS_ES else STRINGS_EN
       strings[[key]] %||% paste0("[", key, "]")
     }
+
+    # Re-translate upload form labels whenever language changes
+    if (!is.null(lang)) {
+      observeEvent(lang(), {
+        updateRadioButtons(session, "source_format",
+          label   = t("upload_format_label"),
+          choices = setNames(c("pilco", "by_param"),
+                             c(t("upload_pilco"), t("upload_by_param"))))
+        updateRadioButtons(session, "current_lang",
+          label   = t("upload_lang_label"),
+          choices = c("English" = "en", "Español" = "es"))
+        updateRadioButtons(session, "media_type",
+          label   = t("upload_media_label"),
+          choices = setNames(c("sediment", "water"),
+                             c(t("media_sed"), t("media_water"))))
+        updateRadioButtons(session, "translate_to",
+          label   = t("upload_translate_label"),
+          choices = c("English" = "en", "Español" = "es"))
+        updateActionButton(session, "upload_data", label = t("upload_btn"))
+      }, ignoreInit = TRUE)
+    }
+
     parsed_upload  <- reactiveVal(NULL)
     pending_upload <- reactiveVal(NULL)  # stashed while user responds to duplicate modal
 
