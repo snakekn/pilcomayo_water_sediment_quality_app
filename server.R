@@ -35,6 +35,23 @@ server <- function(input, output, session) {
     updateCheckboxInput(session, "filter_bolivia_only", label = s[["filter_bolivia"]])
     updateActionButton(session, "reset_filters",        label = s[["reset_filters_btn"]])
 
+    # Time Series tab — station / parameter / sieve labels
+    updateSelectInput(session,   "ts_station",       label = s[["select_station"]])
+    updateSelectInput(session,   "ts_param",         label = s[["select_param"]])
+    updateSelectInput(session,   "ts_tamiz",         label = s[["ts_select_sieve"]])
+    updateCheckboxInput(session, "ts_tamiz_checkbox", label = s[["ts_filter_sieve"]])
+
+    # Ranking — parameter / station labels (choices are populated server-side; just update label)
+    updateSelectInput(session, "observation_plot_param", label = s[["select_param"]])
+    updateSelectInput(session, "station_plot_param",     label = s[["select_param"]])
+    updateSelectInput(session, "param_plot_station",     label = s[["select_station"]])
+    updateSelectInput(session, "sieve_plot_param",       label = s[["select_param"]])
+    updateSelectInput(session, "sieve_plot_station",     label = s[["select_station"]])
+
+    # PCA tab
+    updateSelectInput(session,   "pca_station",      label = s[["select_station"]])
+    updateSelectizeInput(session, "pca_parameters",  label = s[["pca_params_label"]])
+
     # Data scope (shared across Time Series / Ranking / PCA tabs)
     updateRadioButtons(session, "plot_data_scope",
                        label   = s[["scope_label"]],

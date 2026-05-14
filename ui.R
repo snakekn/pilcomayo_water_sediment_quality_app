@@ -469,10 +469,8 @@ ui <- fluidPage(
                         selected = "none"
             ),
             info_callout(
-              "Time Series",
-              "These plots display all selected sampled concentrations
-                  at the selected monitoring station. Points represent individual measurements. 
-                  You can select which regulatory standards you'd like to visualize."
+              span("Time Series", `data-i18n`="ts_callout_title"),
+              span("These plots display all selected sampled concentrations at the selected monitoring station. Points represent individual measurements. You can select which regulatory standards you'd like to visualize.", `data-i18n`="ts_callout_text")
             )
           ),
           mainPanel(
@@ -516,9 +514,8 @@ ui <- fluidPage(
               selectInput("observation_plot_media", "Select Media:", choices = c("Water" ="water", "Sediment"="sediment")),
               
               info_callout(
-                "Observation Ranking",
-                "This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard).
-                                                      Data is sourced from www2.pilcomayo.net."
+                span("Observation Ranking", `data-i18n`="obs_callout_title"),
+                span("This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard). Data is sourced from www2.pilcomayo.net.", `data-i18n`="obs_callout_text")
               )
             ),
             column(8, uiOutput("observation_scores_ui", height = "500px"))
@@ -556,12 +553,8 @@ ui <- fluidPage(
                 )          
               ),
               info_callout(
-                "Station Ranking",
-                "This plot ranks water sampling stations based on water quality standards from Bolivian law.
-                                                      Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
-                                                        Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
-                                                        For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
-                                                        Data is sourced from www2.pilcomayo.net."
+                span("Station Ranking", `data-i18n`="sta_callout_title"),
+                span("This plot ranks water sampling stations based on water quality standards from Bolivian law. Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score. Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station. For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). Data is sourced from www2.pilcomayo.net.", `data-i18n`="sta_callout_text")
               )
             ),
             column(8, plotlyOutput("station_scores_plot", height = "500px"))
@@ -599,12 +592,8 @@ ui <- fluidPage(
                                                   )
               ),
               info_callout(
-                "Parameter Ranking",
-                "TO UPDATE: This plot ranks water quality parameters based on standards from Bolivian law.
-                                                      Parameters can be ranked by the percent of observations that fall into each classification, or by overall score.
-                                                        Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter.
-                                                        Light bars represent percents/scores calculated after omitting NA rows for that parameter.
-                                                        Data is sourced from www2.pilcomayo.net."
+                span("Parameter Ranking", `data-i18n`="par_callout_title"),
+                span("This plot ranks water quality parameters based on standards from Bolivian law. Parameters can be ranked by the percent of observations that fall into each classification, or by overall score. Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter. Light bars represent percents/scores calculated after omitting NA rows for that parameter. Data is sourced from www2.pilcomayo.net.", `data-i18n`="par_callout_text")
               )),
             column(8, plotlyOutput("param_scores_plot", height = "500px"))
           )),  # Close Worst Parameters tabPanel
@@ -674,14 +663,8 @@ ui <- fluidPage(
             actionButton("run_pca", "Run PCA", class = "btn-primary"),
             
             info_callout(
-              "Principal Component Analysis",
-              "This analysis performs PCA on selected water quality parameters to identify
-                                      underlying patterns and relationships in the data. Missing values are
-                                      imputed using optimal component estimation. The variable plot shows parameter
-                                      contributions and correlations, colored by representation quality (cos²).
-                                      The scree plot displays variance explained by each component to help determine
-                                      the optimal number of dimensions. Select up to 15 parameters and click 'Run PCA'
-                                      to begin the analysis. Data is sourced from www2.pilcomayo.net."
+              span("Principal Component Analysis", `data-i18n`="pca_callout_title"),
+              span("This analysis performs PCA on selected water quality parameters to identify underlying patterns and relationships in the data. Missing values are imputed using optimal component estimation. The variable plot shows parameter contributions and correlations, colored by representation quality (cos²). The scree plot displays variance explained by each component to help determine the optimal number of dimensions. Select up to 15 parameters and click 'Run PCA' to begin the analysis. Data is sourced from www2.pilcomayo.net.", `data-i18n`="pca_callout_text")
             )
           ),
           mainPanel(
@@ -1008,9 +991,10 @@ ui <- fluidPage(
               hr(),
               
               uiOutput("risk_sidebar"),
-              info_callout("Risk Map",
-                           "Click anywhere on the map to see detailed risk values for each layer.
-                       Higher values = higher risk.")
+              info_callout(
+                span("Risk Map", `data-i18n`="risk_callout_title"),
+                span("Click anywhere on the map to see detailed risk values for each layer. Higher values = higher risk.", `data-i18n`="risk_callout_text")
+              )
             )
           ),
           mainPanel(
