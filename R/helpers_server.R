@@ -210,8 +210,14 @@ process_uploaded_pilco_file <- function(path, media, src_lang, target_lang) {
 
 # take data in either of 2 formats, format & score, merge
 # Output: locyear and scored files in master_data
-dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_sed = NULL) {
+dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_sed = NULL, lang = NULL) {
   moduleServer(id, function(input, output, session) {
+    # Local translation helper — falls back to English if lang not provided
+    t <- function(key) {
+      l <- if (!is.null(lang)) isolate(lang()) else "en"
+      strings <- if (l == "es") STRINGS_ES else STRINGS_EN
+      strings[[key]] %||% paste0("[", key, "]")
+    }
     parsed_upload  <- reactiveVal(NULL)
     pending_upload <- reactiveVal(NULL)  # stashed while user responds to duplicate modal
 
@@ -259,14 +265,14 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
         "data/processed/sed_scored_user_updated.rds"
       }
       saveRDS(merged, save_path)
-      showNotification("Upload processing complete!", type = "message")
+      showNotification(t("notif_upload_complete"), type = "message")
     }
 
     # ── Main upload handler ────────────────────────────────────────────────────
     observeEvent(input$upload_data, {
 
       if (is.null(input$files) || nrow(input$files) == 0) {
-        showNotification("Please select a file before processing.", type = "error")
+        showNotification(t("notif_select_file"), type = "error")
         return()
       }
 
@@ -281,7 +287,7 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
       req(input$files)
       showNotification(paste("Processing:", input$files$name[1]), type = "message")
 
-      withProgress(message = "Processing uploads...", value = 0, {
+      withProgress(message = t("progress_upload"), value = 0, {
         n_files <- nrow(input$files)
 
         # Use raw (unfiltered) data as the base — see upload/filter interaction notes
@@ -339,7 +345,7 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
         all_uploaded_df <- bind_rows(all_uploaded)
 
         if (nrow(all_uploaded_df) == 0) {
-          showNotification("No valid data found in uploaded files.", type = "warning")
+          showNotification(t("notif_no_valid_data"), type = "warning")
           return()
         }
 
@@ -354,27 +360,22 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
           ))
 
           showModal(modalDialog(
-            title = "Duplicate Rows Detected",
-            p(
-              strong(format(n_dupes, big.mark = ",")), " row(s) in the uploaded file ",
-              "match rows already in the dataset ",
-              "(matched on station, date, parameter, media, and fraction). ",
-              "How would you like to handle them?"
-            ),
+            title = t("modal_dup_title"),
+            p(HTML(sprintf(t("modal_dup_body"), format(n_dupes, big.mark = ",")))),
             hr(),
             tags$dl(
-              tags$dt("Keep Existing"),
-              tags$dd("Discard the matching rows from the upload. Only genuinely new rows are added."),
-              tags$dt("Replace with Upload"),
-              tags$dd("Uploaded rows overwrite the matching existing rows. Unmatched new rows are also added."),
-              tags$dt("Keep Both"),
-              tags$dd("Append all uploaded rows without any deduplication. The dataset may contain duplicate entries.")
+              tags$dt(t("modal_keep_existing_btn")),
+              tags$dd(t("modal_keep_existing_desc")),
+              tags$dt(t("modal_replace_btn")),
+              tags$dd(t("modal_replace_desc")),
+              tags$dt(t("modal_keep_both_btn")),
+              tags$dd(t("modal_keep_both_desc"))
             ),
             footer = tagList(
-              modalButton("Cancel"),
-              actionButton(session$ns("dup_keep_existing"), "Keep Existing",      class = "btn-default"),
-              actionButton(session$ns("dup_replace"),       "Replace with Upload", class = "btn-warning"),
-              actionButton(session$ns("dup_keep_both"),     "Keep Both",           class = "btn-danger")
+              modalButton(t("modal_cancel_btn")),
+              actionButton(session$ns("dup_keep_existing"), t("modal_keep_existing_btn"), class = "btn-default"),
+              actionButton(session$ns("dup_replace"),       t("modal_replace_btn"),       class = "btn-warning"),
+              actionButton(session$ns("dup_keep_both"),     t("modal_keep_both_btn"),     class = "btn-danger")
             ),
             easyClose = FALSE
           ))

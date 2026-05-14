@@ -9,7 +9,7 @@ layer_row <- function(checkbox_id, switch_id, label) {
 
 # ensure tabs can't be interacted with when data isn't prepared
 locked_tab_body <- function(...,
-                            message = "No data loaded yet. Upload data in Data Preparation before using this tool.",
+                            message = span("No data loaded yet. Upload data in Data Preparation before using this tool.", `data-i18n`="locked_msg"),
                             condition = "!output.data_ready") {
   div(
     class = "locked-tab-wrap",
@@ -20,9 +20,9 @@ locked_tab_body <- function(...,
         class = "locked-tab-overlay",
         div(
           class = "locked-tab-box",
-          h3("Upload data to begin"),
+          h3(span("Upload data to begin", `data-i18n`="locked_heading")),
           p(message),
-          actionButton("go_data_prep", "Go to Data Preparation")
+          actionButton("go_data_prep", span("Go to Data Preparation", `data-i18n`="locked_btn"))
         )
       )
     )
@@ -196,28 +196,67 @@ ui <- fluidPage(
   .leaflet-bottom.leaflet-left {
     bottom: 45px !important;
   }
+
+  /* ── Language Toggle ────────────────────────────────────────── */
+  #lang-toggle {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 6px;
+    padding: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .lang-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: background 0.15s;
+  }
+  .lang-btn:hover { background: #eee; }
+  .lang-btn.lang-active {
+    background: #2c6fad;
+    color: white;
+  }
 "))),
   
+  tags$script(src = "i18n.js"),
+  div(
+    id = "lang-toggle",
+    tags$button("EN", id = "lang-btn-en", class = "lang-btn lang-active",
+                onclick = "setLang('en')"),
+    tags$button("ES", id = "lang-btn-es", class = "lang-btn",
+                onclick = "setLang('es')")
+  ),
   tabsetPanel(
     id = "main_tab",
     tabPanel(
-      "Introduction",
+      span("Introduction", 'data-i18n'="tab_intro"),
       value = "intro",
       fluidPage(
-        titlePanel("Sediment & Water Quality in the Pilcomayo River Basin"),
+        titlePanel(span("Sediment & Water Quality in the Pilcomayo River Basin", `data-i18n`="page_title")),
         tags$hr(),
         tags$img(src = "pilcomayo.jpg", height = "350px"),
         tags$hr(),
-        includeMarkdown("text/introduction.md"),
+        uiOutput("intro_md"),
         tags$hr(),
-        includeMarkdown("text/introduction_sources.md"),
+        uiOutput("intro_sources_md"),
         tags$hr(),
-        includeMarkdown("text/acknowledgements.md")
+        uiOutput("acknowledgements_md")
       )
     ),
     
     tabPanel(
-      "Data Preparation",
+      span("Data Preparation", 'data-i18n'="tab_data_prep"),
       value = "data_prep",
       sidebarPanel(
         conditionalPanel(
@@ -225,28 +264,28 @@ ui <- fluidPage(
           div(
             style = "text-align: center; padding: 20px;",
             icon("spinner", class = "fa-spin fa-3x"),
-            h4("Loading data...", style = "margin-top: 20px;")
+            h4(span("Loading data...", `data-i18n`="loading_data"), style = "margin-top: 20px;")
           )
         ),
         conditionalPanel(
           condition = "output.map_data_ready",
           tags$details(
             tags$summary(
-              h4(strong("Upload Data"), style = "margin: 0;")
+              h4(strong(span("Upload Data", `data-i18n`="upload_heading")), style = "margin: 0;")
             ),
             tabPanel("Import", dataUploadUI("upload_data"))
           ),
           tags$hr(),
           tags$details(
             tags$summary(
-              h4(strong("Filter Data"), style = "margin: 0;")
+              h4(strong(span("Filter Data", `data-i18n`="filter_heading")), style = "margin: 0;")
             ),
             div(
               style = "padding: 4px 2px;",
-              p("Filters apply across all tabs. Leave stations blank to include all.",
+              p(span("Filters apply across all tabs. Leave stations blank to include all.", `data-i18n`="filter_hint"),
                 style = "font-size: 12px; color: #666; margin: 4px 0 8px 0;"),
               checkboxInput(
-                "filter_bolivia_only", "Bolivia locations only",
+                "filter_bolivia_only", span("Bolivia locations only", `data-i18n`="filter_bolivia"),
                 value = FALSE
               ),
               uiOutput("filter_water_ui"),
@@ -254,7 +293,7 @@ ui <- fluidPage(
               uiOutput("filter_status_ui"),
               br(),
               actionButton(
-                "reset_filters", "Reset All Filters",
+                "reset_filters", span("Reset All Filters", `data-i18n`="reset_filters_btn"),
                 icon  = icon("rotate-left"),
                 class = "btn-default btn-sm btn-block"
               )
@@ -267,134 +306,134 @@ ui <- fluidPage(
           condition = "output.data_ready",
           tabsetPanel(
             tabsetPanel(
-              tabPanel("Water Data", uiOutput("water_data_tab")),
-              tabPanel("Sediment Data", uiOutput("sed_data_tab"))
+              tabPanel(span("Water Data", 'data-i18n'="tab_water_data"), uiOutput("water_data_tab")),
+              tabPanel(span("Sediment Data", 'data-i18n'="tab_sed_data"), uiOutput("sed_data_tab"))
             )
           )
         )
       )
     ),
     
-    tabPanel(
-      "Map of Environmental Samples",
-      locked_tab_body(
-        sidebarLayout(
-          sidebarPanel(
-            conditionalPanel(
-              condition = "!output.data_ready",
-              div(
-                style = "text-align: center; padding: 20px;",
-                icon("spinner", class = "fa-spin fa-3x"),
-                h4("Loading data...", style = "margin-top: 20px;")
-              )
-            ),
-            
-            conditionalPanel(
-              condition = "output.data_ready",
-              
-              # MEDIA SELECTOR - at the top
-              radioButtons(
-                "plot_media",
-                "Media:",
-                choices = c("Water" = "water", "Sediment" = "sediment"),
-                selected = "water",
-                inline = TRUE
-              ),
-              
-              # SPATIAL SCOPE SELECTOR
-              radioButtons(
-                "plot_data_scope",
-                "Data Scope:",
-                choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-                selected = "bol",
-                inline = TRUE
-              ),
-              
-              # SEDIMENT SIDEBAR - only show when sediment is selected
-              conditionalPanel(
-                condition = "input.plot_media == 'sediment'",
-                
-                uiOutput("sed_campaign_ui"),
-                uiOutput("tamiz_ui"),
-                selectInput("sed_metal", "Select Parameter:", choices = NULL),
-                radioButtons(
-                  "sed_value_type",
-                  "Symbolize by:",
-                  choices = c(
-                    "Measured Concentration" = "sed_value",
-                    "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
-                    "Hazard Quotient (HQ)" = "hq"
-                  ),
-                  selected = "sed_value"
-                ),
-                uiOutput("sed_legend"),
-                info_callout(
-                  "Sediment Quality Map",
-                  "This map displays sediment quality parameters from monitoring campaigns.
-              Circle size represents the measured concentration, while colors can show either
-              raw values or comparison to USGS Sediment Quality Guidelines
-              (TEL/PEL thresholds). Data can be filtered by date range and sieve size.
-              Data is sourced from www2.pilcomayo.net."
-                )
-              ),
-              
-              # WATER SIDEBAR - only show when water is selected
-              conditionalPanel(
-                condition = "input.plot_media == 'water'",
-                
-                uiOutput("water_campaign_ui"),
-                selectInput("water_metal", "Select Parameter:", choices = NULL),
-                radioButtons(
-                  "water_value_type",
-                  "Symbolize by:",
-                  choices = c(
-                    "Measured Concentration" = "water_value",
-                    "Compare to Bolivian Standards" = "water_class",
-                    "Hazard Quotient (HQ)" = "hq"
-                  ),
-                  selected = "water_value"
-                ),
-                uiOutput("water_legend"),
-                info_callout(
-                  "Water Quality Map",
-                  "This map displays water quality parameters from monitoring campaigns.
-              Circle size represents the measured concentration, while colors can show either
-              raw values or classification based on Bolivian standards (Ley 1333).
-              Data can be filtered by date range.
-              Data is sourced from www2.pilcomayo.net."
-                )
-              )
-            )
-          ),
-        
-          mainPanel(
-            # SEDIMENT content
-            conditionalPanel(
-              condition = "input.plot_media == 'sediment'",
-              tabsetPanel(
-                tabPanel("Map", leafletOutput("sed_map", height = 600)),
-                tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
-                tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
-              )
-            ),
-            
-            # WATER content
-            conditionalPanel(
-              condition = "input.plot_media == 'water'",
-              tabsetPanel(
-                tabPanel("Map", leafletOutput("water_map", height = 600)),
-                tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
-                tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
-                tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
-              )
-            )
-          )
-        )
-      ) # end locked_tab_body
-    ), # end tabPanel
+    # tabPanel(
+    #   "Map of Environmental Samples",
+    #   locked_tab_body(
+    #     sidebarLayout(
+    #       sidebarPanel(
+    #         conditionalPanel(
+    #           condition = "!output.data_ready",
+    #           div(
+    #             style = "text-align: center; padding: 20px;",
+    #             icon("spinner", class = "fa-spin fa-3x"),
+    #             h4("Loading data...", style = "margin-top: 20px;")
+    #           )
+    #         ),
+    #         
+    #         conditionalPanel(
+    #           condition = "output.data_ready",
+    #           
+    #           # MEDIA SELECTOR - at the top
+    #           radioButtons(
+    #             "plot_media",
+    #             "Media:",
+    #             choices = c("Water" = "water", "Sediment" = "sediment"),
+    #             selected = "water",
+    #             inline = TRUE
+    #           ),
+    #           
+    #           # SPATIAL SCOPE SELECTOR
+    #           radioButtons(
+    #             "plot_data_scope",
+    #             "Data Scope:",
+    #             choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+    #             selected = "bol",
+    #             inline = TRUE
+    #           ),
+    #           
+    #           # SEDIMENT SIDEBAR - only show when sediment is selected
+    #           conditionalPanel(
+    #             condition = "input.plot_media == 'sediment'",
+    #             
+    #             uiOutput("sed_campaign_ui"),
+    #             uiOutput("tamiz_ui"),
+    #             selectInput("sed_metal", "Select Parameter:", choices = NULL),
+    #             radioButtons(
+    #               "sed_value_type",
+    #               "Symbolize by:",
+    #               choices = c(
+    #                 "Measured Concentration" = "sed_value",
+    #                 "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
+    #                 "Hazard Quotient (HQ)" = "hq"
+    #               ),
+    #               selected = "sed_value"
+    #             ),
+    #             uiOutput("sed_legend"),
+    #             info_callout(
+    #               "Sediment Quality Map",
+    #               "This map displays sediment quality parameters from monitoring campaigns.
+    #           Circle size represents the measured concentration, while colors can show either
+    #           raw values or comparison to USGS Sediment Quality Guidelines
+    #           (TEL/PEL thresholds). Data can be filtered by date range and sieve size.
+    #           Data is sourced from www2.pilcomayo.net."
+    #             )
+    #           ),
+    #           
+    #           # WATER SIDEBAR - only show when water is selected
+    #           conditionalPanel(
+    #             condition = "input.plot_media == 'water'",
+    #             
+    #             uiOutput("water_campaign_ui"),
+    #             selectInput("water_metal", "Select Parameter:", choices = NULL),
+    #             radioButtons(
+    #               "water_value_type",
+    #               "Symbolize by:",
+    #               choices = c(
+    #                 "Measured Concentration" = "water_value",
+    #                 "Compare to Bolivian Standards" = "water_class",
+    #                 "Hazard Quotient (HQ)" = "hq"
+    #               ),
+    #               selected = "water_value"
+    #             ),
+    #             uiOutput("water_legend"),
+    #             info_callout(
+    #               "Water Quality Map",
+    #               "This map displays water quality parameters from monitoring campaigns.
+    #           Circle size represents the measured concentration, while colors can show either
+    #           raw values or classification based on Bolivian standards (Ley 1333).
+    #           Data can be filtered by date range.
+    #           Data is sourced from www2.pilcomayo.net."
+    #             )
+    #           )
+    #         )
+    #       ),
+    #     
+    #       mainPanel(
+    #         # SEDIMENT content
+    #         conditionalPanel(
+    #           condition = "input.plot_media == 'sediment'",
+    #           tabsetPanel(
+    #             tabPanel("Map", leafletOutput("sed_map", height = 600)),
+    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
+    #             tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
+    #           )
+    #         ),
+    #         
+    #         # WATER content
+    #         conditionalPanel(
+    #           condition = "input.plot_media == 'water'",
+    #           tabsetPanel(
+    #             tabPanel("Map", leafletOutput("water_map", height = 600)),
+    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
+    #             tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
+    #             tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
+    #           )
+    #         )
+    #       )
+    #     )
+    #   ) # end locked_tab_body
+    # ), # end tabPanel
     # Time Series tab
     tabPanel(
-      "Time Series",
+      span("Time Series", 'data-i18n'="tab_time_series"),
       locked_tab_body(
         sidebarLayout(
           sidebarPanel(
@@ -453,7 +492,7 @@ ui <- fluidPage(
     
     # Ranking Plots tab
     tabPanel(
-      "Ranking Plots",
+      span("Ranking Plots", 'data-i18n'="tab_ranking"),
       locked_tab_body(
         # Add Data Scope at the top
         fluidRow(
@@ -608,7 +647,7 @@ ui <- fluidPage(
     
     # PCA tab
     tabPanel(
-      "Principal Component Analysis",
+      span("Principal Component Analysis", 'data-i18n'="tab_pca"),
       locked_tab_body(
         sidebarLayout(
           sidebarPanel(
@@ -661,7 +700,7 @@ ui <- fluidPage(
     ################ RISK MAPPING #################################################
     
     tabPanel(
-      "Risk Scores Map",
+      span("Risk Scores Map", 'data-i18n'="tab_risk"),
       tags$head(tags$style(HTML("
     /* Style the summary row for each category */
     details > summary {
@@ -704,16 +743,16 @@ ui <- fluidPage(
               
               tags$details(
                 tags$summary(
-                  h3(strong("Input & Display Layers"))
+                  h3(strong(span("Input & Display Layers", `data-i18n`="risk_input_heading")))
                 ),
               
-              p(HTML("<i>* Items marked with an asterisk may take time to load or render. Please be patient after clicking.</i>"),
+              p(HTML(paste0('<i><span data-i18n="risk_asterisk_note">* Items marked with an asterisk may take time to load or render. Please be patient after clicking.</span></i>')),
                 style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
               
               # ── Water Risk ────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Water Pollution Risk"), style = "margin: 0; color: #1C3EB8;")
+                  h5(strong(span("Water Pollution Risk", `data-i18n`="risk_water_heading")), style = "margin: 0; color: #1C3EB8;")
                 ),
                 
                 div(class = "layer-block",
@@ -791,7 +830,7 @@ ui <- fluidPage(
               # ── Sediment Risk ────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Sediment Pollution Risk"), style = "margin: 0; color: #1C8C27;")
+                  h5(strong(span("Sediment Pollution Risk", `data-i18n`="risk_sed_heading")), style = "margin: 0; color: #1C8C27;")
                 ),
                 
                 div(class = "layer-block",
@@ -866,7 +905,7 @@ ui <- fluidPage(
               # ── Population Vulnerability ──────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Population Vulnerability"), style = "margin: 0; color: #721FAB;")
+                  h5(strong(span("Population Vulnerability", `data-i18n`="risk_pop_heading")), style = "margin: 0; color: #721FAB;")
                 ),
                 
                 div(class = "layer-block",
@@ -914,7 +953,7 @@ ui <- fluidPage(
               # ── Other ─────────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Other"), style = "margin: 0;")
+                  h5(strong(span("Other", `data-i18n`="risk_other_heading")), style = "margin: 0;")
                 ),
                 layer_row("risk_settlements", "clip_settlements",  "Settlements*"),
                 layer_row("risk_mines",       "clip_mines",       "Mine Locations*"),
@@ -942,11 +981,11 @@ ui <- fluidPage(
               
               tags$details(
                 tags$summary(
-                  h3(strong("Combined Risk Scoring"), style = "margin: 0;")
+                  h3(strong(span("Combined Risk Scoring", `data-i18n`="risk_combined_heading")), style = "margin: 0;")
                 ),
-                p(HTML("<i>* Before combining, ensure each selected layer has been created and binned in the Input & Display Layers section above.</i>"),
+                p(HTML(paste0('<i><span data-i18n="risk_combined_note">* Before combining, ensure each selected layer has been created and binned in the Input & Display Layers section above.</span></i>')),
                   style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
-                h5("Select Input Layers:", style = "margin: 0;"),
+                h5(span("Select Input Layers:", `data-i18n`="risk_select_layers"), style = "margin: 0;"),
                 div(class = "layer-block",
                     checkboxInput("combined_water", "Water Risk", value = FALSE),
                     checkboxInput("combined_sed", "Sediment Risk", value = FALSE),
