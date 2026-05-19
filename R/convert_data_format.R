@@ -353,9 +353,6 @@ safe_parse_dates <- function(x) {
   out
 }
 
-# when taking in data from clean_style, make sure we call it with following flags
-# clean_data = read.csv(here::here("data/water_clean_2016.csv"), check.names=FALSE)
-
 ## Convert a single vector of lat/lon values (various string formats or numeric) to decimal degrees
 to_decimal_loc <- function(x) {
   # fast return for numeric vectors

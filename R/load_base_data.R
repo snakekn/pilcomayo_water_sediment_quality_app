@@ -73,7 +73,7 @@ load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_stan
     
     print("Loading border shapefiles and clipping scored data to Bolivia...")
     
-    bol_border <<- st_read("data/geojson/bol_borders.geojson")
+    bol_border <<- sf::st_read("data/geojson/bol_borders.geojson")
     
     bol_sed_scored <<- all_sed_scored |>
       clip_to_bolivia(lat_col = "latitude_decimal", lon_col = "longitude_decimal", bol_border = bol_border)

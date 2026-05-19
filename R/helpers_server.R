@@ -425,13 +425,15 @@ DF_SCHEMA <- c(
 }
 
 # Load spatial data
-pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
-bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
-river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
-pilco_basin <- st_read("data/shp/Pilcomayo_Basin.shp", quiet = TRUE)
+print("[helpers_server.R] Loading spatial data using sf::st_read")
+pilco_line <- sf::st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+bol_border <- sf::st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+print("[helpers_server.R] bare sf::st_read completed")
+river_network <- sf::st_read("data/shp/River_Network.shp", quiet = TRUE)
+pilco_basin <- sf::st_read("data/shp/Pilcomayo_Basin.shp", quiet = TRUE)
 
 # Load census data
-census_potosi <- st_read("data/census/shp/potosi_census_summary_shape.shp", quiet = TRUE)
+census_potosi <- sf::st_read("data/census/shp/potosi_census_summary_shape.shp", quiet = TRUE)
 names(census_potosi) <- c("province", "iprov", "pop", "prop_ch_u6", "prop_elder65", "prop_age_vuln", "prop_no_health", "prop_pub_health", "prop_trad_care", "prop_inf_only", "prop_farm", "prop_mine", "prop_manu", "prop_cons", "prop_indig", "prop_agro_part", "prop_agro_sale", "prop_agro_cons", "prop_disab", "prop_child_loss", "hh_count", "prop_river_w", "prop_unprot_w", "prop_no_pipe", "prop_solid_ws", "prop_liq_ws", "prop_struct_vuln", "deaths_tot", "deaths_avg_age", "deaths_under50", "prop_under50", "deaths_u5", "prop_u5", "deaths_u15", "prop_u15", "geometry")
 
 #### To quiet down plotly warnings ####
@@ -807,7 +809,7 @@ no_data_callout <- function(media_label = "sample") {
 #### Clip a data.frame with lon/lat columns to the Bolivia border sf polygon ####
 # - df: data.frame (or tibble)
 # - lon_col / lat_col: column names (strings)
-# - bol_border: sf polygon (already read with st_read)
+# - bol_border: sf polygon (already read with sf::st_read)
 clip_to_bolivia <- function(df, lon_col, lat_col, bol_border) {
   # empty/invalid input guard
   if (is.null(df) || !nrow(df)) return(df)
@@ -1228,11 +1230,11 @@ delineate_subcatchments <- function(station_df, flow_dir_path, flow_acc_path,
   snapped_pts_proj <- sf::st_transform(snapped_pts, sf::st_crs(fdr))
   sf::st_write(snapped_pts_proj, tmp_snapped, quiet = TRUE, append = FALSE)
   
-  test_read <- sf::st_read(tmp_snapped, quiet = TRUE)
-  message("Snapped file columns: ", paste(names(test_read), collapse = ", "))
-  message("Snapped file FID values: ", paste(test_read$FID, collapse = ", "))
-  message("Snapped file CRS: ", sf::st_crs(test_read)$epsg)
-  sf::st_write(test_read %>% dplyr::select(FID), 
+  tesf::st_read <- sf::st_read(tmp_snapped, quiet = TRUE)
+  message("Snapped file columns: ", paste(names(tesf::st_read), collapse = ", "))
+  message("Snapped file FID values: ", paste(tesf::st_read$FID, collapse = ", "))
+  message("Snapped file CRS: ", sf::st_crs(tesf::st_read)$epsg)
+  sf::st_write(tesf::st_read %>% dplyr::select(FID), 
                "data/dem/debug_pour_points.shp", delete_dsn = TRUE)
   
   # Debug: check a sample of flow direction values

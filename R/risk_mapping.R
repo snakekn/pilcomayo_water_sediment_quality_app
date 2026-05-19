@@ -63,7 +63,7 @@ create_risk_map <- function(data,
   if(exists("bol_border") && is.null(border_sf)) { # load bol_border
     border_sf = bol_border
   } else if(is.null(border_sf)) { # load from geojson file
-    bol_border <- st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
+    bol_border <- sf::st_read("data/geojson/bol_borders.geojson", quiet = TRUE)
     border_sf = bol_border
   } 
   
@@ -75,7 +75,7 @@ create_risk_map <- function(data,
   if(exists("river_network") && is.null(river_network_sf)) { # load river_network
     river_network_sf = river_network
   } else if(is.null(river_network_sf)) { # load from geojson file
-    river_network <- st_read("data/shp/River_Network.shp", quiet = TRUE)
+    river_network <- sf::st_read("data/shp/River_Network.shp", quiet = TRUE)
     river_network_sf = river_network
   } 
   
@@ -143,7 +143,7 @@ plot_risk_map <- function(risk_map_result,
   # Confirm if pilco_line exists or make it
   # if pilco_line is null, load them
   if(!exists("pilco_line")) { # load pilco_line
-    pilco_line <- st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
+    pilco_line <- sf::st_read("data/geojson/pilco_line.geojson", quiet = TRUE)
   } 
   
   if (is.null(pilco_line)) {

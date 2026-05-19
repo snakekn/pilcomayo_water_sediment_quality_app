@@ -6,7 +6,7 @@ p_load(sf)           # For spatial data handling
 p_load(dplyr)        # For data manipulation
 p_load(igraph)       # For network analysis
 p_load(ggplot2)      # For plotting
-p_load(lwgeom)       # For advanced geometric operations
+# p_load(lwgeom)       # For advanced geometric operations
 
 # =============================================================================
 # SEGMENT-SPLITTING APPROACH FOR POINTS ON RIVER SEGMENTS
@@ -18,9 +18,9 @@ read_spatial_data <- function() {
   cat("Reading spatial data...\n")
   
   ######## CHANGE THESE FILE PATHS TO WHEREVER YOUR DATA IS STORED ##############
-  rivers <- st_read("data/river_network/River_Network.shp")  # or .gpkg
-  settlements <- st_read("data/mining_exposure/stations_scored_snapped.shp")  # or .gpkg  
-  mines <- st_read("data/mining_exposure/mines_2km.shp")  # or .gpkg
+  rivers <- sf::st_read("data/river_network/River_Network.shp")  # or .gpkg
+  settlements <- sf::st_read("data/mining_exposure/stations_scored_snapped.shp")  # or .gpkg  
+  mines <- sf::st_read("data/mining_exposure/mines_2km.shp")  # or .gpkg
   
   # Check what the actual field names are after export
   cat("River fields:", names(rivers), "\n")

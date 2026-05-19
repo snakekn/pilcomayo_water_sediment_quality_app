@@ -3,19 +3,167 @@
 # Note: this means that refreshing the page does not re-run global.R, just server.R and ui.R
 message("Starting global.R")
 
-## Import libraries
-pacman::p_load(
-  shiny, tidyverse, leaflet, sf, rsconnect,
-  readxl, plotly, DT, zoo, missMDA, ggfortify,
-  FactoMineR, factoextra, shinyWidgets, bslib, terra,
-  ggiraph, shinyjs, shinyBS, ggrepel, stringr,
-  gstat, whitebox, memoise, htmltools, qs2, here, janitor
+#### ShinyLive package installation checks ####
+
+## Import libraries using verbose process
+pkgs <- c(
+  "shiny", "tidyverse", "leaflet", "sf", "rsconnect",
+  "readxl", "DT", "zoo", "shinyWidgets", "bslib", "terra",
+  "shinyjs", "shinyBS", "stringr",
+  "gstat", "whitebox", "memoise", "htmltools", "here", "janitor",
+  "munsell" # dependency required by many other packages, available according to repo.r-wasm.org
 )
+
+# for safe keeping
+pkgs_removed = c(
+  "plotly", "missMDA", "ggfortify", "FactoMineR", "factoextra", "ggiraph", "qs2", "ggrepel"
+)
+
+pkg_results <- vector("list", length(pkgs))
+names(pkg_results) <- pkgs
+
+# install packages
+for (pkg in pkgs) {
+  message("---- Checking package: ", pkg)
+  
+  ns_ok <- FALSE
+  attach_ok <- FALSE
+  err_msg <- ""
+  
+  ns_ok <- tryCatch({
+    loadNamespace(pkg)
+    TRUE
+  }, error = function(e) {
+    err_msg <<- paste0("loadNamespace failed: ", conditionMessage(e))
+    FALSE
+  })
+  
+  if (ns_ok) {
+    attach_ok <- tryCatch({
+      suppressPackageStartupMessages(
+        library(pkg, character.only = TRUE)
+      )
+      TRUE
+    }, error = function(e) {
+      err_msg <<- paste0("library failed: ", conditionMessage(e))
+      FALSE
+    })
+  }
+  
+  pkg_results[[pkg]] <- data.frame(
+    package = pkg,
+    namespace_ok = ns_ok,
+    attach_ok = attach_ok,
+    error = err_msg,
+    stringsAsFactors = FALSE
+  )
+  
+  if (attach_ok) {
+    message("[OK] ", pkg)
+  } else {
+    message("[FAIL] ", pkg, " -- ", err_msg)
+  }
+}
+
+pkg_results_df <- do.call(rbind, pkg_results)
+print(pkg_results_df)
+
+## check if any have issues with calling their functions
+pkg_checks <- list(
+  shiny        = "reactive",
+  tidyverse    = "glimpse",
+  leaflet      = "leaflet",
+  sf           = "st_read",
+  rsconnect    = "deployApp",
+  readxl       = "read_excel",
+  plotly       = "plot_ly",
+  DT           = "datatable",
+  zoo          = "rollmean",
+  missMDA      = "imputePCA",
+  ggfortify    = "autoplot",
+  FactoMineR   = "PCA",
+  factoextra   = "fviz_pca_ind",
+  shinyWidgets = "pickerInput",
+  bslib        = "bs_theme",
+  terra        = "rast",
+  ggiraph      = "girafe",
+  shinyjs      = "useShinyjs",
+  shinyBS      = "bsTooltip",
+  ggrepel      = "geom_text_repel",
+  stringr      = "str_detect",
+  gstat        = "gstat",
+  whitebox     = "wbt_init",
+  memoise      = "memoise",
+  htmltools    = "HTML",
+  here         = "here",
+  janitor      = "clean_names",
+  munsell      = "mnsl"
+)
+
+pkg_report <- lapply(names(pkg_checks), function(pkg) {
+  fn <- pkg_checks[[pkg]]
+  
+  namespace_ok <- FALSE
+  attach_ok <- FALSE
+  attached <- FALSE
+  exported_fn_in_namespace <- FALSE
+  fn_visible_from_search <- FALSE
+  error_msg <- ""
+  
+  namespace_ok <- tryCatch({
+    loadNamespace(pkg)
+    TRUE
+  }, error = function(e) {
+    error_msg <<- paste0("loadNamespace failed: ", conditionMessage(e))
+    FALSE
+  })
+  
+  if (namespace_ok) {
+    exported_fn_in_namespace <- tryCatch({
+      fn %in% getNamespaceExports(pkg) &&
+        exists(fn, envir = asNamespace(pkg), mode = "function", inherits = FALSE)
+    }, error = function(e) FALSE)
+    
+    attach_ok <- tryCatch({
+      suppressPackageStartupMessages(
+        library(pkg, character.only = TRUE)
+      )
+      TRUE
+    }, error = function(e) {
+      error_msg <<- paste0("library failed: ", conditionMessage(e))
+      FALSE
+    })
+    
+    attached <- paste0("package:", pkg) %in% search()
+    
+    fn_visible_from_search <- exists(fn, mode = "function", inherits = TRUE)
+  }
+  
+  data.frame(
+    package = pkg,
+    test_function = fn,
+    namespace_ok = namespace_ok,
+    attach_ok = attach_ok,
+    attached = attached,
+    exported_fn_in_namespace = exported_fn_in_namespace,
+    fn_visible_from_search = fn_visible_from_search,
+    error = error_msg,
+    stringsAsFactors = FALSE
+  )
+})
+
+pkg_report_df <- do.call(rbind, pkg_report)
+print(pkg_report_df, row.names = FALSE)
+
+# debug: attempt sf::st_read()
+message("sf attached? ", "package:sf" %in% search())
+message("st_read exists in sf namespace? ", exists("st_read", where = asNamespace("sf"), inherits = FALSE))
+message("st_read visible from current env? ", exists("st_read", mode = "function", inherits = TRUE))
 
 options(shiny.trace = FALSE)
 options(shiny.fullstacktrace = FALSE)
-options(warn = 1)   # make warnings into errors
-options(ts_debug = FALSE) # specifically for debugging our own stuff, can use wherever
+# options(warn = 1)   # make warnings into errors
+# options(ts_debug = FALSE) # specifically for debugging our own stuff, can use wherever
 
 #### State that we're starting ####
 message("Libraries imported and options set. Loading scripts...")
@@ -32,7 +180,7 @@ load_scripts <- function(dir = "scripts/risk_analysis") {
 }
 
 load_scripts(dir = "R")
-load_scripts(dir = "scripts/risk_analysis")
+# load_scripts(dir = "scripts/risk_analysis")
 message("All scripts loaded.")
 
 # hash some functions so we're saving time on repetitive calls

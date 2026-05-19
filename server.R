@@ -25,9 +25,9 @@ server <- function(input, output, session) {
   observe({
     message("Loading Master Data...")
     
-    master_data$water_scored <- if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() }
-    master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() }
-    master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.qs2")) qs_read("data/processed/all_media_scored.qs2") else { print("no all_media_scored.qs2"); tibble() }
+    # master_data$water_scored <- if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() }
+    # master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() }
+    # master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.qs2")) qs_read("data/processed/all_media_scored.qs2") else { print("no all_media_scored.qs2"); tibble() }
 
     app_initialized(TRUE) # we tried loading the data in
     message("Master Data Loaded.")
@@ -345,7 +345,7 @@ server <- function(input, output, session) {
   })
   
   # Only Points west of Villamontes (only points in Bolivia)
-  # bol_border <- st_read("data/geojson/bol_borders.geojson")
+  # bol_border <- sf::st_read("data/geojson/bol_borders.geojson")
   
   bol_sed_usgs <- reactive({
     # Convert the sediment data to sf object if it isn't already
@@ -3009,10 +3009,10 @@ server <- function(input, output, session) {
   observe({
     if (isTRUE(input$risk_river)) {
       if (!exists("river_network")) {
-        river_network <<- st_read("data/shp/River_Network.shp")
+        river_network <<- sf::st_read("data/shp/River_Network.shp")
       }
       if (!exists("pilco_line")) {
-        pilco_line <<- st_read("data/geojson/pilco_line.geojson")
+        pilco_line <<- sf::st_read("data/geojson/pilco_line.geojson")
       }
       
       leafletProxy("risk_map") |>
@@ -3456,7 +3456,7 @@ server <- function(input, output, session) {
     if (isTRUE(input$risk_eji)) {
       if (!exists("eji_data")) {
         withProgress(message = "Loading EJI data...", {
-          eji_data <<- st_read("data/census/shp/Bolivia_Mun_EJI_Shape_updated.shp", quiet = TRUE) %>%
+          eji_data <<- sf::st_read("data/census/shp/Bolivia_Mun_EJI_Shape_updated.shp", quiet = TRUE) %>%
             st_transform(4326)
         })
       }
@@ -3683,7 +3683,7 @@ server <- function(input, output, session) {
     
     if (!exists("settlements")) {
       withProgress(message = "Loading settlement data...", {
-        settlements <<- st_read("data/settlements/poblaciones.shp") |>
+        settlements <<- sf::st_read("data/settlements/poblaciones.shp") |>
           st_transform(crs = 4326)
       })
     }
@@ -3696,7 +3696,7 @@ server <- function(input, output, session) {
     
     if (!exists("tailings")) {
       withProgress(message = "Loading tailings data...", {
-        tailings <<- st_read("data/air_quality/tailings/tailing_minefac.shp") |>
+        tailings <<- sf::st_read("data/air_quality/tailings/tailing_minefac.shp") |>
           st_transform(crs = 4326) |>
           st_zm(drop = TRUE, what = "ZM")
       })

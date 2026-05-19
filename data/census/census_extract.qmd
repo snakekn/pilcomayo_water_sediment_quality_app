@@ -7,14 +7,14 @@ format: html
 library(sf)
 library(dplyr)
 library(leaflet)
-library(leaflet.extras)
+# library(leaflet.extras)
 library(htmlwidgets)
 library(viridis)
 library(data.table)
 
 # --- 1. PROVINCE SHAPEFILE
 
-municipalities <- st_read(here("provincia_potosi.shp"))
+municipalities <- sf::st_read(here("provincia_potosi.shp"))
 provinces <- municipalities |>
   group_by(provincia) |>
   summarize(geometry = st_union(geometry))
@@ -198,7 +198,7 @@ st_write(province_shp, "potosi_census_summary_shape.shp", driver = "ESRI Shapefi
 ```
 
 ``` {r read_shp}
-census_shp = st_read(here::here("data/census/census_summ.shp"))
+census_shp = sf::st_read(here::here("data/census/census_summ.shp"))
 # map out the shp file using prop_age_vuln
 leaflet(census_shp) |>
   addProviderTiles(providers$CartoDB.Positron) |>
