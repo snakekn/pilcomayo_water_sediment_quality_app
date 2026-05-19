@@ -4,7 +4,7 @@ This application was developed using [R](https://www.r-project.org/) and [Shiny]
 
 ## The Development Team
 
-This application was developed by the [River Remedy team](https://bren.ucsb.edu/projects?field_program_single_target_id=All&field_year_value=All&field_client_target_id=All&field_faculty_advisors_target_id_verf=All&keys=bolivia) within the [Bren School of Environmental Science & Management](as a Group Project deliverable https://bren.ucsb.edu/)'s Group Project to provide to [AMTSK](https://www.advance-mineralskorea.com/) and connected Bolivian stakeholders. 
+This application was developed by the [River Remedy team](https://bren.ucsb.edu/projects?field_program_single_target_id=All&field_year_value=All&field_client_target_id=All&field_faculty_advisors_target_id_verf=All&keys=bolivia) within the [Bren School of Environmental Science & Management](https://bren.ucsb.edu/) as a Group Project deliverable to provide to [AMTSK](https://www.advance-mineralskorea.com/) and connected Bolivian stakeholders. 
 
 - [Katerina Bischel](https://bren.ucsb.edu/people/katerina-bischel-0)
 - [Abbey Guilliat](https://bren.ucsb.edu/people/abbey-guilliat)
