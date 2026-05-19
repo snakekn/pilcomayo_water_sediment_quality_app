@@ -1,0 +1,15 @@
+parameter,BOL,INTL,stricter,ratio
+Manganese,0.5,0.08,INTL (x6.2),6.25
+Arsenic,0.05,0.01,INTL (x5.0),5
+Lead,0.05,0.01,INTL (x5.0),5
+Nitrate,20,10,INTL (x2.0),2
+Antimony,0.01,0.006,INTL (x1.7),1.6666666666666667
+Cadmium,0.005,0.003,INTL (x1.7),1.6666666666666667
+Chromium,0.05,0.05,Equal,1
+Nickel,0.05,0.07,BOL (x1.4),0.7142857142857143
+Mercury,0.001,0.002,BOL (x2.0),0.5
+Silver,0.05,0.1,BOL (x2.0),0.5
+Boron,1,2.4,BOL (x2.4),0.4166666666666667
+Selenium,0.01,0.04,BOL (x4.0),0.25
+Iron,0.3,2,BOL (x6.7),0.15
+Copper,0.05,1.3,BOL (x26.0),0.038461538461538464
