@@ -209,7 +209,7 @@ process_uploaded_pilco_file <- function(path, media, src_lang, target_lang) {
 }
 
 # take data in either of 2 formats, format & score, merge
-# Output: locyear and scored files in master_data
+# Output: scored files in master_data
 dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_sed = NULL, lang = NULL) {
   moduleServer(id, function(input, output, session) {
     # Local translation helper — falls back to English if lang not provided
@@ -277,7 +277,6 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
       print("updating parsed_upload")
       parsed_upload(list(
         scored  = merged,
-        locyear = score_to_loc_year(merged),
         media   = media
       ))
 
@@ -439,7 +438,6 @@ dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_s
         cat("parsed_upload contains:\n")
         cat("  - media:", result$media, "\n")
         cat("  - scored rows:", nrow(result$scored), "\n")
-        cat("  - locyear rows:", nrow(result$locyear), "\n")
       }
     })
 
@@ -1305,11 +1303,11 @@ standardize_raster <- function(r, template, fill_nas = FALSE) {
   if (fill_nas) {
     repeat {
       # na_before <- sum(is.na(terra::values(r)))
-      na_before <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
+      na_before <- terra::global(r, fun = "isNA")[[1]] # fast & lean
       if (na_before == 0) break
       r <- terra::focal(r, w = 3, fun = "modal", na.policy = "only", na.rm = TRUE)
       # na_after <- sum(is.na(terra::values(r)))
-      na_after <- terra::global(eji_r, fun = "isNA")[[1]] # fast & lean
+      na_after <- terra::global(r, fun = "isNA")[[1]] # fast & lean
       if (na_after == na_before) break
     }
   }

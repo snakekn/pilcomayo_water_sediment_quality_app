@@ -238,6 +238,16 @@ ui <- fluidPage(
     tags$button("ES", id = "lang-btn-es", class = "lang-btn",
                 onclick = "setLang('es')")
   ),
+  tags$script(HTML("
+  document.addEventListener('shown.bs.tab', function(e) {
+    var target = e.target.getAttribute('data-value');
+    if (target === 'dataprep') {
+      var el = document.getElementById('upload-data-details');
+      if (el) el.open = true;
+    }
+  });
+")),
+  
   tabsetPanel(
     id = "main_tab",
     tabPanel(
@@ -260,17 +270,10 @@ ui <- fluidPage(
       span("Data Preparation", 'data-i18n'="tab_data_prep"),
       value = "data_prep",
       sidebarPanel(
-        conditionalPanel(
-          condition = "!output.map_data_ready",
-          div(
-            style = "text-align: center; padding: 20px;",
-            icon("spinner", class = "fa-spin fa-3x"),
-            h4(span("Loading data...", `data-i18n`="loading_data"), style = "margin-top: 20px;")
-          )
-        ),
-        conditionalPanel(
           condition = "output.map_data_ready",
           tags$details(
+            id = "upload-data-details",
+            open = NA,
             tags$summary(
               h4(strong(span("Upload Data", `data-i18n`="upload_heading")), style = "margin: 0;")
             ),
@@ -300,7 +303,6 @@ ui <- fluidPage(
               )
             )
           )
-        )
       ),
       mainPanel(
         conditionalPanel(
@@ -315,125 +317,9 @@ ui <- fluidPage(
       )
     ),
     
-    # tabPanel(
-    #   "Map of Environmental Samples",
-    #   locked_tab_body(
-    #     sidebarLayout(
-    #       sidebarPanel(
-    #         conditionalPanel(
-    #           condition = "!output.data_ready",
-    #           div(
-    #             style = "text-align: center; padding: 20px;",
-    #             icon("spinner", class = "fa-spin fa-3x"),
-    #             h4("Loading data...", style = "margin-top: 20px;")
-    #           )
-    #         ),
-    #         
-    #         conditionalPanel(
-    #           condition = "output.data_ready",
-    #           
-    #           # MEDIA SELECTOR - at the top
-    #           radioButtons(
-    #             "plot_media",
-    #             "Media:",
-    #             choices = c("Water" = "water", "Sediment" = "sediment"),
-    #             selected = "water",
-    #             inline = TRUE
-    #           ),
-    #           
-    #           # SPATIAL SCOPE SELECTOR
-    #           radioButtons(
-    #             "plot_data_scope",
-    #             "Data Scope:",
-    #             choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-    #             selected = "bol",
-    #             inline = TRUE
-    #           ),
-    #           
-    #           # SEDIMENT SIDEBAR - only show when sediment is selected
-    #           conditionalPanel(
-    #             condition = "input.plot_media == 'sediment'",
-    #             
-    #             uiOutput("sed_campaign_ui"),
-    #             uiOutput("tamiz_ui"),
-    #             selectInput("sed_metal", "Select Parameter:", choices = NULL),
-    #             radioButtons(
-    #               "sed_value_type",
-    #               "Symbolize by:",
-    #               choices = c(
-    #                 "Measured Concentration" = "sed_value",
-    #                 "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
-    #                 "Hazard Quotient (HQ)" = "hq"
-    #               ),
-    #               selected = "sed_value"
-    #             ),
-    #             uiOutput("sed_legend"),
-    #             info_callout(
-    #               "Sediment Quality Map",
-    #               "This map displays sediment quality parameters from monitoring campaigns.
-    #           Circle size represents the measured concentration, while colors can show either
-    #           raw values or comparison to USGS Sediment Quality Guidelines
-    #           (TEL/PEL thresholds). Data can be filtered by date range and sieve size.
-    #           Data is sourced from www2.pilcomayo.net."
-    #             )
-    #           ),
-    #           
-    #           # WATER SIDEBAR - only show when water is selected
-    #           conditionalPanel(
-    #             condition = "input.plot_media == 'water'",
-    #             
-    #             uiOutput("water_campaign_ui"),
-    #             selectInput("water_metal", "Select Parameter:", choices = NULL),
-    #             radioButtons(
-    #               "water_value_type",
-    #               "Symbolize by:",
-    #               choices = c(
-    #                 "Measured Concentration" = "water_value",
-    #                 "Compare to Bolivian Standards" = "water_class",
-    #                 "Hazard Quotient (HQ)" = "hq"
-    #               ),
-    #               selected = "water_value"
-    #             ),
-    #             uiOutput("water_legend"),
-    #             info_callout(
-    #               "Water Quality Map",
-    #               "This map displays water quality parameters from monitoring campaigns.
-    #           Circle size represents the measured concentration, while colors can show either
-    #           raw values or classification based on Bolivian standards (Ley 1333).
-    #           Data can be filtered by date range.
-    #           Data is sourced from www2.pilcomayo.net."
-    #             )
-    #           )
-    #         )
-    #       ),
-    #     
-    #       mainPanel(
-    #         # SEDIMENT content
-    #         conditionalPanel(
-    #           condition = "input.plot_media == 'sediment'",
-    #           tabsetPanel(
-    #             tabPanel("Map", leafletOutput("sed_map", height = 600)),
-    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
-    #             tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
-    #           )
-    #         ),
-    #         
-    #         # WATER content
-    #         conditionalPanel(
-    #           condition = "input.plot_media == 'water'",
-    #           tabsetPanel(
-    #             tabPanel("Map", leafletOutput("water_map", height = 600)),
-    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
-    #             tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
-    #             tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
-    #           )
-    #         )
-    #       )
-    #     )
-    #   ) # end locked_tab_body
-    # ), # end tabPanel
     # Time Series tab
     tabPanel(
+      value = "ts_tab",
       span("Time Series", 'data-i18n'="tab_time_series"),
       locked_tab_body(
         sidebarLayout(
@@ -495,6 +381,7 @@ ui <- fluidPage(
     
     # Ranking Plots tab
     tabPanel(
+      value = "rank_tab",
       span("Ranking Plots", 'data-i18n'="tab_ranking"),
       locked_tab_body(
         # Add Data Scope at the top
@@ -537,7 +424,7 @@ ui <- fluidPage(
               selectInput("station_plot_media", "Select Media:", 
                           choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
               conditionalPanel(
-                condition = "input.station_plot_media != 'sed'",
+                condition = "input.station_plot_media != 'sediment'",
                 selectInput("station_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "any", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
               ),
               # 1/8/2026: changed from param_plot_method
@@ -575,7 +462,7 @@ ui <- fluidPage(
               selectInput("param_plot_station", "Select Station:", choices = c("All Stations" = "all")),
               selectInput("param_plot_media", "Select Media:", choices = c("All Media" = "all", "Water" = "water", "Sediment" = "sediment")),
               conditionalPanel(
-                condition = "input.param_plot_media != 'sed'",
+                condition = "input.param_plot_media != 'sediment'",
                 selectInput("param_plot_fraction", "Select Fraction:", choices = c("All Fractions" = "all", "Total" = "Total", "Dissolved" = "Dissolved", "Suspended" = "Suspended"))
               ),
               selectInput("param_plot_method_temporal", "Rank Data by Year Using:",
@@ -698,6 +585,7 @@ ui <- fluidPage(
     
     tabPanel(
       span("Risk Scores Map", 'data-i18n'="tab_risk"),
+      value = "risk_map",
       tags$head(tags$style(HTML("
     /* Style the summary row for each category */
     details > summary {
@@ -751,97 +639,105 @@ ui <- fluidPage(
                 tags$summary(
                   h5(strong(span("Water Pollution Risk", `data-i18n`="risk_water_heading")), style = "margin: 0; color: #1C3EB8;")
                 ),
+                conditionalPanel(
+                  condition = "!output.has_water_data",
+                  div(class = "alert alert-warning",
+                      "No water data were included in the uploaded dataset.")
+                ),
+                conditionalPanel(
+                  condition = "output.has_water_data",
                 
-                div(class = "layer-block",
-                    # Sampling Stations row
-                    checkboxInput("risk_water_stations",
-                                  span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
-                    actionButton("score_water",
-                                 span("Score Stations", `data-i18n` = "risk_score_btn"),
-                                 class = "btn-create", icon = icon("map-marker-alt")),
-
-                    hr(style = "margin: 8px 0;"),
-
-                    # Interpolated Risk row
-                    checkboxInput("risk_water",
-                                  span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
-                    actionButton("create_water",
-                                 span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
-                                 class = "btn-create", icon = icon("layer-group")),
-
-                    hr(style = "margin: 8px 0;"),
-
-                    # Modify Inputs + Apply Binning row
-                    div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("show_water_inputs",
-                                      span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
-                        materialSwitch("bin_water",
-                                       span("Bin", `data-i18n` = "risk_bin_label"),
-                                       value = FALSE, status = "primary", inline = TRUE)
-                    ),
-
-                    # Binning options — shown when bin switch is on AND raster checkbox is on
-                    conditionalPanel(
-                      condition = "input.bin_water == true && (input.risk_water == true || input.risk_water_stations == true)",
-                      div(class = "layer-params",
-                          numericInput("water_nbins",
-                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
-                                       value = 5, min = 2, max = 9, step = 1),
-                          selectInput("water_bin_method",
-                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
-                                      choices = c("Station Quantiles" = "quantile",
-                                                  "Equal Area"        = "equal_area",
-                                                  "Equal Interval"    = "equal_interval"),
-                                      selected = "quantile"),
-                          actionButton("apply_water_bins",
-                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
-                                       class = "btn-create", icon = icon("th"))
+                  div(class = "layer-block",
+                      # Sampling Stations row
+                      checkboxInput("risk_water_stations",
+                                    span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
+                      actionButton("score_water",
+                                   span("Score Stations", `data-i18n` = "risk_score_btn"),
+                                   class = "btn-create", icon = icon("map-marker-alt")),
+  
+                      hr(style = "margin: 8px 0;"),
+  
+                      # Interpolated Risk row
+                      checkboxInput("risk_water",
+                                    span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
+                      actionButton("create_water",
+                                   span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
+                                   class = "btn-create", icon = icon("layer-group")),
+  
+                      hr(style = "margin: 8px 0;"),
+  
+                      # Modify Inputs + Apply Binning row
+                      div(style = "display: flex; align-items: center; justify-content: space-between;",
+                          checkboxInput("show_water_inputs",
+                                        span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
+                          materialSwitch("bin_water",
+                                         span("Bin", `data-i18n` = "risk_bin_label"),
+                                         value = FALSE, status = "primary", inline = TRUE)
+                      ),
+  
+                      # Binning options — shown when bin switch is on AND raster checkbox is on
+                      conditionalPanel(
+                        condition = "input.bin_water == true && (input.risk_water == true || input.risk_water_stations == true)",
+                        div(class = "layer-params",
+                            numericInput("water_nbins",
+                                         span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                         value = 5, min = 2, max = 9, step = 1),
+                            selectInput("water_bin_method",
+                                        span("Binning Method:", `data-i18n` = "risk_bin_method"),
+                                        choices = c("Station Quantiles" = "quantile",
+                                                    "Equal Area"        = "equal_area",
+                                                    "Equal Interval"    = "equal_interval"),
+                                        selected = "quantile"),
+                            actionButton("apply_water_bins",
+                                         span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                         class = "btn-create", icon = icon("th"))
+                        )
+                      ),
+  
+                      # Modify inputs — shown when checkbox is on
+                      conditionalPanel(
+                        condition = "input.show_water_inputs == true",
+                        div(class = "layer-params",
+                            uiOutput("water_params_ui"),
+                            helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
+                                          `data-i18n` = "risk_params_help")),
+                            selectInput("water_temp_ag",
+                                        span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
+                                        choices = c("Recent" = "recent", "Average" = "mean")),
+                            helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
+                                          `data-i18n` = "risk_temp_help")),
+                            conditionalPanel(
+                              condition = "input.water_temp_ag == 'recent'",
+                              numericInput("water_nyears",
+                                           span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
+                                           value = 5, min = 1, max = 20, step = 1),
+                              helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
+                                            `data-i18n` = "risk_nyears_help"))
+                            ),
+                            selectInput("water_param_ag",
+                                        span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
+                                        choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
+                                        selected = "pct95"),
+                            helpText(span("How to aggregate hazard scores after temporal aggregation.",
+                                          `data-i18n` = "risk_final_ag_help")),
+                            numericInput("water_resolution",
+                                         span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
+                                         value = 1000, min = 100, max = 10000, step = 100),
+                            helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller values) may increase processing times.",
+                                          `data-i18n` = "risk_res_help")),
+                            numericInput("water_max_distance",
+                                         span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
+                                         value = 2000, min = 1000, max = 50000, step = 1000),
+                            helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
+                                          `data-i18n` = "risk_max_dist_help")),
+                            selectInput("water_fraction",
+                                        span("Fraction:", `data-i18n` = "risk_fraction_label"),
+                                        choices = c("All", "Dissolved", "Suspended")),
+                            helpText(span("Select a fraction if you are only interested in dissolved or suspended concentrations.",
+                                          `data-i18n` = "risk_fraction_help"))
+                        )
                       )
-                    ),
-
-                    # Modify inputs — shown when checkbox is on
-                    conditionalPanel(
-                      condition = "input.show_water_inputs == true",
-                      div(class = "layer-params",
-                          uiOutput("water_params_ui"),
-                          helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
-                                        `data-i18n` = "risk_params_help")),
-                          selectInput("water_temp_ag",
-                                      span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
-                                      choices = c("Recent" = "recent", "Average" = "mean")),
-                          helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
-                                        `data-i18n` = "risk_temp_help")),
-                          conditionalPanel(
-                            condition = "input.water_temp_ag == 'recent'",
-                            numericInput("water_nyears",
-                                         span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
-                                         value = 5, min = 1, max = 20, step = 1),
-                            helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
-                                          `data-i18n` = "risk_nyears_help"))
-                          ),
-                          selectInput("water_param_ag",
-                                      span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
-                                      choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
-                                      selected = "pct95"),
-                          helpText(span("How to aggregate hazard scores after temporal aggregation.",
-                                        `data-i18n` = "risk_final_ag_help")),
-                          numericInput("water_resolution",
-                                       span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
-                                       value = 1000, min = 100, max = 10000, step = 100),
-                          helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller values) may increase processing times.",
-                                        `data-i18n` = "risk_res_help")),
-                          numericInput("water_max_distance",
-                                       span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
-                                       value = 2000, min = 1000, max = 50000, step = 1000),
-                          helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
-                                        `data-i18n` = "risk_max_dist_help")),
-                          selectInput("water_fraction",
-                                      span("Fraction:", `data-i18n` = "risk_fraction_label"),
-                                      choices = c("All", "Dissolved", "Suspended")),
-                          helpText(span("Select a fraction if you are only interested in dissolved or suspended concentrations.",
-                                        `data-i18n` = "risk_fraction_help"))
-                      )
-                    )
+                  )
                 )
               ), # end Water details
               
@@ -852,92 +748,99 @@ ui <- fluidPage(
                 tags$summary(
                   h5(strong(span("Sediment Pollution Risk", `data-i18n`="risk_sed_heading")), style = "margin: 0; color: #1C8C27;")
                 ),
-                
-                div(class = "layer-block",
-                    # Sampling Stations row
-                    checkboxInput("risk_sed_stations",
-                                  span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
-                    actionButton("score_sediment",
-                                 span("Score Stations", `data-i18n` = "risk_score_btn"),
-                                 class = "btn-create", icon = icon("map-marker-alt")),
-
-                    hr(style = "margin: 8px 0;"),
-
-                    # Interpolated Risk row
-                    checkboxInput("risk_sediment",
-                                  span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
-                    actionButton("create_sediment",
-                                 span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
-                                 class = "btn-create", icon = icon("layer-group")),
-
-                    hr(style = "margin: 8px 0;"),
-
-                    # Modify Inputs + Apply Binning row
-                    div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("show_sed_inputs",
-                                      span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
-                        materialSwitch("bin_sediment",
-                                       span("Bin", `data-i18n` = "risk_bin_label"),
-                                       value = FALSE, status = "primary", inline = TRUE)
-                    ),
-
-                    # Binning options — shown when bin switch is on AND raster checkbox is on
-                    conditionalPanel(
-                      condition = "input.bin_sediment == true && (input.risk_sediment == true || input.risk_sed_stations == true)",
-                      div(class = "layer-params",
-                          numericInput("sed_nbins",
-                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
-                                       value = 5, min = 2, max = 9, step = 1),
-                          selectInput("sed_bin_method",
-                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
-                                      choices = c("Station Quantiles" = "quantile",
-                                                  "Equal Area"        = "equal_area",
-                                                  "Equal Interval"    = "equal_interval"),
-                                      selected = "quantile"),
-                          actionButton("apply_sed_bins",
-                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
-                                       class = "btn-create", icon = icon("th"))
+                conditionalPanel(
+                  condition = "!output.has_sed_data",
+                  div(class = "alert alert-warning",
+                      "No sediment data were included in the uploaded dataset.")
+                ),
+                conditionalPanel(
+                  condition = "output.has_sed_data",
+                  div(class = "layer-block",
+                      # Sampling Stations row
+                      checkboxInput("risk_sed_stations",
+                                    span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
+                      actionButton("score_sediment",
+                                   span("Score Stations", `data-i18n` = "risk_score_btn"),
+                                   class = "btn-create", icon = icon("map-marker-alt")),
+  
+                      hr(style = "margin: 8px 0;"),
+  
+                      # Interpolated Risk row
+                      checkboxInput("risk_sediment",
+                                    span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
+                      actionButton("create_sediment",
+                                   span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
+                                   class = "btn-create", icon = icon("layer-group")),
+  
+                      hr(style = "margin: 8px 0;"),
+  
+                      # Modify Inputs + Apply Binning row
+                      div(style = "display: flex; align-items: center; justify-content: space-between;",
+                          checkboxInput("show_sed_inputs",
+                                        span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
+                          materialSwitch("bin_sediment",
+                                         span("Bin", `data-i18n` = "risk_bin_label"),
+                                         value = FALSE, status = "primary", inline = TRUE)
+                      ),
+  
+                      # Binning options — shown when bin switch is on AND raster checkbox is on
+                      conditionalPanel(
+                        condition = "input.bin_sediment == true && (input.risk_sediment == true || input.risk_sed_stations == true)",
+                        div(class = "layer-params",
+                            numericInput("sed_nbins",
+                                         span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                         value = 5, min = 2, max = 9, step = 1),
+                            selectInput("sed_bin_method",
+                                        span("Binning Method:", `data-i18n` = "risk_bin_method"),
+                                        choices = c("Station Quantiles" = "quantile",
+                                                    "Equal Area"        = "equal_area",
+                                                    "Equal Interval"    = "equal_interval"),
+                                        selected = "quantile"),
+                            actionButton("apply_sed_bins",
+                                         span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                         class = "btn-create", icon = icon("th"))
+                        )
+                      ),
+  
+                      # Modify inputs — shown when checkbox is on
+                      conditionalPanel(
+                        condition = "input.show_sed_inputs == true",
+                        div(class = "layer-params",
+                            uiOutput("sed_params_ui"),
+                            helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
+                                          `data-i18n` = "risk_params_help")),
+                            selectInput("sed_temp_ag",
+                                        span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
+                                        choices = c("Recent" = "recent", "Average" = "mean")),
+                            helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
+                                          `data-i18n` = "risk_temp_help")),
+                            conditionalPanel(
+                              condition = "input.sed_temp_ag == 'recent'",
+                              numericInput("sed_nyears",
+                                           span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
+                                           value = 5, min = 1, max = 20, step = 1),
+                              helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
+                                            `data-i18n` = "risk_nyears_help"))
+                            ),
+                            selectInput("sed_param_ag",
+                                        span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
+                                        choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
+                                        selected = "pct95"),
+                            helpText(span("How to aggregate hazard scores after temporal aggregation.",
+                                          `data-i18n` = "risk_final_ag_help")),
+                            numericInput("sed_resolution",
+                                         span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
+                                         value = 1000, min = 100, max = 10000, step = 100),
+                            helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller input values) may result in longer processing times.",
+                                          `data-i18n` = "risk_res_help")),
+                            numericInput("sed_max_distance",
+                                         span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
+                                         value = 2000, min = 1000, max = 50000, step = 1000),
+                            helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
+                                          `data-i18n` = "risk_max_dist_help"))
+                        )
                       )
-                    ),
-
-                    # Modify inputs — shown when checkbox is on
-                    conditionalPanel(
-                      condition = "input.show_sed_inputs == true",
-                      div(class = "layer-params",
-                          uiOutput("sed_params_ui"),
-                          helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
-                                        `data-i18n` = "risk_params_help")),
-                          selectInput("sed_temp_ag",
-                                      span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
-                                      choices = c("Recent" = "recent", "Average" = "mean")),
-                          helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
-                                        `data-i18n` = "risk_temp_help")),
-                          conditionalPanel(
-                            condition = "input.sed_temp_ag == 'recent'",
-                            numericInput("sed_nyears",
-                                         span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
-                                         value = 5, min = 1, max = 20, step = 1),
-                            helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
-                                          `data-i18n` = "risk_nyears_help"))
-                          ),
-                          selectInput("sed_param_ag",
-                                      span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
-                                      choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
-                                      selected = "pct95"),
-                          helpText(span("How to aggregate hazard scores after temporal aggregation.",
-                                        `data-i18n` = "risk_final_ag_help")),
-                          numericInput("sed_resolution",
-                                       span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
-                                       value = 1000, min = 100, max = 10000, step = 100),
-                          helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller input values) may result in longer processing times.",
-                                        `data-i18n` = "risk_res_help")),
-                          numericInput("sed_max_distance",
-                                       span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
-                                       value = 2000, min = 1000, max = 50000, step = 1000),
-                          helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
-                                        `data-i18n` = "risk_max_dist_help"))
-                      )
-                    )
+                  )
                 )
               ), # end Sediment details
               
@@ -1082,11 +985,12 @@ ui <- fluidPage(
               
               hr(),
               
-              uiOutput("risk_sidebar"),
               info_callout(
                 span("Risk Map", `data-i18n`="risk_callout_title"),
                 span("Click anywhere on the map to see detailed risk values for each layer. Higher values = higher risk.", `data-i18n`="risk_callout_text")
-              )
+              ),
+              uiOutput("risk_sidebar")
+              
             )
           ),
           mainPanel(

@@ -36,10 +36,10 @@ server <- function(input, output, session) {
     updateActionButton(session, "reset_filters",        label = s[["reset_filters_btn"]])
 
     # Time Series tab — station / parameter / sieve labels
-    updateSelectInput(session,   "ts_station",       label = s[["select_station"]])
-    updateSelectInput(session,   "ts_param",         label = s[["select_param"]])
-    updateSelectInput(session,   "ts_tamiz",         label = s[["ts_select_sieve"]])
-    updateCheckboxInput(session, "ts_tamiz_checkbox", label = s[["ts_filter_sieve"]])
+    # updateSelectInput(session,   "ts_station",       label = s[["select_station"]])
+    # updateSelectInput(session,   "ts_param",         label = s[["select_param"]])
+    # updateSelectInput(session,   "ts_tamiz",         label = s[["ts_select_sieve"]])
+    # updateCheckboxInput(session, "ts_tamiz_checkbox", label = s[["ts_filter_sieve"]])
 
     # Ranking — parameter / station labels (choices are populated server-side; just update label)
     updateSelectInput(session, "observation_plot_param", label = s[["select_param"]])
@@ -160,14 +160,8 @@ server <- function(input, output, session) {
   # initialize master_data
   master_data = reactiveValues(
     water_scored = NULL,
-    water_locyear = NULL,
     sed_scored = NULL,
-    sed_locyear = NULL,
-    sed_loctime = NULL,
-    water_loctime = NULL,
     all_media_scored = NULL,
-    all_media_locyear = NULL,
-    all_media_loctime = NULL
   )
 
   # Raw (unfiltered) data — always holds the full loaded/uploaded dataset.
@@ -184,14 +178,6 @@ server <- function(input, output, session) {
     
     raw_water(if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() })
     raw_sed(if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() })
-    master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.qs2")) qs_read("data/processed/all_water_locyear.qs2") else { print("no all_water_locyear.qs2"); tibble() }
-    master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.qs2")) qs_read("data/processed/all_sed_locyear.qs2") else { print("no all_sed_locyear.qs2"); tibble() }
-    master_data$sed_loctime <<- if(file.exists("data/processed/all_sed_loctime.qs2")) qs_read("data/processed/all_sed_loctime.qs2") else { print("no all_sed_loctime.qs2"); tibble() }
-    master_data$water_loctime <<- if(file.exists("data/processed/all_water_loctime.qs2")) qs_read("data/processed/all_water_loctime.qs2") else { print("no all_water_loctime.qs2"); tibble() }
-    # all_media_scored is derived from water + sed via the filter sync observe below
-    master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.qs2")) qs_read("data/processed/all_media_locyear.qs2") else { print("no all_media_locyear.qs2"); tibble() }
-    master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.qs2")) qs_read("data/processed/all_media_loctime.qs2") else { print("no all_media_loctime.qs2"); tibble() }
-
     app_initialized(TRUE) # we tried loading the data in
     message("Master Data Loaded.")
     
@@ -206,6 +192,17 @@ server <- function(input, output, session) {
   })
   outputOptions(output, "data_ready", suspendWhenHidden = FALSE)
 
+  # do the same for each media so we can track when features should be blocked
+  output$has_water_data <- reactive({
+    !is.null(master_data$water_scored) && nrow(master_data$water_scored) > 0
+  })
+  outputOptions(output, "has_water_data", suspendWhenHidden = FALSE)
+  
+  output$has_sed_data <- reactive({
+    !is.null(master_data$sed_scored) && nrow(master_data$sed_scored) > 0
+  })
+  outputOptions(output, "has_sed_data", suspendWhenHidden = FALSE)
+  
   observe({
     message("[DEBUG] Data Update Trigger")
     message(" - Water Scored Rows: ", nrow(master_data$water_scored))
@@ -586,10 +583,8 @@ server <- function(input, output, session) {
     
     if (result$media == "water") {
       raw_water(result$scored)
-      master_data$water_locyear <- result$locyear
     } else { # assuming it's sediment
       raw_sed(result$scored)
-      master_data$sed_locyear <- result$locyear
     }
     # all_media_scored is automatically rebuilt by the filter sync observe
     message("Upload applied: ", result$media, " — ", nrow(result$scored), " rows")
@@ -896,7 +891,7 @@ server <- function(input, output, session) {
   
   ## set click location for all to use
   click_location <- reactive({
-    req(input$main_tab == "Risk Scores Map")
+    req(input$main_tab == "risk_map")
     
     click  <- input$risk_map_click
     if (is.null(click)) return(list(lat = NA_real_, lng = NA_real_))
@@ -905,7 +900,7 @@ server <- function(input, output, session) {
   
   ## get raster data based on click
   click_data <- reactive({
-    req(input$main_tab == "Risk Scores Map")
+    req(input$main_tab == "risk_map")
     
     loc    <- click_location()
     layers <- risk_individuals()   # water, sediment, eji, pop — never combined
@@ -944,7 +939,7 @@ server <- function(input, output, session) {
   })  
   ## get individual layer values
   risk_individuals <- reactive({
-    req(input$main_tab == "Risk Scores Map")
+    req(input$main_tab == "risk_map")
     layers <- list()
     
     # Water (checkbox: risk_water)
@@ -1000,23 +995,6 @@ server <- function(input, output, session) {
       )
   })
   
-  # observe({
-  #   req(input$main_tab == "Risk Scores Map")
-  #   
-  #   # r <- risk_raster()
-  #   
-  #   # Silently do nothing if no layers selected — don't stop(), just return
-  #   if (is.null(r) || is.null(r$merged)) return()
-  #   
-  #   proxy <- leafletProxy("risk_map") |> clearImages()
-  #   
-  #   pal <- colorNumeric("viridis", terra::values(r$merged), na.color = "transparent")
-  #   
-  #   proxy |>
-  #     addRasterImage(r$merged, colors = pal, opacity = 0.7, 
-  #                    layerId = "risk_merged", project = FALSE)
-  # })
-  
   # ── Risk map: create-layer buttons ────────────────────────────
   
   output$risk_sidebar <- renderUI({
@@ -1063,7 +1041,7 @@ server <- function(input, output, session) {
     )
   })  
   # Initialize empty sidebar
-  outputOptions(output, "risk_map", suspendWhenHidden = FALSE)
+  outputOptions(output, "risk_sidebar", suspendWhenHidden = FALSE)
   
   ################# RANKING PLOTS ############################
   
@@ -2124,7 +2102,7 @@ server <- function(input, output, session) {
   
   # dynamically update choices for time series station & parameters
   observeEvent(input$main_tab, {
-    if(input$main_tab != "Time Series") {
+    if(input$main_tab != "ts_tab") {
       return()
     }
     
@@ -2208,58 +2186,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # observeEvent(input$ts_station, {
-  #   cat("\n\nts_station changed to: ", input$ts_station)
-  # })
-  # 
-  # observeEvent(input$ts_param, {
-  #   cat("\n\nts_param changed to: ", input$ts_param)
-  # })
-  # 
-  ts_filtered_data_water <- reactive({
-    df = master_data$water_scored
-    cat("\n\nnrows master_data", nrow(df))
-    req(guard_data(df))
-    cat(paste0("\nmaster_data$water_scored rows: ", nrow(master_data$water_scored)))
-    
-    ts_station = input$ts_station
-    ts_param = input$ts_param
-    cat("\n\n\nts_station and ts_param\n\n\n")
-    cat(ts_station)
-    cat(ts_param)
-    req(ts_station, ts_param)
-    cat("after rec\n\n\n\n")
-    # not using locyear since we don't want it in year format, we'd have to aggregate again by detail_rows and that sounds sucky
-    # View(df)
-    cat("\n=== DEBUG ts_filtered_data_water ===\n")
-    cat(names(df)) # for debugging 
-    cat(nrow(df))
-    cat("Have HQ: ", df |> filter(!is.na(HQ)) |> nrow())
-    
-    # Check if parameter column exists in locyear
-    if (!"parameter" %in% colnames(df)) {
-      cat("ERROR: No parameter column in water data within detail_rows of locyear \n")
-      return(data.frame())
-    }
-    
-    # Filter by station and parameter
-    cat(paste0("station selected: ", input$ts_station, ". Parameter selected: ", input$ts_param))
-    cat(paste0("Total rows: ", nrow(df), ". Rows matching: "))
-    df <- df %>%
-      filter(station == input$ts_station,
-             parameter == input$ts_param)
-    cat(nrow(df))
-    df = df %>%
-      select(date, concentration, unit) %>%  # REMOVED classification - it's optional
-      filter(!is.na(concentration))
-    
-    # Rename for consistency with existing code
-    df <- df %>%
-      rename(date = date, value = concentration)
-    cat(nrow(df))
-    return(df)
-  })  
-  
   # Initial filtering of parameter and station
   ts_filtered_data_sed_init <- reactive({
     df <- active_sed_clean()
@@ -2274,19 +2200,6 @@ server <- function(input, output, session) {
       select(date, sieve_size, value = any_of(input$ts_param), distance_from_bank) %>%
       filter(!is.na(concentration))
   })
-  
-  # Update sieve (tamiz) choices based on station and parameter
-  # observe({
-  #   
-  #   req(input$media == , input$ts_tamiz_checkbox)
-  #   df <- ts_filtered_data_sed_init()
-  #   
-  #   if (!sieve_size %in% names(df)) return()
-  #   
-  #   ts_tamiz_choices <- sort(unique(df$sieve_size))
-  #   
-  #   updateSelectInput(session, "ts_tamiz", choices = ts_tamiz_choices, selected = ts_tamiz_choices[1])
-  # })
   
   # filter for sieve (tamiz)
   ts_filtered_data_sed <- reactive({
@@ -2305,20 +2218,6 @@ server <- function(input, output, session) {
     message("\nIN TS_PLOT_WATER")
     # Unwrap the reactive data with ()
     data_df <- master_data$water_scored
-    
-    # # DIAGNOSTIC: What exactly is this?
-    # message("\n[DIAGNOSTIC] ts_filtered_data_water() output:")
-    # message("Class: ", paste(class(data_df), collapse = ", "))
-    # message("Is data.frame? ", is.data.frame(data_df))
-    # message("Is tibble? ", inherits(data_df, "tbl"))
-    # message("Is NULL? ", is.null(data_df))
-    # 
-    # if (!is.null(data_df)) {
-    #   message("Nrows: ", nrow(data_df))
-    #   message("Columns: ", paste(colnames(data_df), collapse = ", "))
-    #   message("First few rows:")
-    #   print(head(data_df))
-    # }
     
     # Check that data exists and has rows
     if (is.null(data_df) || nrow(data_df) == 0) {
@@ -4860,13 +4759,13 @@ observeEvent(input$create_combined, {
       
       combined_risk_raster(combined)
       showNotification(tr("notif_combined_created"), type = "message", duration = 4)
-    
-      risk_individuals(list(
-        water = if("water" %in% active) layers[["water"]] else NULL,
-        sed = if("sed" %in% active) layers[["sed"]] else NULL,
-        eji = if("eji" %in% active) layers[["eji"]] else NULL,
-        pop = if("pop" %in% active) layers[["pop"]] else NULL,
-      ))
+      # 
+      # risk_individuals(list(
+      #   water = if("water" %in% active) layers[["water"]] else NULL,
+      #   sed = if("sed" %in% active) layers[["sed"]] else NULL,
+      #   eji = if("eji" %in% active) layers[["eji"]] else NULL,
+      #   pop = if("pop" %in% active) layers[["pop"]] else NULL
+      # ))
       
     }, error = function(e) {
       showNotification(paste("Error:", e$message), type = "error", duration = 10)

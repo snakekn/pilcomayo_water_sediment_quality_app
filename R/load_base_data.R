@@ -1,4 +1,4 @@
-load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_standards = TRUE) {
+load_base_data <- function(load = TRUE, save = TRUE, check_standards = TRUE) {
   
   # Quick library confirmation. Slows things down, but this is a 1-off function anyways
   library(pacman)
@@ -59,16 +59,6 @@ load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_stan
     all_media_scored <<- merge_media_safely(all_water_scored, all_sed_scored)
     print("DONE")
     
-    if(locyear) {
-      print("Turning all_sed_scored into all_sed_locyear")
-      all_sed_locyear <<- score_to_loc_year(all_sed_scored)
-      print("DONE. Turning all_water_scored into all_water_locyear")
-      all_water_locyear <<- score_to_loc_year(all_water_scored)
-      print("DONE. Merging into all_media_locyear")
-      all_media_locyear <<- merge_media_safely(all_water_locyear, all_sed_locyear)
-      print("DONE")
-    }
-    
     print("All base data loaded, pivoted, scored, and merged as requested.")
     
     print("Loading border shapefiles and clipping scored data to Bolivia...")
@@ -91,13 +81,7 @@ load_base_data <- function(load = TRUE, locyear = FALSE, save = TRUE, check_stan
     saveRDS(all_sed_scored, here::here("data/processed/all_sed_scored.rds"))
     saveRDS(all_water_scored, here::here("data/processed/all_water_scored.rds"))
     saveRDS(all_media_scored, here::here("data/processed/all_media_scored.rds"))
-    
-    if(locyear) {
-      saveRDS(all_sed_locyear, here::here("data/processed/all_sed_locyear.rds"))
-      saveRDS(all_water_locyear, here::here("data/processed/all_water_locyear.rds"))
-      saveRDS(all_media_locyear, here::here("data/processed/all_media_locyear.rds"))
-    }
-    
+
     print("master_data files saved to data/processed/all_* paths")
   }
 }
