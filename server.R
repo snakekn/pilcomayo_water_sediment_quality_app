@@ -3,7 +3,158 @@
 #Define Server
 server <- function(input, output, session) {
   message("Starting server.R")
-  
+
+  # ── Language / i18n setup ────────────────────────────────────────────────────
+  lang <- reactiveVal("en")
+
+  # tr() — look up a string in the current language
+  tr <- function(key) {
+    strings <- if (isolate(lang()) == "es") STRINGS_ES else STRINGS_EN
+    strings[[key]] %||% paste0("[", key, "]")
+  }
+
+  # Send the full translation dictionary to the browser once on session start
+  session$onFlushed(function() {
+    session$sendCustomMessage("i18n_dict", list(en = STRINGS_EN, es = STRINGS_ES))
+  }, once = TRUE)
+
+  # React to language toggle clicks (from www/i18n.js via Shiny.setInputValue)
+  observeEvent(input$lang, {
+    lang(input$lang)
+  })
+
+  # Re-label all translatable Shiny inputs when language changes
+  observeEvent(lang(), {
+    l <- lang()
+    s <- if (l == "es") STRINGS_ES else STRINGS_EN  # active string table
+
+    # Convenience: build a named choices vector from string-table keys and raw values
+    ch <- function(keys, vals) setNames(vals, sapply(keys, function(k) s[[k]]))
+
+    # Data Preparation sidebar
+    updateCheckboxInput(session, "filter_bolivia_only", label = s[["filter_bolivia"]])
+    updateActionButton(session, "reset_filters",        label = s[["reset_filters_btn"]])
+
+    # Time Series tab — station / parameter / sieve labels
+    updateSelectInput(session,   "ts_station",       label = s[["select_station"]])
+    updateSelectInput(session,   "ts_param",         label = s[["select_param"]])
+    updateSelectInput(session,   "ts_tamiz",         label = s[["ts_select_sieve"]])
+    updateCheckboxInput(session, "ts_tamiz_checkbox", label = s[["ts_filter_sieve"]])
+
+    # Ranking — parameter / station labels (choices are populated server-side; just update label)
+    updateSelectInput(session, "observation_plot_param", label = s[["select_param"]])
+    updateSelectInput(session, "station_plot_param",     label = s[["select_param"]])
+    updateSelectInput(session, "param_plot_station",     label = s[["select_station"]])
+    updateSelectInput(session, "sieve_plot_param",       label = s[["select_param"]])
+    updateSelectInput(session, "sieve_plot_station",     label = s[["select_station"]])
+
+    # PCA tab
+    updateSelectInput(session,   "pca_station",      label = s[["select_station"]])
+    updateSelectizeInput(session, "pca_parameters",  label = s[["pca_params_label"]])
+
+    # Data scope — label/choices use data-i18n spans in ui.R; no server update needed
+
+    # Time Series tab
+    updateSelectInput(session, "ts_standard_mode",
+                      label   = s[["ts_standards"]],
+                      choices = ch(c("ts_std_all","ts_std_strict","ts_std_none",
+                                     "ts_std_bol","ts_std_epa","ts_std_who",
+                                     "ts_std_usgs","ts_std_fao"),
+                                   c("all","strict","none","bol","epa","who","usgs","fao")))
+
+    # Ranking Plots — Worst Stations
+    updateSelectInput(session, "station_plot_media",
+                      label   = s[["select_media"]],
+                      choices = ch(c("media_all","media_water","media_sed"),
+                                   c("all","water","sediment")))
+    updateSelectInput(session, "station_plot_fraction",
+                      label   = s[["select_fraction"]],
+                      choices = ch(c("fraction_all","fraction_total","fraction_dissolved","fraction_suspended"),
+                                   c("any","Total","Dissolved","Suspended")))
+    updateSelectInput(session, "station_plot_method_parameter",
+                      label   = s[["hq_calc_label"]],
+                      choices = ch(c("hq_pct95","hq_median","hq_mean","hq_max"),
+                                   c("pct95","median","mean","max")))
+    updateSelectInput(session, "station_plot_method_temporal",
+                      label   = s[["rank_temp_label"]],
+                      choices = ch(c("rank_recent","rank_average","hq_max"),
+                                   c("recent","average","max")))
+
+    # Ranking Plots — Worst Parameters
+    updateSelectInput(session, "param_plot_media",
+                      label   = s[["select_media"]],
+                      choices = ch(c("media_all","media_water","media_sed"),
+                                   c("all","water","sediment")))
+    updateSelectInput(session, "param_plot_fraction",
+                      label   = s[["select_fraction"]],
+                      choices = ch(c("fraction_all","fraction_total","fraction_dissolved","fraction_suspended"),
+                                   c("all","Total","Dissolved","Suspended")))
+    updateSelectInput(session, "param_plot_method_temporal",
+                      label   = s[["rank_temp_label"]],
+                      choices = ch(c("rank_recent","rank_average_time","rank_max_year","rank_weighted"),
+                                   c("recent","average","max","weighted")))
+
+    # Ranking Plots — Worst Observations
+    updateSelectInput(session, "observation_plot_media",
+                      label   = s[["select_media"]],
+                      choices = ch(c("media_water","media_sed"), c("water","sediment")))
+
+    # Ranking Plots — Worst Sieve Sizes
+    updateSelectInput(session, "sieve_plot_method_spatial",
+                      label   = s[["combine_sta_label"]],
+                      choices = ch(c("hq_pct95","combine_max","combine_median","combine_mean"),
+                                   c("pct95","max","median","mean")))
+    updateSelectInput(session, "sieve_plot_method_temporal",
+                      label   = s[["rank_temp_label"]],
+                      choices = ch(c("rank_recent","rank_average_time","rank_max_year","rank_weighted"),
+                                   c("recent","average","max","weighted")))
+    updateRadioButtons(session, "sieve_plot_method",
+                       label   = s[["rank_by_label"]],
+                       choices = ch(c("rank_avg_val","rank_max_val"), c("avg","max")))
+
+    # PCA tab
+    updateSelectInput(session, "pca_media",
+                      label   = s[["select_media"]],
+                      choices = ch(c("media_all","media_water","media_sed"),
+                                   c("all","water","sediment")))
+    updateActionButton(session, "deselect_all_pca", label = s[["pca_clear_btn"]])
+    updateActionButton(session, "run_pca",          label = s[["pca_run_btn"]])
+
+    # Risk Map — temporal/aggregation selects
+    updateSelectInput(session, "water_temp_ag",
+                      label   = s[["risk_temp_label"]],
+                      choices = ch(c("risk_temp_recent","risk_temp_average"), c("recent","mean")))
+    updateSelectInput(session, "water_param_ag",
+                      label   = s[["risk_final_ag_label"]],
+                      choices = ch(c("risk_ag_mean","risk_ag_max","risk_ag_pct95"), c("mean","max","pct95")))
+    updateSelectInput(session, "water_fraction",
+                      label   = s[["select_fraction"]],
+                      choices = ch(c("fraction_all","fraction_dissolved","fraction_suspended"),
+                                   c("All","Dissolved","Suspended")))
+    updateSelectInput(session, "water_bin_method",
+                      label   = s[["risk_bin_method"]],
+                      choices = ch(c("risk_bin_quantile","risk_bin_equal_area","risk_bin_equal_int"),
+                                   c("quantile","equal_area","equal_interval")))
+    updateSelectInput(session, "sed_temp_ag",
+                      label   = s[["risk_temp_label"]],
+                      choices = ch(c("risk_temp_recent","risk_temp_average"), c("recent","mean")))
+    updateSelectInput(session, "sed_param_ag",
+                      label   = s[["risk_final_ag_label"]],
+                      choices = ch(c("risk_ag_mean","risk_ag_max","risk_ag_pct95"), c("mean","max","pct95")))
+    updateSelectInput(session, "sed_bin_method",
+                      label   = s[["risk_bin_method"]],
+                      choices = ch(c("risk_bin_quantile","risk_bin_equal_area","risk_bin_equal_int"),
+                                   c("quantile","equal_area","equal_interval")))
+    updateSelectInput(session, "eji_bin_method",
+                      label   = s[["risk_bin_method"]],
+                      choices = ch(c("risk_bin_quantile","risk_bin_equal_int"),
+                                   c("quantile","equal_interval")))
+    updateSelectInput(session, "pop_bin_method",
+                      label   = s[["risk_bin_method"]],
+                      choices = ch(c("risk_bin_equal_int","risk_bin_equal_area","risk_bin_jenks"),
+                                   c("equal_interval","equal_area","jenks")))
+  }, ignoreInit = TRUE)
+
   #### Prepare master_data ####
   
   # initialize master_data
@@ -18,6 +169,12 @@ server <- function(input, output, session) {
     all_media_locyear = NULL,
     all_media_loctime = NULL
   )
+
+  # Raw (unfiltered) data — always holds the full loaded/uploaded dataset.
+  # filtered_water() / filtered_sed() read from these, so there's no circular dependency
+  # when the sync observe writes filtered results back into master_data.
+  raw_water <- reactiveVal(NULL)
+  raw_sed   <- reactiveVal(NULL)
   
   app_initialized = reactiveVal(FALSE) # check if we tried including master_data from prior data
   
@@ -25,9 +182,15 @@ server <- function(input, output, session) {
   observe({
     message("Loading Master Data...")
     
-    master_data$water_scored <- if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() }
-    master_data$sed_scored <- if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() }
-    master_data$all_media_scored <<- if(file.exists("data/processed/all_media_scored.qs2")) qs_read("data/processed/all_media_scored.qs2") else { print("no all_media_scored.qs2"); tibble() }
+    raw_water(if (file.exists("data/processed/all_water_scored.qs2")) qs_read("data/processed/all_water_scored.qs2") else { print("no all_water_scored.qs2"); tibble() })
+    raw_sed(if (file.exists("data/processed/all_sed_scored.qs2")) qs_read("data/processed/all_sed_scored.qs2") else { print("no all_sed_scored.qs2"); tibble() })
+    master_data$water_locyear <- if (file.exists("data/processed/all_water_locyear.qs2")) qs_read("data/processed/all_water_locyear.qs2") else { print("no all_water_locyear.qs2"); tibble() }
+    master_data$sed_locyear <- if (file.exists("data/processed/all_sed_locyear.qs2")) qs_read("data/processed/all_sed_locyear.qs2") else { print("no all_sed_locyear.qs2"); tibble() }
+    master_data$sed_loctime <<- if(file.exists("data/processed/all_sed_loctime.qs2")) qs_read("data/processed/all_sed_loctime.qs2") else { print("no all_sed_loctime.qs2"); tibble() }
+    master_data$water_loctime <<- if(file.exists("data/processed/all_water_loctime.qs2")) qs_read("data/processed/all_water_loctime.qs2") else { print("no all_water_loctime.qs2"); tibble() }
+    # all_media_scored is derived from water + sed via the filter sync observe below
+    master_data$all_media_locyear <<- if(file.exists("data/processed/all_media_locyear.qs2")) qs_read("data/processed/all_media_locyear.qs2") else { print("no all_media_locyear.qs2"); tibble() }
+    master_data$all_media_loctime <<- if(file.exists("data/processed/all_media_loctime.qs2")) qs_read("data/processed/all_media_loctime.qs2") else { print("no all_media_loctime.qs2"); tibble() }
 
     app_initialized(TRUE) # we tried loading the data in
     message("Master Data Loaded.")
@@ -42,20 +205,21 @@ server <- function(input, output, session) {
     water_ready || sed_ready || all_media_ready
   })
   outputOptions(output, "data_ready", suspendWhenHidden = FALSE)
-  
+
   observe({
     message("[DEBUG] Data Update Trigger")
     message(" - Water Scored Rows: ", nrow(master_data$water_scored))
     message(" - Sed Scored Rows: ", nrow(master_data$sed_scored))
   })
-  
+
   # one-liner wrapper to check whether we have the data required to run a section
   guard_data <- function(
     df,
     cols = c("station", "media", "parameter", "date"),
     notify = TRUE,
-    msg = "No data loaded yet. Add data in Data Preparation before using the application."
+    msg = NULL
   ) {
+    if (is.null(msg)) msg <- tr("notif_no_data_loaded")
     has_data(
       df = df,
       cols = cols,
@@ -70,54 +234,265 @@ server <- function(input, output, session) {
   observeEvent(input$go_data_prep, {
     updateTabsetPanel(session, "main_tab", selected = "data_prep")
   })
-  
+
+  # ── Language-aware Introduction tab markdown ─────────────────────────────────
+  output$intro_md <- renderUI({
+    includeMarkdown(if (lang() == "es") "text/introduction.es.md" else "text/introduction.md")
+  })
+  output$intro_sources_md <- renderUI({
+    includeMarkdown(if (lang() == "es") "text/introduction_sources.es.md" else "text/introduction_sources.md")
+  })
+  output$acknowledgements_md <- renderUI({
+    includeMarkdown(if (lang() == "es") "text/acknowledgements.es.md" else "text/acknowledgements.md")
+  })
+
   output$water_data_tab <- renderUI({
     has_water <- !is.null(master_data$water_scored) &&
       is.data.frame(master_data$water_scored) &&
       nrow(master_data$water_scored) > 0
-    
+
     if (!has_water) {
       return(
         div(
           style = "padding: 20px; color: #666;",
-          h4("No water data loaded"),
-          p("Upload or prepare water data in the Data Preparation tab to view these tables.")
+          h4(tr("no_water_title")),
+          p(tr("no_water_msg"))
         )
       )
     }
-    
+
     tagList(
-      h4("Yearly Summary"),
+      h4(tr("yearly_summary")),
       DT::DTOutput("data_prep_water_table"),
       br(),
-      h4("Complete Dataset"),
+      h4(tr("complete_dataset")),
       DT::DTOutput("full_water_table")
     )
   })
-  
+
   output$sed_data_tab <- renderUI({
     has_sed <- !is.null(master_data$sed_scored) &&
       is.data.frame(master_data$sed_scored) &&
       nrow(master_data$sed_scored) > 0
-    
+
     if (!has_sed) {
       return(
         div(
           style = "padding: 20px; color: #666;",
-          h4("No sediment data loaded"),
-          p("Upload or prepare sediment data in the Data Preparation tab to view these tables.")
+          h4(tr("no_sed_title")),
+          p(tr("no_sed_msg"))
         )
       )
     }
-    
+
     tagList(
-      h4("Yearly Summary"),
+      h4(tr("yearly_summary")),
       DT::DTOutput("data_prep_sed_table"),
       br(),
-      h4("Complete Dataset"),
+      h4(tr("complete_dataset")),
       DT::DTOutput("full_sed_table")
     )
   })
+
+  output$sed_data_ready <- reactive({
+    !is.null(raw_sed()) && nrow(raw_sed()) > 0
+  })
+  outputOptions(output, "sed_data_ready", suspendWhenHidden = FALSE)
+
+  # Combined data ready check — uses raw data so filtering to zero rows doesn't break the UI
+  output$map_data_ready <- reactive({
+    water_ready <- !is.null(raw_water()) && nrow(raw_water()) > 0
+    sed_ready   <- !is.null(raw_sed())   && nrow(raw_sed())   > 0
+    water_ready || sed_ready
+  })
+  outputOptions(output, "map_data_ready", suspendWhenHidden = FALSE)
+
+  # ── Global Data Filters ─────────────────────────────────────────────────────
+  # filtered_water / filtered_sed read from raw_water / raw_sed (not master_data),
+  # so the sync observe below that writes back to master_data creates no circularity.
+
+  filtered_water <- reactive({
+    df <- raw_water()
+    if (is.null(df) || nrow(df) == 0) return(df)
+    # Bolivia filter runs first so that station choices are always a Bolivia-subset
+    if (isTRUE(input$filter_bolivia_only)) {
+      df <- filter_to_border(df, "longitude_decimal", "latitude_decimal", bol_border)
+    }
+    if (!is.null(input$filter_water_dates) && !anyNA(input$filter_water_dates)) {
+      df <- df |> filter(date >= input$filter_water_dates[1],
+                         date <= input$filter_water_dates[2])
+    }
+    # Only apply station filter for stations that still exist after Bolivia clip
+    valid_stations <- if (isTRUE(input$filter_bolivia_only)) unique(df$station) else NULL
+    sel <- input$filter_water_stations
+    if (!is.null(sel) && length(sel) > 0) {
+      if (!is.null(valid_stations)) sel <- intersect(sel, valid_stations)
+      if (length(sel) > 0) df <- df |> filter(station %in% sel)
+    }
+    df
+  })
+
+  filtered_sed <- reactive({
+    df <- raw_sed()
+    if (is.null(df) || nrow(df) == 0) return(df)
+    if (isTRUE(input$filter_bolivia_only)) {
+      df <- filter_to_border(df, "longitude_decimal", "latitude_decimal", bol_border)
+    }
+    if (!is.null(input$filter_sed_dates) && !anyNA(input$filter_sed_dates)) {
+      df <- df |> filter(date >= input$filter_sed_dates[1],
+                         date <= input$filter_sed_dates[2])
+    }
+    valid_stations <- if (isTRUE(input$filter_bolivia_only)) unique(df$station) else NULL
+    sel <- input$filter_sed_stations
+    if (!is.null(sel) && length(sel) > 0) {
+      if (!is.null(valid_stations)) sel <- intersect(sel, valid_stations)
+      if (length(sel) > 0) df <- df |> filter(station %in% sel)
+    }
+    df
+  })
+
+  filtered_all_media <- reactive({
+    w <- filtered_water() %||% tibble()
+    s <- filtered_sed()   %||% tibble()
+    # sieve_size is NA (logical) in water data, character in sediment — coerce before binding
+    if ("sieve_size" %in% names(w)) w$sieve_size <- as.character(w$sieve_size)
+    if ("sieve_size" %in% names(s)) s$sieve_size <- as.character(s$sieve_size)
+    bind_rows(w, s)
+  })
+
+  # Sync filtered data into master_data so every existing consumer is automatically filtered.
+  observe({
+    master_data$water_scored    <- filtered_water()
+    master_data$sed_scored      <- filtered_sed()
+    master_data$all_media_scored <- filtered_all_media()
+  })
+
+  # Filter UI for Water
+  output$filter_water_ui <- renderUI({
+    df <- raw_water()
+    req(df, nrow(df) > 0)
+    dates    <- df$date[!is.na(df$date)]
+    stations <- sort(unique(df$station))
+    tagList(
+      h5(tr("filter_water_sec"), style = "margin: 10px 0 4px 0; font-weight: 600;"),
+      dateRangeInput(
+        "filter_water_dates", tr("filter_date_label"),
+        start = min(dates), end = max(dates),
+        min   = min(dates), max = max(dates),
+        format = "yyyy-mm-dd", separator = " to "
+      ),
+      selectizeInput(
+        "filter_water_stations", tr("filter_sta_label"),
+        choices  = stations,
+        selected = NULL,
+        multiple = TRUE,
+        options  = list(placeholder = tr("filter_sta_ph"))
+      )
+    )
+  })
+
+  # Filter UI for Sediment
+  output$filter_sed_ui <- renderUI({
+    df <- raw_sed()
+    req(df, nrow(df) > 0)
+    dates    <- df$date[!is.na(df$date)]
+    stations <- sort(unique(df$station))
+    tagList(
+      h5(tr("filter_sed_sec"), style = "margin: 10px 0 4px 0; font-weight: 600;"),
+      dateRangeInput(
+        "filter_sed_dates", tr("filter_date_label"),
+        start = min(dates), end = max(dates),
+        min   = min(dates), max = max(dates),
+        format = "yyyy-mm-dd", separator = " to "
+      ),
+      selectizeInput(
+        "filter_sed_stations", tr("filter_sta_label"),
+        choices  = stations,
+        selected = NULL,
+        multiple = TRUE,
+        options  = list(placeholder = tr("filter_sta_ph"))
+      )
+    )
+  })
+
+  # Filter status badge shown under the filter controls
+  output$filter_status_ui <- renderUI({
+    n_raw_w  <- nrow(raw_water()  %||% tibble())
+    n_filt_w <- nrow(filtered_water() %||% tibble())
+    n_raw_s  <- nrow(raw_sed()    %||% tibble())
+    n_filt_s <- nrow(filtered_sed()   %||% tibble())
+
+    water_active <- n_filt_w < n_raw_w
+    sed_active   <- n_filt_s < n_raw_s
+
+    if (!water_active && !sed_active) {
+      p(tr("filter_no_active"),
+        style = "color: #666; font-size: 12px; margin: 6px 0 0 0;")
+    } else {
+      div(
+        style = "color: #c0392b; font-size: 12px; font-weight: 600; margin: 6px 0 0 0;",
+        if (water_active) p(sprintf(tr("filter_water_rows"), n_filt_w, n_raw_w),
+                            style = "margin: 2px 0;"),
+        if (sed_active)   p(sprintf(tr("filter_sed_rows"), n_filt_s, n_raw_s),
+                            style = "margin: 2px 0;")
+      )
+    }
+  })
+
+  # Reset all filters back to full date range + no station selection
+  observeEvent(input$reset_filters, {
+    updateCheckboxInput(session, "filter_bolivia_only", value = FALSE)
+    df_w <- raw_water()
+    df_s <- raw_sed()
+    if (!is.null(df_w) && nrow(df_w) > 0) {
+      dates_w <- df_w$date[!is.na(df_w$date)]
+      updateDateRangeInput(session, "filter_water_dates",
+                           start = min(dates_w), end = max(dates_w))
+      updateSelectizeInput(session, "filter_water_stations", selected = character(0))
+    }
+    if (!is.null(df_s) && nrow(df_s) > 0) {
+      dates_s <- df_s$date[!is.na(df_s$date)]
+      updateDateRangeInput(session, "filter_sed_dates",
+                           start = min(dates_s), end = max(dates_s))
+      updateSelectizeInput(session, "filter_sed_stations", selected = character(0))
+    }
+  })
+  # When Bolivia-only checkbox toggles, restrict (or restore) station picker choices
+  observeEvent(input$filter_bolivia_only, {
+    df_w <- raw_water()
+    df_s <- raw_sed()
+
+    if (isTRUE(input$filter_bolivia_only)) {
+      if (!is.null(df_w) && nrow(df_w) > 0) {
+        bol_w   <- filter_to_border(df_w, "longitude_decimal", "latitude_decimal", bol_border)
+        choices <- sort(unique(bol_w$station))
+        updateSelectizeInput(session, "filter_water_stations",
+                             choices  = choices,
+                             selected = intersect(input$filter_water_stations, choices))
+      }
+      if (!is.null(df_s) && nrow(df_s) > 0) {
+        bol_s   <- filter_to_border(df_s, "longitude_decimal", "latitude_decimal", bol_border)
+        choices <- sort(unique(bol_s$station))
+        updateSelectizeInput(session, "filter_sed_stations",
+                             choices  = choices,
+                             selected = intersect(input$filter_sed_stations, choices))
+      }
+    } else {
+      if (!is.null(df_w) && nrow(df_w) > 0) {
+        updateSelectizeInput(session, "filter_water_stations",
+                             choices  = sort(unique(df_w$station)),
+                             selected = input$filter_water_stations)
+      }
+      if (!is.null(df_s) && nrow(df_s) > 0) {
+        updateSelectizeInput(session, "filter_sed_stations",
+                             choices  = sort(unique(df_s$station)),
+                             selected = input$filter_sed_stations)
+      }
+    }
+  })
+
+  # ── End Global Data Filters ──────────────────────────────────────────────────
+
   # Unified campaign/date range UI that works for both
   output$map_campaign_ui <- renderUI({
     cat("\n=== DEBUG map_campaign_ui ===\n")
@@ -185,7 +560,7 @@ server <- function(input, output, session) {
       removeNotification("app_data_status")
     } else {
       showNotification(
-        "No data loaded yet. Add data in Data Preparation before moving ahead.",
+        tr("notif_no_data_loaded"),
         id = "app_data_status",
         type = "message",
         duration = NULL,
@@ -196,10 +571,13 @@ server <- function(input, output, session) {
   
   # Upload button
   upload_result <- dataUploadServer(
-    id = "upload_data",
+    id        = "upload_data",
     base_data = initial_water,
-    master_data = master_data
-    )  
+    master_data = master_data,
+    raw_water = raw_water,
+    raw_sed   = raw_sed,
+    lang      = lang
+  )
   
   # save upload to master_data for all downstream app components
   observe({
@@ -207,35 +585,14 @@ server <- function(input, output, session) {
     req(result)
     
     if (result$media == "water") {
-      master_data$water_scored <- result$scored
-    } else if (result$media == "sediment") {
-      master_data$sed_scored <- result$scored
-    } else {
-      showNotification(
-        paste("Unknown uploaded media type:", result$media),
-        type = "error"
-      )
-      return()
+      raw_water(result$scored)
+      master_data$water_locyear <- result$locyear
+    } else { # assuming it's sediment
+      raw_sed(result$scored)
+      master_data$sed_locyear <- result$locyear
     }
-    
-    # Rebuild combined scored data so plots/maps/selectors update
-    master_data$all_media_scored <- merge_media_safely(
-      master_data$water_scored %||% tibble(),
-      master_data$sed_scored %||% tibble()
-    )
-    
-    message("master_data$all_media_scored merged safely: ", nrow(master_data$all_media_scored), " rows")
-    
-    showNotification(
-      paste("Updated", result$media, "data in master_data"),
-      type = "message"
-    )
-    
-    #DEBUG
-    message("Debug: showing master_data$all_media_scored")
-    View(master_data$all_media_scored)
-    message("sed_scored dims: ", nrow(master_data$sed_scored), "x", ncol(master_data$sed_scored))
-    message("water_scored dims: ", nrow(master_data$water_scored), "x", ncol(master_data$water_scored))
+    # all_media_scored is automatically rebuilt by the filter sync observe
+    message("Upload applied: ", result$media, " — ", nrow(result$scored), " rows")
   })
   
   output$import_meta <- renderPrint({
@@ -3066,7 +3423,7 @@ server <- function(input, output, session) {
     nyears   <- if (is.null(input$water_nyears) || is.na(input$water_nyears)) 5 else input$water_nyears
     fraction <- if (is.null(input$water_fraction) || input$water_fraction == "All") NULL else input$water_fraction
     
-    withProgress(message = "Creating water station points...", {
+    withProgress(message = tr("notif_rendering_water"), {
       prepare_water_quality_data(
         data                 = master_data$water_scored,
         params               = params,
@@ -3141,15 +3498,15 @@ server <- function(input, output, session) {
       date    <- df$date[i]
       
       if (input$water_temp_ag == "recent") {
-        date_display <- paste0("<b>Date:</b> ", date)
+        date_display <- paste0("<b>", tr("popup_date"), ":</b> ", date)
       } else {
         min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
-        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+        date_display <- paste0("<b>", tr("popup_date_range"), ":</b> ", min_date, " to ", date)
       }
-      
+
       popup <- paste0(
-        "<b>Station:</b> ", station, "<br>",
-        "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+        "<b>", tr("popup_station"), ":</b> ", station, "<br>",
+        "<b>", tr("popup_agg_hq"), ":</b> ", round(hq, 3), "<br>",
         date_display
       )
       
@@ -3183,15 +3540,15 @@ server <- function(input, output, session) {
           
           hist_html <- paste0(
             "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
-            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+            "<small><b>", tr("popup_param_dist"), " (n=", length(param_hqs_unique), " ", tr("popup_params_unique"), "):</b></small><br>",
             "<div style='display: flex; align-items: flex-end; height: ", container_height,
             "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
           )
-          
+
           for (j in seq_along(bin_labels)) {
             count    <- as.numeric(bin_counts[j])
             bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
-            
+
             if (count > 0) {
               params_in_bin <- param_names_unique[bin_mask]
               hqs_in_bin    <- param_hqs_unique[bin_mask]
@@ -3200,9 +3557,9 @@ server <- function(input, output, session) {
             } else {
               tooltip_text <- paste0(bin_labels[j], ": no parameters")
             }
-            
+
             bar_height <- count * pixels_per_count
-            
+
             hist_html <- paste0(hist_html,
                                 "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
                                 "<div style='width: 100%; background-color: ", bin_colors[j],
@@ -3212,7 +3569,7 @@ server <- function(input, output, session) {
                                 "</div>"
             )
           }
-          
+
           hist_html <- paste0(hist_html,
                               "</div>",
                               "<div style='display: flex; justify-content: space-between;'>",
@@ -3223,18 +3580,18 @@ server <- function(input, output, session) {
                               "<small style='font-size: 8px; color: #666;'>5</small>",
                               "<small style='font-size: 8px; color: #666;'>10+</small>",
                               "</div>",
-                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
-                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+                              "<small style='color: #666;'>", tr("popup_min"), ": ", round(min(param_hqs_unique), 2),
+                              " | ", tr("popup_max"), ": ", round(max(param_hqs_unique), 2), "</small>",
                               "</div>"
           )
-          
+
           popup <- paste0(popup, hist_html)
         }
       }
-      
+
       return(popup)
     })
-    
+
     water_stations_df(df)
     
     # Use water_bin_breaks() directly — no dependency on raster display
@@ -3286,7 +3643,7 @@ server <- function(input, output, session) {
     param_ag <- if (is.null(input$sed_param_ag)) "pct95"  else input$sed_param_ag
     nyears   <- if (is.null(input$sed_nyears) || is.na(input$sed_nyears)) 5 else input$sed_nyears
     
-    withProgress(message = "Creating sediment station points...", {
+    withProgress(message = tr("notif_rendering_sed"), {
       prepare_water_quality_data(
         data                 = master_data$sed_scored,
         params               = params,
@@ -3313,15 +3670,15 @@ server <- function(input, output, session) {
       date    <- df$date[i]
       
       if (input$sed_temp_ag == "recent") {
-        date_display <- paste0("<b>Date:</b> ", date)
+        date_display <- paste0("<b>", tr("popup_date"), ":</b> ", date)
       } else {
         min_date <- if ("min_date" %in% names(df)) df$min_date[i] else date
-        date_display <- paste0("<b>Date Range:</b> ", min_date, " to ", date)
+        date_display <- paste0("<b>", tr("popup_date_range"), ":</b> ", min_date, " to ", date)
       }
-      
+
       popup <- paste0(
-        "<b>Station:</b> ", station, "<br>",
-        "<b>Aggregated HQ:</b> ", round(hq, 3), "<br>",
+        "<b>", tr("popup_station"), ":</b> ", station, "<br>",
+        "<b>", tr("popup_agg_hq"), ":</b> ", round(hq, 3), "<br>",
         date_display
       )
       
@@ -3355,15 +3712,15 @@ server <- function(input, output, session) {
           
           hist_html <- paste0(
             "<div style='margin-top: 8px; border-top: 1px solid #ccc; padding-top: 8px;'>",
-            "<small><b>Parameter Distribution (n=", length(param_hqs_unique), " unique parameters):</b></small><br>",
+            "<small><b>", tr("popup_param_dist"), " (n=", length(param_hqs_unique), " ", tr("popup_params_unique"), "):</b></small><br>",
             "<div style='display: flex; align-items: flex-end; height: ", container_height,
             "px; margin-top: 4px; gap: 2px; padding-top: 10px; overflow: hidden;'>"
           )
-          
+
           for (j in seq_along(bin_labels)) {
             count    <- as.numeric(bin_counts[j])
             bin_mask <- cut(param_hqs_unique, breaks = breaks, labels = bin_labels, include.lowest = TRUE) == bin_labels[j]
-            
+
             if (count > 0) {
               params_in_bin <- param_names_unique[bin_mask]
               hqs_in_bin    <- param_hqs_unique[bin_mask]
@@ -3372,9 +3729,9 @@ server <- function(input, output, session) {
             } else {
               tooltip_text <- paste0(bin_labels[j], ": no parameters")
             }
-            
+
             bar_height <- count * pixels_per_count
-            
+
             hist_html <- paste0(hist_html,
                                 "<div style='flex: 1; display: flex; flex-direction: column; align-items: center;'>",
                                 "<div style='width: 100%; background-color: ", bin_colors[j],
@@ -3384,7 +3741,7 @@ server <- function(input, output, session) {
                                 "</div>"
             )
           }
-          
+
           hist_html <- paste0(hist_html,
                               "</div>",
                               "<div style='display: flex; justify-content: space-between;'>",
@@ -3395,18 +3752,18 @@ server <- function(input, output, session) {
                               "<small style='font-size: 8px; color: #666;'>5</small>",
                               "<small style='font-size: 8px; color: #666;'>10+</small>",
                               "</div>",
-                              "<small style='color: #666;'>Min: ", round(min(param_hqs_unique), 2),
-                              " | Max: ", round(max(param_hqs_unique), 2), "</small>",
+                              "<small style='color: #666;'>", tr("popup_min"), ": ", round(min(param_hqs_unique), 2),
+                              " | ", tr("popup_max"), ": ", round(max(param_hqs_unique), 2), "</small>",
                               "</div>"
           )
-          
+
           popup <- paste0(popup, hist_html)
         }
       }
-      
+
       return(popup)
     })
-    
+
     sed_stations_df(df)
     
     # Use sed_bin_breaks() directly — no dependency on raster display
@@ -3908,7 +4265,7 @@ server <- function(input, output, session) {
       colorNumeric("RdYlBu", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
     }
     
-    id <- showNotification("Rendering water hazard layer...", duration = NULL, closeButton = FALSE, type = "message")
+    id <- showNotification(tr("notif_rendering_water"), duration = NULL, closeButton = FALSE, type = "message")
     on.exit(removeNotification(id))
     
     r_3857 <- terra::project(r, "EPSG:3857", method = "near")
@@ -3961,7 +4318,7 @@ server <- function(input, output, session) {
       colorNumeric("RdYlGn", domain = terra::values(r), reverse = TRUE, na.color = "transparent")
     }
     
-    id <- showNotification("Rendering sediment hazard layer...", duration = NULL, closeButton = FALSE, type = "message")
+    id <- showNotification(tr("notif_rendering_sed"), duration = NULL, closeButton = FALSE, type = "message")
     on.exit(removeNotification(id))
     
     r_3857 <- terra::project(r, "EPSG:3857", method = "near")
@@ -3989,11 +4346,11 @@ server <- function(input, output, session) {
     r  <- tryCatch(water_raster(), error = function(e) NULL)
     
     if (is.null(df) || nrow(df) == 0) {
-      showNotification("Please score the water stations before binning.", type = "warning", duration = 4)
+      showNotification(tr("notif_score_water_bin"), type = "warning", duration = 4)
       return()
     }
     if (is.null(r)) {
-      showNotification("Please create the water risk raster before binning.", type = "warning", duration = 4)
+      showNotification(tr("notif_create_water_bin"), type = "warning", duration = 4)
       return()
     }
     
@@ -4075,11 +4432,11 @@ server <- function(input, output, session) {
       r  <- tryCatch(sediment_raster(), error = function(e) NULL)
       
       if (is.null(df) || nrow(df) == 0) {
-        showNotification("Please score the sediment stations before binning.", type = "warning", duration = 4)
+        showNotification(tr("notif_score_sed_bin"), type = "warning", duration = 4)
         return()
       }
       if (is.null(r)) {
-        showNotification("Please create the sediment risk raster before binning.", type = "warning", duration = 4)
+        showNotification(tr("notif_create_sed_bin"), type = "warning", duration = 4)
         return()
       }
       
@@ -4195,17 +4552,17 @@ server <- function(input, output, session) {
           n    <- length(breaks) - 1
           bins <- as.character(seq_len(n))
           pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlBu")), domain = bins)
-          html <- paste0(html, legend_color_bar(pal, "Water Score (binned)", NULL, NULL, bins = bins))
+          html <- paste0(html, legend_color_bar(pal, paste0(tr("legend_water_score"), " (binned)"), NULL, NULL, bins = bins))
         } else {
           pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
-          html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+          html <- paste0(html, legend_color_bar(pal, tr("legend_water_score"), water_hq_range()[1], water_hq_range()[2]))
         }
       } else {
         pal <- colorNumeric("RdYlBu", domain = water_hq_range(), reverse = TRUE)
-        html <- paste0(html, legend_color_bar(pal, "Water Score", water_hq_range()[1], water_hq_range()[2]))
+        html <- paste0(html, legend_color_bar(pal, tr("legend_water_score"), water_hq_range()[1], water_hq_range()[2]))
       }
     }
-    
+
     # Sediment (stations or raster)
     if (isTRUE(input$risk_sediment) || isTRUE(input$risk_sed_stations)) {
       is_binned <- isTRUE(input$bin_sediment) && !is.null(input$apply_sed_bins) && input$apply_sed_bins > 0
@@ -4215,14 +4572,14 @@ server <- function(input, output, session) {
           n    <- length(breaks) - 1
           bins <- as.character(seq_len(n))
           pal  <- colorFactor(rev(RColorBrewer::brewer.pal(min(n, 9), "RdYlGn")), domain = bins)
-          html <- paste0(html, legend_color_bar(pal, "Sediment Score (binned)", NULL, NULL, bins = bins))
+          html <- paste0(html, legend_color_bar(pal, paste0(tr("legend_sed_score"), " (binned)"), NULL, NULL, bins = bins))
         } else {
           pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
-          html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+          html <- paste0(html, legend_color_bar(pal, tr("legend_sed_score"), sed_hq_range()[1], sed_hq_range()[2]))
         }
       } else {
         pal <- colorNumeric("RdYlGn", domain = sed_hq_range(), reverse = TRUE)
-        html <- paste0(html, legend_color_bar(pal, "Sediment Score", sed_hq_range()[1], sed_hq_range()[2]))
+        html <- paste0(html, legend_color_bar(pal, tr("legend_sed_score"), sed_hq_range()[1], sed_hq_range()[2]))
       }
     }
     
@@ -4341,7 +4698,7 @@ observeEvent(input$create_combined, {
   
   
   if (!any(selected)) {
-    showNotification("Please select at least one layer to combine.", type = "warning")
+    showNotification(tr("notif_select_layers_combine"), type = "warning")
     return()
   }
   
@@ -4389,7 +4746,7 @@ observeEvent(input$create_combined, {
     return()
   }
   
-  withProgress(message = "Creating combined risk layer...", {
+  withProgress(message = tr("notif_rendering_combined"), {
     tryCatch({
     
       cat("=== COMBINE DEBUG ===\n")
@@ -4502,7 +4859,7 @@ observeEvent(input$create_combined, {
       combined <- terra::mask(combined, terra::vect(pilco_basin))
       
       combined_risk_raster(combined)
-      showNotification("Combined risk layer created.", type = "message", duration = 4)
+      showNotification(tr("notif_combined_created"), type = "message", duration = 4)
     
       risk_individuals(list(
         water = if("water" %in% active) layers[["water"]] else NULL,
@@ -4536,7 +4893,7 @@ observeEvent(combined_risk_raster(), {
     na.color = "transparent"
   )
   
-  id <- showNotification("Rendering combined risk layer...", duration = NULL, closeButton = FALSE, type = "message")
+  id <- showNotification(tr("notif_rendering_combined"), duration = NULL, closeButton = FALSE, type = "message")
   on.exit(removeNotification(id))
   
   leafletProxy("risk_map") |>
@@ -4568,7 +4925,7 @@ observeEvent(combined_risk_raster(), {
   observeEvent(input$delineate_water_watersheds, {
     df <- water_stations_df()
     if (is.null(df) || nrow(df) == 0) {
-      showNotification("Please score water stations before delineating watersheds.", 
+      showNotification(tr("notif_score_water_ws"),
                        type = "warning", duration = 5)
       return()
     }
@@ -4582,7 +4939,7 @@ observeEvent(combined_risk_raster(), {
           snap_dist     = 10000
         )
         water_watersheds(result)
-        showNotification("Water subcatchments delineated.", type = "message", duration = 4)
+        showNotification(tr("notif_water_ws_done"), type = "message", duration = 4)
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error", duration = 10)
         message("Watershed error: ", e$message)
@@ -4593,7 +4950,7 @@ observeEvent(combined_risk_raster(), {
   observeEvent(input$delineate_sed_watersheds, {
     df <- sed_stations_df()
     if (is.null(df) || nrow(df) == 0) {
-      showNotification("Please score sediment stations before delineating watersheds.",
+      showNotification(tr("notif_score_sed_ws"),
                        type = "warning", duration = 5)
       return()
     }
@@ -4607,7 +4964,7 @@ observeEvent(combined_risk_raster(), {
           snap_dist     = 10000
         )
         sed_watersheds(result)
-        showNotification("Sediment subcatchments delineated.", type = "message", duration = 4)
+        showNotification(tr("notif_sed_ws_done"), type = "message", duration = 4)
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error", duration = 10)
         message("Watershed error: ", e$message)

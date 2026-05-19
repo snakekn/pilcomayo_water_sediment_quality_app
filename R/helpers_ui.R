@@ -13,35 +13,39 @@ info_callout <- function(title, text = NULL, md_file = NULL) {
 dataUploadUI <- function(id) {
   ns <- NS(id)
   tagList(
-    fileInput(ns("files"), "Choose files", multiple = TRUE,
-              accept = c(".csv",".tsv",".xlsx",".xls")),
+    fileInput(ns("files"), span("Choose files", `data-i18n`="upload_choose_files"),
+              multiple = TRUE, accept = c(".csv",".tsv",".xlsx",".xls")),
     fluidRow(
       column(6,
-             radioButtons(ns("source_format"), "Source format:",
+             radioButtons(ns("source_format"),
+                          span("Source format:", `data-i18n`="upload_format_label"),
                           choices = c("Pilcomayo.net"="pilco", "By Parameter"="by_param"),
                           inline = TRUE, selected = "pilco")
       ),
       column(6,
-             radioButtons(ns("current_lang"), "Current language in file(s):",
+             radioButtons(ns("current_lang"),
+                          span("Current language in file(s):", `data-i18n`="upload_lang_label"),
                           choices = c("English" = "en", "Español" = "es"),
-                          inline = TRUE, selected = "es")  # default to your usual raw language
+                          inline = TRUE, selected = "es")
       )
     ),
     fluidRow(
       column(6,
-             radioButtons(ns("media_type"), "Media included (select one):",
+             radioButtons(ns("media_type"),
+                          span("Media included (select one):", `data-i18n`="upload_media_label"),
                           choices = c("Sediment"="sediment", "Water"="water"),
                           inline = TRUE, selected = "water")
       ),
       column(6,
-             radioButtons(ns("translate_to"), "Translate to:",
+             radioButtons(ns("translate_to"),
+                          span("Translate to:", `data-i18n`="upload_translate_label"),
                           choices = c("English"="en","Español"="es"),
                           inline = TRUE, selected = "en")
       ),
-      column(6, 
-             actionButton(ns("upload_data"), "Upload data file")
+      column(6,
+             actionButton(ns("upload_data"), span("Upload data file", `data-i18n`="upload_btn"))
              )
-    ), 
+    ),
     tags$hr(),
     tableOutput(ns("files_table"))
     )

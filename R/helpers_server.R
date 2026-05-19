@@ -97,17 +97,17 @@ filter_to_border <- function(df, lon_col, lat_col, border_sf) {
 }
 
 # read an uploaded file
-read_uploaded_file = function(path) {
-  
+read_uploaded_file = function(path, col_names = TRUE) {
+
   # get the file type
   ftype = get_file_type(path)
-  
+
   # read the data
   switch(ftype,
-         "csv" = readr::read_csv(path, show_col_types = FALSE),
-         "tsv" = readr::read_tsv(path, show_col_types = FALSE),
-         "xls" = readxl::read_xls(path, .name_repair = "unique_quiet"),
-         "xlsx" = readxl::read_xlsx(path, .name_repair = "unique_quiet"),
+         "csv"  = readr::read_csv( path, col_names = col_names, show_col_types = FALSE),
+         "tsv"  = readr::read_tsv( path, col_names = col_names, show_col_types = FALSE),
+         "xls"  = readxl::read_xls( path, col_names = col_names),
+         "xlsx" = readxl::read_xlsx(path, col_names = col_names),
          abort("Unsupported file type: ", ftype)
   )
 }
@@ -210,104 +210,239 @@ process_uploaded_pilco_file <- function(path, media, src_lang, target_lang) {
 
 # take data in either of 2 formats, format & score, merge
 # Output: locyear and scored files in master_data
-dataUploadServer <- function(id, base_data, master_data) {
+dataUploadServer <- function(id, base_data, master_data, raw_water = NULL, raw_sed = NULL, lang = NULL) {
   moduleServer(id, function(input, output, session) {
-    parsed_upload <- reactiveVal(NULL)
-    
+    # Local translation helper — falls back to English if lang not provided
+    t <- function(key) {
+      l <- if (!is.null(lang)) isolate(lang()) else "en"
+      strings <- if (l == "es") STRINGS_ES else STRINGS_EN
+      strings[[key]] %||% paste0("[", key, "]")
+    }
+
+    # Re-translate upload form labels whenever language changes
+    if (!is.null(lang)) {
+      observeEvent(lang(), {
+        updateRadioButtons(session, "source_format",
+          label   = t("upload_format_label"),
+          choices = setNames(c("pilco", "by_param"),
+                             c(t("upload_pilco"), t("upload_by_param"))))
+        updateRadioButtons(session, "current_lang",
+          label   = t("upload_lang_label"),
+          choices = c("English" = "en", "Español" = "es"))
+        updateRadioButtons(session, "media_type",
+          label   = t("upload_media_label"),
+          choices = setNames(c("sediment", "water"),
+                             c(t("media_sed"), t("media_water"))))
+        updateRadioButtons(session, "translate_to",
+          label   = t("upload_translate_label"),
+          choices = c("English" = "en", "Español" = "es"))
+        updateActionButton(session, "upload_data", label = t("upload_btn"))
+      }, ignoreInit = TRUE)
+    }
+
+    parsed_upload  <- reactiveVal(NULL)
+    pending_upload <- reactiveVal(NULL)  # stashed while user responds to duplicate modal
+
+    # Columns that together uniquely identify one measurement row
+    DEDUPE_COLS <- c("station", "date", "parameter", "media", "fraction")
+
+    # Returns the number of uploaded rows that already exist in existing by DEDUPE_COLS
+    count_duplicates <- function(existing, uploaded) {
+      if (is.null(existing) || nrow(existing) == 0 || nrow(uploaded) == 0) return(0L)
+      common_keys <- intersect(DEDUPE_COLS, intersect(names(existing), names(uploaded)))
+      if (length(common_keys) == 0) return(0L)
+      nrow(dplyr::semi_join(uploaded, existing, by = common_keys))
+    }
+
+    # Merges existing + uploaded according to the chosen strategy, then emits the result
+    finalize_upload <- function(existing, uploaded, strategy, media) {
+      common_keys <- intersect(DEDUPE_COLS, intersect(names(existing), names(uploaded)))
+
+      merged <- switch(strategy,
+        keep_existing = {
+          # Only add rows from the upload that are not already in existing
+          new_only <- dplyr::anti_join(uploaded, existing, by = common_keys)
+          bind_rows(existing, new_only)
+        },
+        replace = {
+          # Uploaded rows overwrite matching existing rows; new rows are appended
+          merge_scored(existing, uploaded, replace = TRUE)
+        },
+        keep_both = {
+          # No deduplication — append everything
+          bind_rows(existing, uploaded)
+        }
+      )
+
+      print("updating parsed_upload")
+      parsed_upload(list(
+        scored  = merged,
+        locyear = score_to_loc_year(merged),
+        media   = media
+      ))
+
+      save_path <- if (media == "water") {
+        "data/processed/water_scored_user_update.rds"
+      } else {
+        "data/processed/sed_scored_user_updated.rds"
+      }
+      saveRDS(merged, save_path)
+      showNotification(t("notif_upload_complete"), type = "message")
+    }
+
+    # ── Main upload handler ────────────────────────────────────────────────────
     observeEvent(input$upload_data, {
+
       if (is.null(input$files) || nrow(input$files) == 0) {
-        showNotification("Please select a file before processing.", type = "error")
+        showNotification(t("notif_select_file"), type = "error")
         return()
       }
-      
-      src_media <- input$media_type
+
+      src_format     <- input$source_format
+      src_lang       <- input$current_lang
+      src_media      <- input$media_type
       src_target_lang <- input$translate_to
-      n_files <- nrow(input$files)
-      
-      message("\n[dataUploadServer] START")
-      message("[dataUploadServer] files = ", n_files)
-      message("[dataUploadServer] media = ", src_media)
-      
-      existing_scored <- if (src_media == "water") {
-        isolate(master_data$water_scored)
-      } else {
-        isolate(master_data$sed_scored)
-      }
-      if (is.null(existing_scored)) existing_scored <- tibble::tibble()
-      
-      withProgress(message = "Processing uploads...", value = 0, {
-        scored_parts <- vector("list", n_files)
-        names(scored_parts) <- input$files$name
-        
+
+      print(paste("Format:", src_format, "Lang:", src_lang,
+                  "Media:", src_media, "Target:", src_target_lang))
+
+      req(input$files)
+      showNotification(paste("Processing:", input$files$name[1]), type = "message")
+
+      withProgress(message = t("progress_upload"), value = 0, {
+        n_files <- nrow(input$files)
+
+        # Use raw (unfiltered) data as the base — see upload/filter interaction notes
+        existing_scored <- if (src_media == "water") {
+          if (!is.null(raw_water)) isolate(raw_water()) else isolate(master_data$water_scored)
+        } else {
+          if (!is.null(raw_sed))   isolate(raw_sed())   else isolate(master_data$sed_scored)
+        }
+
+        # Score each uploaded file, collecting results before any merging
+        all_uploaded <- vector("list", n_files)
+
         for (i in seq_len(n_files)) {
           fname_i <- input$files$name[i]
           fpath_i <- input$files$datapath[i]
-          
-          incProgress(1 / n_files, message = paste("Processing", fname_i))
-          message("\n[dataUploadServer] ------------------------------")
-          message("[dataUploadServer] file ", i, "/", n_files, " = ", fname_i)
-          
-          scored_parts[[i]] <- tryCatch({
-            out <- process_uploaded_pilco_file(
-              path = fpath_i,
-              media = src_media,
-              src_lang = input$current_lang,
-              target_lang = src_target_lang
+
+          incProgress(1/n_files, message = paste("Processing", fname_i))
+
+          tryCatch({
+            file_data_i <- read_uploaded_file(fpath_i, col_names = (src_format != "pilco"))
+            print(paste0("[dataUploadServer]: ", fname_i))
+
+            df_i <- upload_sampled_data(
+              file_data_i,
+              media        = src_media,
+              format       = src_format,
+              debug_prepped = FALSE,
+              src_lang     = src_lang,
+              target_lang  = src_target_lang
             )
-            
-            out$data_source <- fname_i
-            
-            message("[dataUploadServer] processed rows for ", fname_i, " = ", nrow(out))
-            out
+            print("completed upload_sampled_data")
+
+            dup_names <- names(df_i)[duplicated(names(df_i))]
+            if (length(dup_names)) {
+              warning(sprintf("File '%s' has duplicate column names: %s",
+                              fname_i, paste(unique(dup_names), collapse = ", ")))
+            }
+            if (any(duplicated(names(df_i)))) {
+              names(df_i) <- janitor::make_clean_names(names(df_i), unique = TRUE)
+            }
+
+            df_i$data_source <- fname_i
+
+            all_uploaded[[i]] <- score_data(df_i)
+            print("[dataUploadServer]: finished score_data")
+
           }, error = function(e) {
-            message("[dataUploadServer] ERROR in ", fname_i, ": ", e$message)
-            showNotification(
-              paste("Error processing", fname_i, ":", e$message),
-              type = "error"
-            )
-            NULL
+            full_msg <- paste(conditionMessage(e), collapse = "\n")
+            message("[dataUploadServer] Error in ", fname_i, ":\n", full_msg)
+            showNotification(paste("Error processing", fname_i, ":", full_msg),
+                             type = "error")
           })
         }
-        
-        valid_parts <- Filter(Negate(is.null), scored_parts)
-        
-        if (!length(valid_parts)) {
-          stop("[dataUploadServer] no files were successfully processed")
-        }
-        
-        message("[dataUploadServer] combining processed uploads")
-        uploaded_scored <- dplyr::bind_rows(valid_parts)
-        message("[dataUploadServer] uploaded_scored dim = ", nrow(uploaded_scored), " x ", ncol(uploaded_scored))
-        
-        message("[dataUploadServer] merging uploaded_scored with existing media data")
-        final_scored <- merge_scored(existing_scored, uploaded_scored)
-        message("[dataUploadServer] final_scored dim = ", nrow(final_scored), " x ", ncol(final_scored))
-        
-        if (src_media == "water") {
-          master_data$water_scored <- final_scored
-        } else {
-          master_data$sed_scored <- final_scored
-        }
-        
-        current_water <- master_data$water_scored
-        current_sed   <- master_data$sed_scored
-        if (is.null(current_water)) current_water <- tibble::tibble()
-        if (is.null(current_sed))   current_sed   <- tibble::tibble()
-        
-        message("[dataUploadServer] rebuilding all_media_scored")
-        master_data$all_media_scored <- merge_media_safely(current_water, current_sed)
-        message("[dataUploadServer] all_media_scored rows = ", nrow(master_data$all_media_scored))
 
-        parsed_upload(list(
-          scored = final_scored,
-          media = src_media
-        ))
-        
-        showNotification("Upload processing complete!", type = "message")
-        message("[dataUploadServer] END")
+        all_uploaded_df <- bind_rows(all_uploaded)
+
+        if (nrow(all_uploaded_df) == 0) {
+          showNotification(t("notif_no_valid_data"), type = "warning")
+          return()
+        }
+
+        # ── Duplicate check ────────────────────────────────────────────────────
+        n_dupes <- count_duplicates(existing_scored, all_uploaded_df)
+
+        if (n_dupes > 0) {
+          pending_upload(list(
+            existing = existing_scored,
+            uploaded = all_uploaded_df,
+            media    = src_media
+          ))
+
+          showModal(modalDialog(
+            title = t("modal_dup_title"),
+            p(HTML(sprintf(t("modal_dup_body"), format(n_dupes, big.mark = ",")))),
+            hr(),
+            tags$dl(
+              tags$dt(t("modal_keep_existing_btn")),
+              tags$dd(t("modal_keep_existing_desc")),
+              tags$dt(t("modal_replace_btn")),
+              tags$dd(t("modal_replace_desc")),
+              tags$dt(t("modal_keep_both_btn")),
+              tags$dd(t("modal_keep_both_desc"))
+            ),
+            footer = tagList(
+              modalButton(t("modal_cancel_btn")),
+              actionButton(session$ns("dup_keep_existing"), t("modal_keep_existing_btn"), class = "btn-default"),
+              actionButton(session$ns("dup_replace"),       t("modal_replace_btn"),       class = "btn-warning"),
+              actionButton(session$ns("dup_keep_both"),     t("modal_keep_both_btn"),     class = "btn-danger")
+            ),
+            easyClose = FALSE
+          ))
+
+        } else {
+          # No duplicates — finalize immediately with a simple append
+          finalize_upload(existing_scored, all_uploaded_df, "keep_both", src_media)
+        }
       })
+
     }, ignoreInit = TRUE)
-    
+
+    # ── Modal resolution handlers ──────────────────────────────────────────────
+    observeEvent(input$dup_keep_existing, {
+      pending <- pending_upload(); req(pending)
+      removeModal()
+      finalize_upload(pending$existing, pending$uploaded, "keep_existing", pending$media)
+      pending_upload(NULL)
+    })
+
+    observeEvent(input$dup_replace, {
+      pending <- pending_upload(); req(pending)
+      removeModal()
+      finalize_upload(pending$existing, pending$uploaded, "replace", pending$media)
+      pending_upload(NULL)
+    })
+
+    observeEvent(input$dup_keep_both, {
+      pending <- pending_upload(); req(pending)
+      removeModal()
+      finalize_upload(pending$existing, pending$uploaded, "keep_both", pending$media)
+      pending_upload(NULL)
+    })
+
+    # Debug observer
+    observe({
+      result <- parsed_upload()
+      if (!is.null(result)) {
+        cat("parsed_upload contains:\n")
+        cat("  - media:", result$media, "\n")
+        cat("  - scored rows:", nrow(result$scored), "\n")
+        cat("  - locyear rows:", nrow(result$locyear), "\n")
+      }
+    })
+
     return(list(parsed = parsed_upload))
   })
 }

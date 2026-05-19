@@ -2,14 +2,15 @@
 layer_row <- function(checkbox_id, switch_id, label) {
   div(style = "display: flex; align-items: center; justify-content: space-between;",
       checkboxInput(checkbox_id, label, value = FALSE),
-      materialSwitch(switch_id, label = "Clip to basin", value = TRUE, 
-                     status = "primary", inline = TRUE)
+      materialSwitch(switch_id,
+                     label  = span("Clip to basin", `data-i18n` = "risk_clip_to_basin"),
+                     value  = TRUE, status = "primary", inline = TRUE)
   )
 }
 
 # ensure tabs can't be interacted with when data isn't prepared
 locked_tab_body <- function(...,
-                            message = "No data loaded yet. Upload data in Data Preparation before using this tool.",
+                            message = span("No data loaded yet. Upload data in Data Preparation before using this tool.", `data-i18n`="locked_msg"),
                             condition = "!output.data_ready") {
   div(
     class = "locked-tab-wrap",
@@ -20,9 +21,9 @@ locked_tab_body <- function(...,
         class = "locked-tab-overlay",
         div(
           class = "locked-tab-box",
-          h3("Upload data to begin"),
+          h3(span("Upload data to begin", `data-i18n`="locked_heading")),
           p(message),
-          actionButton("go_data_prep", "Go to Data Preparation")
+          actionButton("go_data_prep", span("Go to Data Preparation", `data-i18n`="locked_btn"))
         )
       )
     )
@@ -196,33 +197,109 @@ ui <- fluidPage(
   .leaflet-bottom.leaflet-left {
     bottom: 45px !important;
   }
+
+  /* ── Language Toggle ────────────────────────────────────────── */
+  #lang-toggle {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 6px;
+    padding: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .lang-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: background 0.15s;
+  }
+  .lang-btn:hover { background: #eee; }
+  .lang-btn.lang-active {
+    background: #2c6fad;
+    color: white;
+  }
 "))),
   
+  tags$script(src = "i18n.js"),
+  div(
+    id = "lang-toggle",
+    tags$button("EN", id = "lang-btn-en", class = "lang-btn lang-active",
+                onclick = "setLang('en')"),
+    tags$button("ES", id = "lang-btn-es", class = "lang-btn",
+                onclick = "setLang('es')")
+  ),
   tabsetPanel(
     id = "main_tab",
     tabPanel(
-      "Introduction",
+      span("Introduction", 'data-i18n'="tab_intro"),
       value = "intro",
       fluidPage(
-        titlePanel("Sediment & Water Quality in the Pilcomayo River Basin"),
+        titlePanel(span("Sediment & Water Quality in the Pilcomayo River Basin", `data-i18n`="page_title")),
         tags$hr(),
         tags$img(src = "pilcomayo.jpg", height = "350px"),
         tags$hr(),
-        includeMarkdown("text/introduction.md"),
+        uiOutput("intro_md"),
         tags$hr(),
-        includeMarkdown("text/introduction_sources.md"),
+        uiOutput("intro_sources_md"),
         tags$hr(),
-        includeMarkdown("text/acknowledgements.md")
+        uiOutput("acknowledgements_md")
       )
     ),
     
     tabPanel(
-      "Data Preparation",
+      span("Data Preparation", 'data-i18n'="tab_data_prep"),
       value = "data_prep",
       sidebarPanel(
-        div(
-          h4(strong("Upload Data"), style = "margin: 0 0 12px 0;"),
-          dataUploadUI("upload_data")
+        conditionalPanel(
+          condition = "!output.map_data_ready",
+          div(
+            style = "text-align: center; padding: 20px;",
+            icon("spinner", class = "fa-spin fa-3x"),
+            h4(span("Loading data...", `data-i18n`="loading_data"), style = "margin-top: 20px;")
+          )
+        ),
+        conditionalPanel(
+          condition = "output.map_data_ready",
+          tags$details(
+            tags$summary(
+              h4(strong(span("Upload Data", `data-i18n`="upload_heading")), style = "margin: 0;")
+            ),
+            tabPanel("Import", dataUploadUI("upload_data"))
+          ),
+          tags$hr(),
+          tags$details(
+            tags$summary(
+              h4(strong(span("Filter Data", `data-i18n`="filter_heading")), style = "margin: 0;")
+            ),
+            div(
+              style = "padding: 4px 2px;",
+              p(span("Filters apply across all tabs. Leave stations blank to include all.", `data-i18n`="filter_hint"),
+                style = "font-size: 12px; color: #666; margin: 4px 0 8px 0;"),
+              checkboxInput(
+                "filter_bolivia_only", span("Bolivia locations only", `data-i18n`="filter_bolivia"),
+                value = FALSE
+              ),
+              uiOutput("filter_water_ui"),
+              uiOutput("filter_sed_ui"),
+              uiOutput("filter_status_ui"),
+              br(),
+              actionButton(
+                "reset_filters", span("Reset All Filters", `data-i18n`="reset_filters_btn"),
+                icon  = icon("rotate-left"),
+                class = "btn-default btn-sm btn-block"
+              )
+            )
+          )
         )
       ),
       mainPanel(
@@ -230,142 +307,146 @@ ui <- fluidPage(
           condition = "output.data_ready",
           tabsetPanel(
             tabsetPanel(
-              tabPanel("Water Data", uiOutput("water_data_tab")),
-              tabPanel("Sediment Data", uiOutput("sed_data_tab"))
+              tabPanel(span("Water Data", 'data-i18n'="tab_water_data"), uiOutput("water_data_tab")),
+              tabPanel(span("Sediment Data", 'data-i18n'="tab_sed_data"), uiOutput("sed_data_tab"))
             )
           )
         )
       )
     ),
     
-    tabPanel(
-      "Map of Environmental Samples",
-      locked_tab_body(
-        sidebarLayout(
-          sidebarPanel(
-            conditionalPanel(
-              condition = "!output.data_ready",
-              div(
-                style = "text-align: center; padding: 20px;",
-                icon("spinner", class = "fa-spin fa-3x"),
-                h4("Loading data...", style = "margin-top: 20px;")
-              )
-            ),
-            
-            conditionalPanel(
-              condition = "output.data_ready",
-              
-              # MEDIA SELECTOR - at the top
-              radioButtons(
-                "plot_media",
-                "Media:",
-                choices = c("Water" = "water", "Sediment" = "sediment"),
-                selected = "water",
-                inline = TRUE
-              ),
-              
-              # SPATIAL SCOPE SELECTOR
-              radioButtons(
-                "plot_data_scope",
-                "Data Scope:",
-                choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
-                selected = "bol",
-                inline = TRUE
-              ),
-              
-              # SEDIMENT SIDEBAR - only show when sediment is selected
-              conditionalPanel(
-                condition = "input.plot_media == 'sediment'",
-                
-                uiOutput("sed_campaign_ui"),
-                uiOutput("tamiz_ui"),
-                selectInput("sed_metal", "Select Parameter:", choices = NULL),
-                radioButtons(
-                  "sed_value_type",
-                  "Symbolize by:",
-                  choices = c(
-                    "Measured Concentration" = "sed_value",
-                    "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
-                    "Hazard Quotient (HQ)" = "hq"
-                  ),
-                  selected = "sed_value"
-                ),
-                uiOutput("sed_legend"),
-                info_callout(
-                  "Sediment Quality Map",
-                  "This map displays sediment quality parameters from monitoring campaigns.
-              Circle size represents the measured concentration, while colors can show either
-              raw values or comparison to USGS Sediment Quality Guidelines
-              (TEL/PEL thresholds). Data can be filtered by date range and sieve size.
-              Data is sourced from www2.pilcomayo.net."
-                )
-              ),
-              
-              # WATER SIDEBAR - only show when water is selected
-              conditionalPanel(
-                condition = "input.plot_media == 'water'",
-                
-                uiOutput("water_campaign_ui"),
-                selectInput("water_metal", "Select Parameter:", choices = NULL),
-                radioButtons(
-                  "water_value_type",
-                  "Symbolize by:",
-                  choices = c(
-                    "Measured Concentration" = "water_value",
-                    "Compare to Bolivian Standards" = "water_class",
-                    "Hazard Quotient (HQ)" = "hq"
-                  ),
-                  selected = "water_value"
-                ),
-                uiOutput("water_legend"),
-                info_callout(
-                  "Water Quality Map",
-                  "This map displays water quality parameters from monitoring campaigns.
-              Circle size represents the measured concentration, while colors can show either
-              raw values or classification based on Bolivian standards (Ley 1333).
-              Data can be filtered by date range.
-              Data is sourced from www2.pilcomayo.net."
-                )
-              )
-            )
-          ),
-        
-          mainPanel(
-            # SEDIMENT content
-            conditionalPanel(
-              condition = "input.plot_media == 'sediment'",
-              tabsetPanel(
-                tabPanel("Map", leafletOutput("sed_map", height = 600)),
-                tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
-                tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
-              )
-            ),
-            
-            # WATER content
-            conditionalPanel(
-              condition = "input.plot_media == 'water'",
-              tabsetPanel(
-                tabPanel("Map", leafletOutput("water_map", height = 600)),
-                tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
-                tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
-                tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
-              )
-            )
-          )
-        )
-      ) # end locked_tab_body
-    ), # end tabPanel
+    # tabPanel(
+    #   "Map of Environmental Samples",
+    #   locked_tab_body(
+    #     sidebarLayout(
+    #       sidebarPanel(
+    #         conditionalPanel(
+    #           condition = "!output.data_ready",
+    #           div(
+    #             style = "text-align: center; padding: 20px;",
+    #             icon("spinner", class = "fa-spin fa-3x"),
+    #             h4("Loading data...", style = "margin-top: 20px;")
+    #           )
+    #         ),
+    #         
+    #         conditionalPanel(
+    #           condition = "output.data_ready",
+    #           
+    #           # MEDIA SELECTOR - at the top
+    #           radioButtons(
+    #             "plot_media",
+    #             "Media:",
+    #             choices = c("Water" = "water", "Sediment" = "sediment"),
+    #             selected = "water",
+    #             inline = TRUE
+    #           ),
+    #           
+    #           # SPATIAL SCOPE SELECTOR
+    #           radioButtons(
+    #             "plot_data_scope",
+    #             "Data Scope:",
+    #             choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+    #             selected = "bol",
+    #             inline = TRUE
+    #           ),
+    #           
+    #           # SEDIMENT SIDEBAR - only show when sediment is selected
+    #           conditionalPanel(
+    #             condition = "input.plot_media == 'sediment'",
+    #             
+    #             uiOutput("sed_campaign_ui"),
+    #             uiOutput("tamiz_ui"),
+    #             selectInput("sed_metal", "Select Parameter:", choices = NULL),
+    #             radioButtons(
+    #               "sed_value_type",
+    #               "Symbolize by:",
+    #               choices = c(
+    #                 "Measured Concentration" = "sed_value",
+    #                 "Compare to USGS Guidelines (TEL/PEL)" = "sed_class",
+    #                 "Hazard Quotient (HQ)" = "hq"
+    #               ),
+    #               selected = "sed_value"
+    #             ),
+    #             uiOutput("sed_legend"),
+    #             info_callout(
+    #               "Sediment Quality Map",
+    #               "This map displays sediment quality parameters from monitoring campaigns.
+    #           Circle size represents the measured concentration, while colors can show either
+    #           raw values or comparison to USGS Sediment Quality Guidelines
+    #           (TEL/PEL thresholds). Data can be filtered by date range and sieve size.
+    #           Data is sourced from www2.pilcomayo.net."
+    #             )
+    #           ),
+    #           
+    #           # WATER SIDEBAR - only show when water is selected
+    #           conditionalPanel(
+    #             condition = "input.plot_media == 'water'",
+    #             
+    #             uiOutput("water_campaign_ui"),
+    #             selectInput("water_metal", "Select Parameter:", choices = NULL),
+    #             radioButtons(
+    #               "water_value_type",
+    #               "Symbolize by:",
+    #               choices = c(
+    #                 "Measured Concentration" = "water_value",
+    #                 "Compare to Bolivian Standards" = "water_class",
+    #                 "Hazard Quotient (HQ)" = "hq"
+    #               ),
+    #               selected = "water_value"
+    #             ),
+    #             uiOutput("water_legend"),
+    #             info_callout(
+    #               "Water Quality Map",
+    #               "This map displays water quality parameters from monitoring campaigns.
+    #           Circle size represents the measured concentration, while colors can show either
+    #           raw values or classification based on Bolivian standards (Ley 1333).
+    #           Data can be filtered by date range.
+    #           Data is sourced from www2.pilcomayo.net."
+    #             )
+    #           )
+    #         )
+    #       ),
+    #     
+    #       mainPanel(
+    #         # SEDIMENT content
+    #         conditionalPanel(
+    #           condition = "input.plot_media == 'sediment'",
+    #           tabsetPanel(
+    #             tabPanel("Map", leafletOutput("sed_map", height = 600)),
+    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("sed_table")),
+    #             tabPanel("Table: Strict Sediment Quality Standards", dataTableOutput("stds_strict"))
+    #           )
+    #         ),
+    #         
+    #         # WATER content
+    #         conditionalPanel(
+    #           condition = "input.plot_media == 'water'",
+    #           tabsetPanel(
+    #             tabPanel("Map", leafletOutput("water_map", height = 600)),
+    #             tabPanel("Table: Sampled Concentrations", dataTableOutput("water_table")),
+    #             tabPanel("Table: Strict Water Quality Standards", dataTableOutput("stds_strict")),
+    #             tabPanel("Table: Bolivian Law 1333 Water Quality Standards", dataTableOutput("stds_1333_table"))
+    #           )
+    #         )
+    #       )
+    #     )
+    #   ) # end locked_tab_body
+    # ), # end tabPanel
     # Time Series tab
     tabPanel(
-      "Time Series",
+      span("Time Series", 'data-i18n'="tab_time_series"),
       locked_tab_body(
         sidebarLayout(
           sidebarPanel(
             # Add Data Scope at the top
             radioButtons(
               "plot_data_scope",
-              "Data Scope:",
-              choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+              span("Data Scope:", `data-i18n` = "scope_label"),
+              choiceNames  = list(
+                span("Bolivia Only",   `data-i18n` = "scope_bol"),
+                span("All Locations",  `data-i18n` = "scope_all")
+              ),
+              choiceValues = c("bol", "all"),
               selected = "bol",
               inline = TRUE
             ),
@@ -393,10 +474,8 @@ ui <- fluidPage(
                         selected = "none"
             ),
             info_callout(
-              "Time Series",
-              "These plots display all selected sampled concentrations
-                  at the selected monitoring station. Points represent individual measurements. 
-                  You can select which regulatory standards you'd like to visualize."
+              span("Time Series", `data-i18n`="ts_callout_title"),
+              span("These plots display all selected sampled concentrations at the selected monitoring station. Points represent individual measurements. You can select which regulatory standards you'd like to visualize.", `data-i18n`="ts_callout_text")
             )
           ),
           mainPanel(
@@ -416,7 +495,7 @@ ui <- fluidPage(
     
     # Ranking Plots tab
     tabPanel(
-      "Ranking Plots",
+      span("Ranking Plots", 'data-i18n'="tab_ranking"),
       locked_tab_body(
         # Add Data Scope at the top
         fluidRow(
@@ -424,8 +503,12 @@ ui <- fluidPage(
             12,
             radioButtons(
               "plot_data_scope",
-              "Data Scope:",
-              choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+              span("Data Scope:", `data-i18n` = "scope_label"),
+              choiceNames  = list(
+                span("Bolivia Only",   `data-i18n` = "scope_bol"),
+                span("All Locations",  `data-i18n` = "scope_all")
+              ),
+              choiceValues = c("bol", "all"),
               selected = "bol",
               inline = TRUE
             )
@@ -433,22 +516,21 @@ ui <- fluidPage(
         ),
         
         tabsetPanel(
-          tabPanel("Worst Observations", fluidRow(
+          tabPanel(span("Worst Observations", `data-i18n` = "rank_worst_obs"), fluidRow(
             column(
               4,
               selectInput("observation_plot_param", "Select Parameter:", choices = NULL),
               selectInput("observation_plot_media", "Select Media:", choices = c("Water" ="water", "Sediment"="sediment")),
               
               info_callout(
-                "Observation Ranking",
-                "This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard).
-                                                      Data is sourced from www2.pilcomayo.net."
+                span("Observation Ranking", `data-i18n`="obs_callout_title"),
+                span("This plot ranks Hazard Quotients for individual samples (based on sampled data for the selected parameter against the strictest standard). Data is sourced from www2.pilcomayo.net.", `data-i18n`="obs_callout_text")
               )
             ),
             column(8, uiOutput("observation_scores_ui", height = "500px"))
           )),  # Close Worst Observations tabPanel
           
-          tabPanel("Worst Stations", fluidRow(
+          tabPanel(span("Worst Stations", `data-i18n` = "rank_worst_sta"), fluidRow(
             column(
               4,
               selectInput("station_plot_param", "Select Parameter:", choices = "Loading - Please Wait"),
@@ -480,18 +562,14 @@ ui <- fluidPage(
                 )          
               ),
               info_callout(
-                "Station Ranking",
-                "This plot ranks water sampling stations based on water quality standards from Bolivian law.
-                                                      Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score.
-                                                        Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station.
-                                                        For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)).
-                                                        Data is sourced from www2.pilcomayo.net."
+                span("Station Ranking", `data-i18n`="sta_callout_title"),
+                span("This plot ranks water sampling stations based on water quality standards from Bolivian law. Stations can be ranked by the mean number of parameters that fall into each classification, or by overall score. Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each station. For Overall Score, weighted mean can be used instead to emphasize recent observations (weight = 1 / (1 + years since present)). Data is sourced from www2.pilcomayo.net.", `data-i18n`="sta_callout_text")
               )
             ),
             column(8, plotlyOutput("station_scores_plot", height = "500px"))
           )),  # Close Worst Stations tabPanel
           
-          tabPanel("Worst Parameters", fluidRow(
+          tabPanel(span("Worst Parameters", `data-i18n` = "rank_worst_par"), fluidRow(
             column(
               4,
               selectInput("param_plot_station", "Select Station:", choices = c("All Stations" = "all")),
@@ -523,17 +601,13 @@ ui <- fluidPage(
                                                   )
               ),
               info_callout(
-                "Parameter Ranking",
-                "TO UPDATE: This plot ranks water quality parameters based on standards from Bolivian law.
-                                                      Parameters can be ranked by the percent of observations that fall into each classification, or by overall score.
-                                                        Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter.
-                                                        Light bars represent percents/scores calculated after omitting NA rows for that parameter.
-                                                        Data is sourced from www2.pilcomayo.net."
+                span("Parameter Ranking", `data-i18n`="par_callout_title"),
+                span("This plot ranks water quality parameters based on standards from Bolivian law. Parameters can be ranked by the percent of observations that fall into each classification, or by overall score. Overall score is calculated by assigning values to each classification (A=0 to Unclassified=4), and finding the mean value for each parameter. Light bars represent percents/scores calculated after omitting NA rows for that parameter. Data is sourced from www2.pilcomayo.net.", `data-i18n`="par_callout_text")
               )),
             column(8, plotlyOutput("param_scores_plot", height = "500px"))
           )),  # Close Worst Parameters tabPanel
           
-          tabPanel("Worst Sieve Sizes", fluidRow(
+          tabPanel(span("Worst Sieve Sizes", `data-i18n` = "rank_worst_sieve"), fluidRow(
             column(
               4,
               selectInput("sieve_plot_param", "Select Parameter:", choices = c("All Parameters" = "all")),
@@ -571,15 +645,19 @@ ui <- fluidPage(
     
     # PCA tab
     tabPanel(
-      "Principal Component Analysis",
+      span("Principal Component Analysis", 'data-i18n'="tab_pca"),
       locked_tab_body(
         sidebarLayout(
           sidebarPanel(
             # Add Data Scope at the top
             radioButtons(
               "plot_data_scope",
-              "Data Scope:",
-              choices = c("Bolivia Only" = "bol", "All Locations" = "all"),
+              span("Data Scope:", `data-i18n` = "scope_label"),
+              choiceNames  = list(
+                span("Bolivia Only",   `data-i18n` = "scope_bol"),
+                span("All Locations",  `data-i18n` = "scope_all")
+              ),
+              choiceValues = c("bol", "all"),
               selected = "bol",
               inline = TRUE
             ),
@@ -598,23 +676,18 @@ ui <- fluidPage(
             actionButton("run_pca", "Run PCA", class = "btn-primary"),
             
             info_callout(
-              "Principal Component Analysis",
-              "This analysis performs PCA on selected water quality parameters to identify
-                                      underlying patterns and relationships in the data. Missing values are
-                                      imputed using optimal component estimation. The variable plot shows parameter
-                                      contributions and correlations, colored by representation quality (cos²).
-                                      The scree plot displays variance explained by each component to help determine
-                                      the optimal number of dimensions. Select up to 15 parameters and click 'Run PCA'
-                                      to begin the analysis. Data is sourced from www2.pilcomayo.net."
+              span("Principal Component Analysis", `data-i18n`="pca_callout_title"),
+              span("This analysis performs PCA on selected water quality parameters to identify underlying patterns and relationships in the data. Missing values are imputed using optimal component estimation. The variable plot shows parameter contributions and correlations, colored by representation quality (cos²). The scree plot displays variance explained by each component to help determine the optimal number of dimensions. Select up to 15 parameters and click 'Run PCA' to begin the analysis. Data is sourced from www2.pilcomayo.net.", `data-i18n`="pca_callout_text")
             )
           ),
           mainPanel(
             tabsetPanel(
-              tabPanel("Autoplot", 
+              tabPanel(span("Autoplot",    `data-i18n` = "pca_autoplot_tab"),
                        plotlyOutput("pca_plot") # ,
                        # plotOutput("pca_static", height = "600px")  # Static below interactive
               ),
-              tabPanel("Scree Plot", plotOutput("scree_plot"))
+              tabPanel(span("Scree Plot", `data-i18n` = "pca_scree_tab"),
+                       plotOutput("scree_plot"))
             )
           )
         ) # close sidebarLayout 
@@ -624,7 +697,7 @@ ui <- fluidPage(
     ################ RISK MAPPING #################################################
     
     tabPanel(
-      "Risk Scores Map",
+      span("Risk Scores Map", 'data-i18n'="tab_risk"),
       tags$head(tags$style(HTML("
     /* Style the summary row for each category */
     details > summary {
@@ -667,83 +740,106 @@ ui <- fluidPage(
               
               tags$details(
                 tags$summary(
-                  h3(strong("Input & Display Layers"))
+                  h3(strong(span("Input & Display Layers", `data-i18n`="risk_input_heading")))
                 ),
               
-              p(HTML("<i>* Items marked with an asterisk may take time to load or render. Please be patient after clicking.</i>"),
+              p(HTML(paste0('<i><span data-i18n="risk_asterisk_note">* Items marked with an asterisk may take time to load or render. Please be patient after clicking.</span></i>')),
                 style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
               
               # ── Water Risk ────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Water Pollution Risk"), style = "margin: 0; color: #1C3EB8;")
+                  h5(strong(span("Water Pollution Risk", `data-i18n`="risk_water_heading")), style = "margin: 0; color: #1C3EB8;")
                 ),
                 
                 div(class = "layer-block",
                     # Sampling Stations row
-                    checkboxInput("risk_water_stations", "Sampling Stations", value = FALSE),
-                    actionButton("score_water", "Score Stations",
+                    checkboxInput("risk_water_stations",
+                                  span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
+                    actionButton("score_water",
+                                 span("Score Stations", `data-i18n` = "risk_score_btn"),
                                  class = "btn-create", icon = icon("map-marker-alt")),
-                    
+
                     hr(style = "margin: 8px 0;"),
-                    
+
                     # Interpolated Risk row
-                    checkboxInput("risk_water", "Interpolated Risk", value = FALSE),
-                    actionButton("create_water", "Create Raster Layer*",
+                    checkboxInput("risk_water",
+                                  span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
+                    actionButton("create_water",
+                                 span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
                                  class = "btn-create", icon = icon("layer-group")),
-                    
+
                     hr(style = "margin: 8px 0;"),
-                    
+
                     # Modify Inputs + Apply Binning row
                     div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("show_water_inputs", "Modify Inputs", value = FALSE),
-                        materialSwitch("bin_water", "Bin", value = FALSE, status = "primary", inline = TRUE)
+                        checkboxInput("show_water_inputs",
+                                      span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
+                        materialSwitch("bin_water",
+                                       span("Bin", `data-i18n` = "risk_bin_label"),
+                                       value = FALSE, status = "primary", inline = TRUE)
                     ),
-                    
+
                     # Binning options — shown when bin switch is on AND raster checkbox is on
                     conditionalPanel(
                       condition = "input.bin_water == true && (input.risk_water == true || input.risk_water_stations == true)",
                       div(class = "layer-params",
-                          numericInput("water_nbins", "# of Bins:", value = 5, min = 2, max = 9, step = 1),
-                          selectInput("water_bin_method", "Binning Method:",
+                          numericInput("water_nbins",
+                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                       value = 5, min = 2, max = 9, step = 1),
+                          selectInput("water_bin_method",
+                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
                                       choices = c("Station Quantiles" = "quantile",
                                                   "Equal Area"        = "equal_area",
                                                   "Equal Interval"    = "equal_interval"),
                                       selected = "quantile"),
-                          actionButton("apply_water_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
+                          actionButton("apply_water_bins",
+                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                       class = "btn-create", icon = icon("th"))
                       )
                     ),
-                    
+
                     # Modify inputs — shown when checkbox is on
                     conditionalPanel(
                       condition = "input.show_water_inputs == true",
                       div(class = "layer-params",
                           uiOutput("water_params_ui"),
-                          helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
-                          selectInput("water_temp_ag", "Temporal Aggregation:",
+                          helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
+                                        `data-i18n` = "risk_params_help")),
+                          selectInput("water_temp_ag",
+                                      span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
                                       choices = c("Recent" = "recent", "Average" = "mean")),
-                          helpText("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time."),
+                          helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
+                                        `data-i18n` = "risk_temp_help")),
                           conditionalPanel(
                             condition = "input.water_temp_ag == 'recent'",
-                            numericInput("water_nyears", "Years of Data to Include:",
+                            numericInput("water_nyears",
+                                         span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
                                          value = 5, min = 1, max = 20, step = 1),
-                            helpText(HTML("Leave blank to use only the single most recent sample per station.
-                          Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
-                          <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.</i>"))
+                            helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
+                                          `data-i18n` = "risk_nyears_help"))
                           ),
-                          selectInput("water_param_ag", "Final Aggregation:",
+                          selectInput("water_param_ag",
+                                      span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
                                       choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
                                       selected = "pct95"),
-                          helpText("How to aggregate hazard scores after temporal aggregation."),
-                          numericInput("water_resolution", "Raster Resolution (m):",
+                          helpText(span("How to aggregate hazard scores after temporal aggregation.",
+                                        `data-i18n` = "risk_final_ag_help")),
+                          numericInput("water_resolution",
+                                       span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
                                        value = 1000, min = 100, max = 10000, step = 100),
-                          helpText("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller values) may increase processing times."),
-                          numericInput("water_max_distance", "Max Risk Distance (m):",
+                          helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller values) may increase processing times.",
+                                        `data-i18n` = "risk_res_help")),
+                          numericInput("water_max_distance",
+                                       span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
                                        value = 2000, min = 1000, max = 50000, step = 1000),
-                          helpText("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times."),
-                          selectInput("water_fraction", "Fraction:",
+                          helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
+                                        `data-i18n` = "risk_max_dist_help")),
+                          selectInput("water_fraction",
+                                      span("Fraction:", `data-i18n` = "risk_fraction_label"),
                                       choices = c("All", "Dissolved", "Suspended")),
-                          helpText("Select a fraction if you are only interested in dissolved or suspended concentrations.")
+                          helpText(span("Select a fraction if you are only interested in dissolved or suspended concentrations.",
+                                        `data-i18n` = "risk_fraction_help"))
                       )
                     )
                 )
@@ -754,71 +850,92 @@ ui <- fluidPage(
               # ── Sediment Risk ────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Sediment Pollution Risk"), style = "margin: 0; color: #1C8C27;")
+                  h5(strong(span("Sediment Pollution Risk", `data-i18n`="risk_sed_heading")), style = "margin: 0; color: #1C8C27;")
                 ),
                 
                 div(class = "layer-block",
                     # Sampling Stations row
-                    checkboxInput("risk_sed_stations", "Sampling Stations", value = FALSE),
-                    actionButton("score_sediment", "Score Stations",
+                    checkboxInput("risk_sed_stations",
+                                  span("Sampling Stations", `data-i18n` = "risk_sampling_sta"), value = FALSE),
+                    actionButton("score_sediment",
+                                 span("Score Stations", `data-i18n` = "risk_score_btn"),
                                  class = "btn-create", icon = icon("map-marker-alt")),
-                    
+
                     hr(style = "margin: 8px 0;"),
-                    
+
                     # Interpolated Risk row
-                    checkboxInput("risk_sediment", "Interpolated Risk", value = FALSE),
-                    actionButton("create_sediment", "Create Raster Layer*",
+                    checkboxInput("risk_sediment",
+                                  span("Interpolated Risk", `data-i18n` = "risk_interp_label"), value = FALSE),
+                    actionButton("create_sediment",
+                                 span("Create Raster Layer*", `data-i18n` = "risk_raster_btn"),
                                  class = "btn-create", icon = icon("layer-group")),
-                    
+
                     hr(style = "margin: 8px 0;"),
-                    
+
                     # Modify Inputs + Apply Binning row
                     div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("show_sed_inputs", "Modify Inputs", value = FALSE),
-                        materialSwitch("bin_sediment", "Bin", value = FALSE, status = "primary", inline = TRUE)
+                        checkboxInput("show_sed_inputs",
+                                      span("Modify Inputs", `data-i18n` = "risk_modify_label"), value = FALSE),
+                        materialSwitch("bin_sediment",
+                                       span("Bin", `data-i18n` = "risk_bin_label"),
+                                       value = FALSE, status = "primary", inline = TRUE)
                     ),
-                    
+
                     # Binning options — shown when bin switch is on AND raster checkbox is on
                     conditionalPanel(
                       condition = "input.bin_sediment == true && (input.risk_sediment == true || input.risk_sed_stations == true)",
                       div(class = "layer-params",
-                          numericInput("sed_nbins", "# of Bins:", value = 5, min = 2, max = 9, step = 1),
-                          selectInput("sed_bin_method", "Binning Method:",
+                          numericInput("sed_nbins",
+                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                       value = 5, min = 2, max = 9, step = 1),
+                          selectInput("sed_bin_method",
+                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
                                       choices = c("Station Quantiles" = "quantile",
                                                   "Equal Area"        = "equal_area",
                                                   "Equal Interval"    = "equal_interval"),
                                       selected = "quantile"),
-                          actionButton("apply_sed_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
+                          actionButton("apply_sed_bins",
+                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                       class = "btn-create", icon = icon("th"))
                       )
                     ),
-                    
+
                     # Modify inputs — shown when checkbox is on
                     conditionalPanel(
                       condition = "input.show_sed_inputs == true",
                       div(class = "layer-params",
                           uiOutput("sed_params_ui"),
-                          helpText("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis."),
-                          selectInput("sed_temp_ag", "Temporal Aggregation:",
+                          helpText(span("Select 'All Parameters' to include every measured contaminant, or choose specific ones to target your analysis.",
+                                        `data-i18n` = "risk_params_help")),
+                          selectInput("sed_temp_ag",
+                                      span("Temporal Aggregation:", `data-i18n` = "risk_temp_label"),
                                       choices = c("Recent" = "recent", "Average" = "mean")),
-                          helpText("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time."),
+                          helpText(span("How to handle parameters repeatedly sampled at the same location. Select 'Recent' to ignore older data. Select 'Average' to take the average across time.",
+                                        `data-i18n` = "risk_temp_help")),
                           conditionalPanel(
                             condition = "input.sed_temp_ag == 'recent'",
-                            numericInput("sed_nyears", "Years of Data to Include:",
+                            numericInput("sed_nyears",
+                                         span("Years of Data to Include:", `data-i18n` = "risk_nyears_label"),
                                          value = 5, min = 1, max = 20, step = 1),
-                            helpText(HTML("Leave blank to use only the single most recent sample per station.
-                          Enter a number (e.g. 5) to include all samples from the past N years.<br><br>
-                          <i>Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.</i>"))
+                            helpText(span("Leave blank to use only the single most recent sample per station. Enter a number (e.g. 5) to include all samples from the past N years. Note: when including multiple years of data, the final aggregation method will pool across both parameters and time.",
+                                          `data-i18n` = "risk_nyears_help"))
                           ),
-                          selectInput("sed_param_ag", "Final Aggregation:",
+                          selectInput("sed_param_ag",
+                                      span("Final Aggregation:", `data-i18n` = "risk_final_ag_label"),
                                       choices = c("Average" = "mean", "Max" = "max", "95th Percentile" = "pct95"),
                                       selected = "pct95"),
-                          helpText("How to aggregate hazard scores after temporal aggregation."),
-                          numericInput("sed_resolution", "Raster Resolution (m):",
+                          helpText(span("How to aggregate hazard scores after temporal aggregation.",
+                                        `data-i18n` = "risk_final_ag_help")),
+                          numericInput("sed_resolution",
+                                       span("Raster Resolution (m):", `data-i18n` = "risk_res_label"),
                                        value = 1000, min = 100, max = 10000, step = 100),
-                          helpText("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller input values) may result in longer processing times."),
-                          numericInput("sed_max_distance", "Max Risk Distance (m):",
+                          helpText(span("Specify a resolution for the interpolated risk raster. Finer resolutions (smaller input values) may result in longer processing times.",
+                                        `data-i18n` = "risk_res_help")),
+                          numericInput("sed_max_distance",
+                                       span("Max Risk Distance (m):", `data-i18n` = "risk_max_dist_label"),
                                        value = 2000, min = 1000, max = 50000, step = 1000),
-                          helpText("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.")
+                          helpText(span("Specify the max distance from the river that the interpolated risk score will be applied to. Higher max distances may increase processing times.",
+                                        `data-i18n` = "risk_max_dist_help"))
                       )
                     )
                 )
@@ -829,44 +946,60 @@ ui <- fluidPage(
               # ── Population Vulnerability ──────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Population Vulnerability"), style = "margin: 0; color: #721FAB;")
+                  h5(strong(span("Population Vulnerability", `data-i18n`="risk_pop_heading")), style = "margin: 0; color: #721FAB;")
                 ),
                 
                 div(class = "layer-block",
                     # EJI row
                     div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("risk_eji", "EJI Scored Municipalities", value = FALSE),
-                        materialSwitch("bin_eji", "Bin", value = FALSE, status = "primary", inline = TRUE)
+                        checkboxInput("risk_eji",
+                                      span("EJI Scored Municipalities", `data-i18n` = "risk_eji_label"), value = FALSE),
+                        materialSwitch("bin_eji",
+                                       span("Bin", `data-i18n` = "risk_bin_label"),
+                                       value = FALSE, status = "primary", inline = TRUE)
                     ),
                     conditionalPanel(
                       condition = "input.bin_eji == true && input.risk_eji == true",
                       div(class = "layer-params",
-                          numericInput("eji_nbins", "# of Bins:", value = 5, min = 2, max = 9, step = 1),
-                          selectInput("eji_bin_method", "Binning Method:",
+                          numericInput("eji_nbins",
+                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                       value = 5, min = 2, max = 9, step = 1),
+                          selectInput("eji_bin_method",
+                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
                                       choices = c("Quantiles"      = "quantile",
                                                   "Equal Interval" = "equal_interval"),
                                       selected = "quantile"),
-                          actionButton("apply_eji_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
+                          actionButton("apply_eji_bins",
+                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                       class = "btn-create", icon = icon("th"))
                       )
                     ),
-                    
+
                     hr(style = "margin: 8px 0;"),
-                    
+
                     # Population density row
                     div(style = "display: flex; align-items: center; justify-content: space-between;",
-                        checkboxInput("risk_pop_density", "Square Root of Population Density", value = FALSE),
-                        materialSwitch("bin_pop", "Bin", value = FALSE, status = "primary", inline = TRUE)
+                        checkboxInput("risk_pop_density",
+                                      span("Square Root of Population Density", `data-i18n` = "risk_pop_label"), value = FALSE),
+                        materialSwitch("bin_pop",
+                                       span("Bin", `data-i18n` = "risk_bin_label"),
+                                       value = FALSE, status = "primary", inline = TRUE)
                     ),
                     conditionalPanel(
                       condition = "input.bin_pop == true && input.risk_pop_density == true",
                       div(class = "layer-params",
-                          numericInput("pop_nbins", "# of Bins:", value = 5, min = 2, max = 9, step = 1),
-                          selectInput("pop_bin_method", "Binning Method:",
+                          numericInput("pop_nbins",
+                                       span("# of Bins:", `data-i18n` = "risk_nbins_label"),
+                                       value = 5, min = 2, max = 9, step = 1),
+                          selectInput("pop_bin_method",
+                                      span("Binning Method:", `data-i18n` = "risk_bin_method"),
                                       choices = c("Equal Interval" = "equal_interval",
                                                   "Equal Area"     = "equal_area",
                                                   "Natural Breaks" = "jenks"),
                                       selected = "jenks"),
-                          actionButton("apply_pop_bins", "Apply Bins*", class = "btn-create", icon = icon("th"))
+                          actionButton("apply_pop_bins",
+                                       span("Apply Bins*", `data-i18n` = "risk_apply_bins_btn"),
+                                       class = "btn-create", icon = icon("th"))
                       )
                     )
                 )
@@ -877,25 +1010,35 @@ ui <- fluidPage(
               # ── Other ─────────────────────────────────────────────────────
               tags$details(
                 tags$summary(
-                  h5(strong("Other"), style = "margin: 0;")
+                  h5(strong(span("Other", `data-i18n`="risk_other_heading")), style = "margin: 0;")
                 ),
-                layer_row("risk_settlements", "clip_settlements",  "Settlements*"),
-                layer_row("risk_mines",       "clip_mines",       "Mine Locations*"),
-                checkboxInput("risk_tailings",    "Tailings/Facilities",   value = FALSE),
-                checkboxInput("risk_air",         "Air Hazard (not implemented)",       value = FALSE),
-                checkboxInput("risk_river",       "River Network*",    value = FALSE),
-                checkboxInput("risk_basin",       "Pilcomayo Basin",  value = TRUE),
-                checkboxInput("risk_watersheds_water", "Water Station Subcatchments"),
+                layer_row("risk_settlements", "clip_settlements",
+                          span("Settlements*",    `data-i18n` = "risk_settlements")),
+                layer_row("risk_mines",       "clip_mines",
+                          span("Mine Locations*", `data-i18n` = "risk_mines")),
+                checkboxInput("risk_tailings",
+                              span("Tailings/Facilities",          `data-i18n` = "risk_tailings"),   value = FALSE),
+                checkboxInput("risk_air",
+                              span("Air Hazard (not implemented)", `data-i18n` = "risk_air"),         value = FALSE),
+                checkboxInput("risk_river",
+                              span("River Network*",               `data-i18n` = "risk_river"),       value = FALSE),
+                checkboxInput("risk_basin",
+                              span("Pilcomayo Basin",              `data-i18n` = "risk_basin"),       value = TRUE),
+                checkboxInput("risk_watersheds_water",
+                              span("Water Station Subcatchments",  `data-i18n` = "risk_ws_water")),
                 conditionalPanel(
                   condition = "input.risk_watersheds_water == true",
-                  actionButton("delineate_water_watersheds", "Delineate Subcatchments*",
+                  actionButton("delineate_water_watersheds",
+                               span("Delineate Subcatchments*", `data-i18n` = "risk_delineate_water"),
                                icon = icon("water"), class = "btn-primary btn-block",
                                style = "margin-bottom:6px;")
                 ),
-                checkboxInput("risk_watersheds_sed", "Sediment Station Subcatchments"),
+                checkboxInput("risk_watersheds_sed",
+                              span("Sediment Station Subcatchments", `data-i18n` = "risk_ws_sed")),
                 conditionalPanel(
                   condition = "input.risk_watersheds_sed == true",
-                  actionButton("delineate_sed_watersheds", "Delineate Subcatchments*",
+                  actionButton("delineate_sed_watersheds",
+                               span("Delineate Subcatchments*", `data-i18n` = "risk_delineate_sed"),
                                icon = icon("mountain"), class = "btn-success btn-block")
                 )
               )
@@ -905,36 +1048,45 @@ ui <- fluidPage(
               
               tags$details(
                 tags$summary(
-                  h3(strong("Combined Risk Scoring"), style = "margin: 0;")
+                  h3(strong(span("Combined Risk Scoring", `data-i18n`="risk_combined_heading")), style = "margin: 0;")
                 ),
-                p(HTML("<i>* Before combining, ensure each selected layer has been created and binned in the Input & Display Layers section above.</i>"),
+                p(HTML(paste0('<i><span data-i18n="risk_combined_note">* Before combining, ensure each selected layer has been created and binned in the Input & Display Layers section above.</span></i>')),
                   style = "font-size: 11px; color: #888; margin-bottom: 8px;"),
-                h5("Select Input Layers:", style = "margin: 0;"),
+                h5(span("Select Input Layers:", `data-i18n`="risk_select_layers"), style = "margin: 0;"),
                 div(class = "layer-block",
-                    checkboxInput("combined_water", "Water Risk", value = FALSE),
-                    checkboxInput("combined_sed", "Sediment Risk", value = FALSE),
-                    checkboxInput("combined_eji", "EJI Vulnerability", value = FALSE),
-                    checkboxInput("combined_pop", "Population Density", value = FALSE)
+                    checkboxInput("combined_water",
+                                  span("Water Risk",         `data-i18n` = "risk_water_risk"),  value = FALSE),
+                    checkboxInput("combined_sed",
+                                  span("Sediment Risk",      `data-i18n` = "risk_sed_risk"),    value = FALSE),
+                    checkboxInput("combined_eji",
+                                  span("EJI Vulnerability",  `data-i18n` = "risk_eji_vuln"),    value = FALSE),
+                    checkboxInput("combined_pop",
+                                  span("Population Density", `data-i18n` = "risk_pop_density"), value = FALSE)
                 ),
                 div(class = "layer-block",
-                    checkboxInput("combined_custom_res", "Override raster resolution", value = FALSE),
+                    checkboxInput("combined_custom_res",
+                                  span("Override raster resolution", `data-i18n` = "risk_override_res"), value = FALSE),
                     conditionalPanel(
                       condition = "input.combined_custom_res == true",
-                      numericInput("combined_resolution", "Resolution (degrees):",
+                      numericInput("combined_resolution",
+                                   span("Resolution (degrees):", `data-i18n` = "risk_res_deg_label"),
                                    value = NULL, min = 0.001, max = 1, step = 0.001)
                     )
                 ),
-                actionButton("create_combined", "Create Combined Risk Layer*",
+                actionButton("create_combined",
+                             span("Create Combined Risk Layer*", `data-i18n` = "risk_create_combined"),
                              class = "btn-create", icon = icon("layer-group")),
-                checkboxInput("risk_combined", "Display Combined Risk", value = FALSE)
+                checkboxInput("risk_combined",
+                              span("Display Combined Risk", `data-i18n` = "risk_display_combined"), value = FALSE)
               ),
               
               hr(),
               
               uiOutput("risk_sidebar"),
-              info_callout("Risk Map",
-                           "Click anywhere on the map to see detailed risk values for each layer.
-                       Higher values = higher risk.")
+              info_callout(
+                span("Risk Map", `data-i18n`="risk_callout_title"),
+                span("Click anywhere on the map to see detailed risk values for each layer. Higher values = higher risk.", `data-i18n`="risk_callout_text")
+              )
             )
           ),
           mainPanel(
