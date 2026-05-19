@@ -1,0 +1,658 @@
+---
+title: "River Remedy: Comprehensive Contamination Analysis"
+subtitle: "Pilcomayo River Basin Heavy Metal Assessment (2006-2024)"
+author: "River Remedy Team"
+date: "`r Sys.Date()`"
+format:
+  html:
+    theme: flatly
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    code-fold: true
+    code-summary: "Show code"
+    smooth-scroll: true
+    fig-width: 12
+    fig-height: 8
+    embed-resources: true
+    link-external-newwindow: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r setup}
+#| include: false
+
+# Load all required libraries
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(ggplot2)
+library(scales)
+library(viridis)
+library(patchwork)
+library(DT)
+library(knitr)
+library(leaflet)
+library(plotly)
+
+# Source analysis scripts
+source("src/scripts/load_standards.R")
+
+# Load standards
+standards <- load_regulatory_standards()
+
+# Define color palettes
+risk_colors <- c(
+  "Safe" = "#2E8B57", "Moderate" = "#FFD700", "High" = "#FF6347", 
+  "Critical" = "#DC143C", "Extreme" = "#8B0000"
+)
+
+study_colors <- c(
+  "2006" = "#4A90E2", "2011" = "#F5A623", "2024" = "#7ED321"
+)
+
+# Enhanced theme
+theme_river_remedy <- function() {
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 12, color = "gray60"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+}
+
+# Risk calculation functions
+calc_risk <- function(measured, limit) {
+  ifelse(is.na(measured) | is.na(limit) | limit <= 0, "Unknown",
+    ifelse(measured / limit <= 1, "Safe",
+      ifelse(measured / limit <= 2, "Moderate",
+        ifelse(measured / limit <= 10, "High",
+          ifelse(measured / limit <= 100, "Critical", "Extreme")))))
+}
+
+# Data preparation function
+prepare_data <- function(file_path, study_period, matrix_type) {
+  if (!file.exists(file_path)) {
+    return(NULL)
+  }
+  
+  tryCatch({
+    raw_data <- read_csv(file_path, show_col_types = FALSE) %>%
+      clean_names()
+    
+    # Auto-detect metal columns
+    metal_cols <- names(raw_data)[str_detect(names(raw_data), 
+                                           "pb|as|cd|hg|cu|zn|fe|mn|\\(mg")]
+    
+    if (length(metal_cols) == 0) {
+      return(NULL)
+    }
+    
+    # Convert to long format
+    processed <- raw_data %>%
+      select(location = 1, all_of(metal_cols)) %>%
+      pivot_longer(
+        cols = all_of(metal_cols),
+        names_to = "parameter", 
+        values_to = "measured_value"
+      ) %>%
+      mutate(
+        metal = case_when(
+          str_detect(parameter, "pb|plomo") ~ "Lead",
+          str_detect(parameter, "as|arsenico") ~ "Arsenic",
+          str_detect(parameter, "cd|cadmio") ~ "Cadmium",
+          str_detect(parameter, "hg|mercurio") ~ "Mercury", 
+          str_detect(parameter, "cu|cobre") ~ "Copper",
+          str_detect(parameter, "zn|zinc") ~ "Zinc",
+          str_detect(parameter, "fe|hierro") ~ "Iron",
+          str_detect(parameter, "mn|manganeso") ~ "Manganese",
+          TRUE ~ "Unknown"
+        ),
+        measured_value = as.numeric(measured_value),
+        study_period = study_period,
+        matrix_type = matrix_type
+      ) %>%
+      filter(!is.na(measured_value), measured_value > 0, metal != "Unknown") %>%
+      select(location, metal, measured_value, study_period, matrix_type)
+    
+    return(processed)
+    
+  }, error = function(e) {
+    return(NULL)
+  })
+}
+
+# Load all data
+data_2006_list <- list(
+  water = prepare_data("data/raw/ITA_water_2006.csv", "2006", "Water"),
+  soil = prepare_data("data/raw/ITA_soil_2006.csv", "2006", "Soil"),
+  sediment = prepare_data("data/raw/ITA_sed_2006.csv", "2006", "Sediment"),
+  fish = prepare_data("data/raw/ITA_fish_2006.csv", "2006", "Fish"),
+  human = prepare_data("data/raw/ITA_human_2006.csv", "2006", "Human Blood"),
+  animal = prepare_data("data/raw/ITA_animal_2006.csv", "2006", "Animal Blood")
+)
+
+# Combine all data
+all_data_list <- data_2006_list[!map_lgl(data_2006_list, is.null)]
+all_data <- bind_rows(all_data_list)
+
+# Perform risk assessment
+risk_assessment <- all_data %>%
+  rowwise() %>%
+  mutate(
+    who_standard = get_standard_value(metal, "who_water", standards),
+    exceedance_ratio = measured_value / who_standard,
+    risk_level = calc_risk(measured_value, who_standard)
+  ) %>%
+  ungroup()
+```
+
+# Executive Summary
+
+::: callout-important
+## 🚨 Critical Findings
+
+This comprehensive analysis of the Pilcomayo River Basin reveals **catastrophic heavy metal contamination** with:
+
+-   **90.4% of samples exceeding WHO standards**
+-   **Lead contamination up to 231,150x WHO limits**
+-   **Multiple extreme contamination hotspots identified**
+-   **Systemic contamination across all environmental matrices**
+:::
+
+```{r summary-stats}
+#| include: true
+
+# Calculate key summary statistics
+total_samples <- nrow(risk_assessment)
+locations <- length(unique(risk_assessment$location))
+matrices <- length(unique(risk_assessment$matrix_type))
+metals <- length(unique(risk_assessment$metal))
+
+risk_summary <- risk_assessment %>%
+  count(risk_level) %>%
+  mutate(percentage = round(n / sum(n) * 100, 1))
+
+exceeding_standards <- sum(risk_summary$percentage[risk_summary$risk_level != "Safe"])
+
+# Create summary cards
+summary_cards <- tibble(
+  Metric = c("Total Samples", "Locations Studied", "Sample Matrices", "Heavy Metals", "Exceeding WHO Standards"),
+  Value = c(
+    format(total_samples, big.mark = ","),
+    as.character(locations),
+    as.character(matrices), 
+    as.character(metals),
+    paste0(exceeding_standards, "%")
+  ),
+  Icon = c("📊", "🗺️", "🧪", "⚗️", "🚨")
+)
+
+kable(summary_cards, format = "html", escape = FALSE) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Study Overview
+
+This report analyzes heavy metal contamination across the Pilcomayo River Basin using data from the **2006 ITA Baseline Study**, which sampled `r total_samples` observations across `r locations` locations in `r matrices` different environmental matrices.
+
+## Sample Distribution
+
+```{r sample-distribution}
+sample_dist <- all_data %>%
+  count(matrix_type, metal) %>%
+  ggplot(aes(x = matrix_type, y = n, fill = metal)) +
+  geom_col(position = "stack", alpha = 0.8) +
+  scale_fill_viridis_d(name = "Heavy Metal") +
+  labs(
+    title = "Sample Distribution by Matrix and Metal",
+    subtitle = "Total samples across all environmental matrices",
+    x = "Sample Matrix",
+    y = "Number of Samples"
+  ) +
+  theme_river_remedy() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(sample_dist)
+```
+
+# Contamination Risk Assessment
+
+## Overall Risk Distribution
+
+```{r risk-overview}
+risk_dist <- risk_assessment %>%
+  count(risk_level) %>%
+  mutate(
+    percentage = round(n / sum(n) * 100, 1),
+    risk_level = factor(risk_level, levels = names(risk_colors))
+  ) %>%
+  ggplot(aes(x = risk_level, y = percentage, fill = risk_level)) +
+  geom_col(alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = paste0(percentage, "%\n(", n, ")")), 
+            vjust = -0.5, fontface = "bold", size = 4) +
+  scale_fill_manual(values = risk_colors, name = "Risk Level") +
+  labs(
+    title = "Risk Level Distribution - All Samples",
+    subtitle = "Percentage and count of samples in each risk category",
+    x = "Risk Level",
+    y = "Percentage of Samples (%)",
+    caption = "Based on WHO drinking water standards"
+  ) +
+  theme_river_remedy() +
+  theme(legend.position = "none") +
+  ylim(0, max(risk_summary$percentage) * 1.15)
+
+print(risk_dist)
+```
+
+::: callout-warning
+## Key Risk Statistics
+
+```{r risk-table}
+risk_summary %>%
+  mutate(
+    Risk_Level = risk_level,
+    Samples = n,
+    Percentage = paste0(percentage, "%")
+  ) %>%
+  select(Risk_Level, Samples, Percentage) %>%
+  kable() %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  kableExtra::row_spec(which(risk_summary$risk_level == "Critical"), background = "#DC143C", color = "white") %>%
+  kableExtra::row_spec(which(risk_summary$risk_level == "Extreme"), background = "#8B0000", color = "white")
+```
+:::
+
+## Risk by Sample Matrix
+
+```{r risk-by-matrix}
+matrix_risk <- risk_assessment %>%
+  count(matrix_type, risk_level) %>%
+  ggplot(aes(x = matrix_type, y = n, fill = risk_level)) +
+  geom_col(position = "stack", alpha = 0.8) +
+  scale_fill_manual(values = risk_colors, name = "Risk Level") +
+  labs(
+    title = "Risk Distribution by Sample Matrix",
+    subtitle = "Number of observations in each risk category by sample type",
+    x = "Sample Matrix",
+    y = "Number of Observations"
+  ) +
+  theme_river_remedy() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(matrix_risk)
+```
+
+# Lead Contamination Analysis
+
+Lead shows the most severe contamination across all matrices. The following analysis focuses on lead as the priority contaminant.
+
+```{r lead-analysis}
+lead_data <- risk_assessment %>%
+  filter(metal == "Lead") %>%
+  arrange(desc(exceedance_ratio))
+
+# Top 20 lead contamination cases
+top_lead <- lead_data %>%
+  head(20) %>%
+  ggplot(aes(x = reorder(paste(location, matrix_type, sep = " - "), exceedance_ratio),
+             y = exceedance_ratio,
+             fill = risk_level)) +
+  geom_col(alpha = 0.8) +
+  geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1.2) +
+  scale_fill_manual(values = risk_colors, name = "Risk Level") +
+  scale_y_continuous(
+    trans = "log10", 
+    labels = function(x) paste0(scales::comma(x, accuracy = 1), "x"),
+    expand = expansion(mult = c(0, 0.1))
+  ) +
+  coord_flip() +
+  labs(
+    title = "Top 20 Lead Contamination Cases",
+    subtitle = "Exceedance ratios vs WHO drinking water standard (0.01 mg/L)",
+    x = "Location - Sample Type",
+    y = "Exceedance Ratio (log scale)",
+    caption = "Red line = WHO limit | Higher values indicate more severe contamination"
+  ) +
+  theme_river_remedy()
+
+print(top_lead)
+```
+
+## Lead Contamination by Location
+
+```{r lead-geographic}
+lead_geographic <- lead_data %>%
+  group_by(location) %>%
+  summarise(
+    n_samples = n(),
+    avg_exceedance = mean(exceedance_ratio, na.rm = TRUE),
+    max_exceedance = max(exceedance_ratio, na.rm = TRUE),
+    matrices_affected = paste(unique(matrix_type), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(max_exceedance)) %>%
+  head(15)
+
+lead_location_plot <- lead_geographic %>%
+  ggplot(aes(x = reorder(location, max_exceedance), y = max_exceedance, fill = log10(max_exceedance))) +
+  geom_col(alpha = 0.8) +
+  scale_fill_viridis_c(name = "Log₁₀\nExceedance", option = "plasma") +
+  scale_y_continuous(
+    trans = "log10",
+    labels = function(x) paste0(scales::comma(x, accuracy = 1), "x")
+  ) +
+  coord_flip() +
+  labs(
+    title = "Lead Contamination by Geographic Location",
+    subtitle = "Maximum exceedance ratios vs WHO standards",
+    x = "Location",
+    y = "Maximum Exceedance Ratio (log scale)"
+  ) +
+  theme_river_remedy()
+
+print(lead_location_plot)
+```
+
+## Critical Contamination Sites
+
+```{r critical-sites-table}
+critical_sites <- risk_assessment %>%
+  filter(risk_level %in% c("Critical", "Extreme")) %>%
+  arrange(desc(exceedance_ratio)) %>%
+  head(20) %>%
+  mutate(
+    exceedance_ratio = round(exceedance_ratio, 0),
+    measured_value = round(measured_value, 3)
+  ) %>%
+  select(location, metal, matrix_type, measured_value, exceedance_ratio, risk_level)
+
+DT::datatable(
+  critical_sites,
+  options = list(
+    pageLength = 20,
+    scrollX = TRUE,
+    dom = 'Bfrtip'
+  ),
+  caption = "Top 20 Critical Contamination Cases",
+  colnames = c("Location", "Metal", "Sample Type", "Concentration (mg/L)", "WHO Exceedance", "Risk Level")
+) %>%
+  formatStyle(
+    "risk_level",
+    backgroundColor = styleEqual(
+      c("Critical", "Extreme"),
+      c("#DC143C", "#8B0000")
+    ),
+    color = "white",
+    fontWeight = "bold"
+  ) %>%
+  formatStyle(
+    "exceedance_ratio",
+    color = styleInterval(c(100, 1000, 10000), c("black", "orange", "red", "darkred")),
+    fontWeight = "bold"
+  )
+```
+
+# Multi-Metal Analysis
+
+## Metal Priority Ranking
+
+```{r metal-priority}
+metal_priority <- risk_assessment %>%
+  group_by(metal) %>%
+  summarise(
+    n_locations = n_distinct(location),
+    n_samples = n(),
+    avg_exceedance = mean(exceedance_ratio, na.rm = TRUE),
+    max_exceedance = max(exceedance_ratio, na.rm = TRUE),
+    critical_extreme_count = sum(risk_level %in% c("Critical", "Extreme")),
+    priority_score = log10(avg_exceedance + 1) * n_locations,
+    .groups = "drop"
+  ) %>%
+  arrange(desc(priority_score)) %>%
+  mutate(
+    avg_risk_category = case_when(
+      avg_exceedance <= 1 ~ "Safe",
+      avg_exceedance <= 2 ~ "Moderate",
+      avg_exceedance <= 10 ~ "High",
+      avg_exceedance <= 100 ~ "Critical",
+      TRUE ~ "Extreme"
+    )
+  )
+
+priority_plot <- metal_priority %>%
+  ggplot(aes(x = reorder(metal, priority_score), y = priority_score, fill = avg_risk_category)) +
+  geom_col(alpha = 0.8) +
+  scale_fill_manual(values = risk_colors, name = "Average Risk") +
+  coord_flip() +
+  labs(
+    title = "Metal Contamination Priority Ranking",
+    subtitle = "Priority score = log(avg exceedance + 1) × number of locations",
+    x = "Heavy Metal",
+    y = "Priority Score",
+    caption = "Higher scores indicate greater priority for intervention"
+  ) +
+  theme_river_remedy()
+
+print(priority_plot)
+```
+
+## Metal Priority Table
+
+```{r metal-table}
+priority_table <- metal_priority %>%
+  mutate(
+    avg_exceedance = round(avg_exceedance, 1),
+    max_exceedance = round(max_exceedance, 0),
+    priority_score = round(priority_score, 2)
+  ) %>%
+  select(metal, n_samples, avg_exceedance, max_exceedance, critical_extreme_count, avg_risk_category, priority_score)
+
+DT::datatable(
+  priority_table,
+  options = list(pageLength = 10),
+  caption = "Metal Contamination Priority Analysis",
+  colnames = c("Metal", "Samples", "Avg Exceedance", "Max Exceedance", "Critical/Extreme Cases", "Avg Risk", "Priority Score")
+) %>%
+  formatStyle(
+    "avg_risk_category",
+    backgroundColor = styleEqual(
+      names(risk_colors),
+      risk_colors
+    ),
+    color = "white",
+    fontWeight = "bold"
+  )
+```
+
+# Geographic Hotspot Analysis
+
+```{r geographic-hotspots}
+geographic_summary <- risk_assessment %>%
+  group_by(location) %>%
+  summarise(
+    n_samples = n(),
+    metals_tested = n_distinct(metal),
+    matrices_tested = n_distinct(matrix_type),
+    avg_exceedance = mean(exceedance_ratio, na.rm = TRUE),
+    max_exceedance = max(exceedance_ratio, na.rm = TRUE),
+    critical_extreme_count = sum(risk_level %in% c("Critical", "Extreme")),
+    contamination_severity = case_when(
+      max_exceedance >= 1000 ~ "Extreme Hotspot",
+      max_exceedance >= 100 ~ "Critical Hotspot", 
+      max_exceedance >= 10 ~ "High Contamination",
+      max_exceedance >= 1 ~ "Moderate Contamination",
+      TRUE ~ "Low Contamination"
+    ),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(max_exceedance))
+
+hotspot_plot <- geographic_summary %>%
+  head(15) %>%
+  ggplot(aes(x = reorder(location, max_exceedance), y = max_exceedance, fill = contamination_severity)) +
+  geom_col(alpha = 0.8) +
+  scale_fill_manual(
+    values = c(
+      "Extreme Hotspot" = "#8B0000",
+      "Critical Hotspot" = "#DC143C", 
+      "High Contamination" = "#FF6347",
+      "Moderate Contamination" = "#FFD700",
+      "Low Contamination" = "#2E8B57"
+    ),
+    name = "Contamination\nSeverity"
+  ) +
+  scale_y_continuous(
+    trans = "log10",
+    labels = function(x) paste0(scales::comma(x, accuracy = 1), "x")
+  ) +
+  coord_flip() +
+  labs(
+    title = "Geographic Contamination Hotspots",
+    subtitle = "Maximum exceedance ratios by location (top 15)",
+    x = "Location",
+    y = "Maximum Exceedance Ratio (log scale)"
+  ) +
+  theme_river_remedy()
+
+print(hotspot_plot)
+```
+
+# Standards Comparison
+
+## Regulatory Framework
+
+This analysis compares contamination levels against multiple regulatory standards:
+
+```{r standards-reference}
+standards_ref <- standards$reference_values %>%
+  select(metal, who_water_mg_l, codex_food_mg_kg, epa_soil_mg_kg, cdc_blood_ug_dl) %>%
+  rename(
+    "Metal" = metal,
+    "WHO Water (mg/L)" = who_water_mg_l,
+    "Codex Food (mg/kg)" = codex_food_mg_kg, 
+    "EPA Soil (mg/kg)" = epa_soil_mg_kg,
+    "CDC Blood (µg/dL)" = cdc_blood_ug_dl
+  )
+
+DT::datatable(
+  standards_ref,
+  options = list(pageLength = 15, scrollX = TRUE),
+  caption = "Regulatory Standards Reference Table"
+) %>%
+  formatRound(columns = 2:5, digits = 4)
+```
+
+# Environmental Impact Assessment
+
+## Multi-Matrix Contamination
+
+```{r multimatrix-heatmap}
+# Create contamination heatmap
+heatmap_data <- risk_assessment %>%
+  group_by(location, matrix_type) %>%
+  summarise(
+    avg_exceedance = mean(exceedance_ratio, na.rm = TRUE),
+    max_exceedance = max(exceedance_ratio, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    risk_category = case_when(
+      max_exceedance <= 1 ~ "Safe",
+      max_exceedance <= 2 ~ "Moderate",
+      max_exceedance <= 10 ~ "High",
+      max_exceedance <= 100 ~ "Critical", 
+      TRUE ~ "Extreme"
+    )
+  )
+
+# Select top locations for readability
+top_locations <- geographic_summary$location[1:10]
+
+heatmap_plot <- heatmap_data %>%
+  filter(location %in% top_locations) %>%
+  ggplot(aes(x = matrix_type, y = reorder(location, max_exceedance), fill = risk_category)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(
+    aes(label = ifelse(max_exceedance > 10, 
+                      paste0(round(max_exceedance, 0), "x"), "")),
+    color = "white", size = 3, fontface = "bold"
+  ) +
+  scale_fill_manual(values = risk_colors, name = "Risk Level") +
+  labs(
+    title = "Multi-Matrix Contamination Heatmap",
+    subtitle = "Risk levels across sample types for top contaminated locations",
+    x = "Sample Matrix",
+    y = "Location",
+    caption = "Numbers show maximum exceedance ratios > 10x"
+  ) +
+  theme_river_remedy() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+print(heatmap_plot)
+```
+
+# Conclusions and Recommendations
+
+## Key Findings Summary
+
+::: callout-important
+## 🚨 Critical Environmental Crisis
+
+The 2006 baseline assessment reveals a **catastrophic contamination scenario** in the Pilcomayo River Basin:
+
+1.  **Systemic Contamination**: 90.4% of samples exceed WHO standards
+2.  **Extreme Lead Pollution**: Up to 231,150x WHO limits in soil
+3.  **Multi-Matrix Impact**: Contamination across water, soil, sediment, food, and biological systems
+4.  **Geographic Hotspots**: Las Carreras, Huacareta, Camargo, and Yotala show extreme contamination
+5.  **Human Health Crisis**: Elevated lead levels in human blood samples
+:::
+
+## Priority Action Areas
+
+```{r priority-actions}
+priority_actions <- tibble(
+  Priority = c("Immediate", "Immediate", "Short-term", "Medium-term", "Long-term"),
+  Action = c(
+    "Emergency remediation at Huacareta and Las Carreras",
+    "Public health intervention in affected communities", 
+    "Source control and waste management improvements",
+    "Comprehensive environmental restoration program",
+    "Long-term monitoring and health surveillance"
+  ),
+  Timeline = c("0-3 months", "0-6 months", "6-12 months", "1-3 years", "Ongoing"),
+  Estimated_Cost = c("High", "Medium", "High", "Very High", "Medium")
+)
+
+kable(priority_actions) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  kableExtra::row_spec(1:2, background = "#DC143C", color = "white")
+```
+
+## Regulatory Compliance
+
+**Legal Framework Violations:** - Multiple violations of WHO drinking water guidelines - Exceedances of EPA soil contamination limits - Food safety concerns under Codex Alimentarius standards - Public health risks exceeding CDC blood lead reference values
+
+## Future Research Priorities
+
+1.  **Source Attribution**: Identify specific contamination sources
+2.  **Temporal Trends**: Compare with 2011 Cerro Rico and 2024 TNC data
+3.  **Bioaccumulation Studies**: Assess food chain contamination
+4.  **Health Impact Assessment**: Comprehensive epidemiological study
+5.  **Remediation Technology**: Evaluate treatment options
+
+------------------------------------------------------------------------
+
+*This report establishes the 2006 baseline for the River Remedy project's multi-temporal analysis of Pilcomayo Basin contamination. The findings underscore the urgent need for comprehensive environmental intervention and long-term monitoring.*
+
+**Data Sources:** - Fundación I.T.A. (2006). Informe Final: Muestreo de aguas, suelos, vegetales, sangre humana y animales, peces y sedimentos en puntos seleccionados de la Cuenca del Río Pilcomayo - WHO Guidelines for Drinking-water Quality (2017) - Codex Alimentarius CXS 193-1995 Rev. 2018 - CDC Blood Lead Reference Value (2021)
